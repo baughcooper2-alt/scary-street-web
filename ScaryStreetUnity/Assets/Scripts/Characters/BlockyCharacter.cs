@@ -329,10 +329,10 @@ public class BlockyCharacter : MonoBehaviour
     public static MaterialSource RuntimeMaterials()
     {
         var lit = Shader.Find("Universal Render Pipeline/Lit");
-        var cache = new Dictionary<Color, Material>();
+        var cache = new Dictionary<(string, Color), Material>();      // per part too: some parts change their material (hair, clothes)
         return (part, color) =>
         {
-            if (!cache.TryGetValue(color, out var m)) cache[color] = m = new Material(lit) { color = color };
+            if (!cache.TryGetValue((part, color), out var m)) cache[(part, color)] = m = new Material(lit) { color = color, name = part };
             return m;
         };
     }

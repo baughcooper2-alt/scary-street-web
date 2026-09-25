@@ -400,11 +400,28 @@ public static class HumanBody
 
             var body = HumanBase.Body;
             float zc = (H.hz0 + H.hz1) / 2f, rzz = (H.hz1 - H.hz0) / 2f;
-            string key = $"HumanHair_{L.hairStyle}";
-            var mesh = Cached(key);
-            if (!mesh) mesh = BuildHair(key, front, side, back, thick, top, swoop, bumps, part, coverEars, flat, zc, rzz);
-            var hair = Mesh(mesh, b.head, "Hair", Vector3.zero, Vector3.one, mat("Hair", L.hair));
-            b.hairParts.Add(hair.GetComponent<Renderer>());
+            // a real hair model (fitted from HairAssets), with or without the grown shell under it
+            HairAssets.Fit asset = null;
+            bool hasAsset = !string.IsNullOrEmpty(L.hairAsset) && HairAssets.All.TryGetValue(L.hairAsset, out asset);
+            if (hasAsset)
+            {
+                var am = HairAssets.Build(L.hairAsset, H.bone, H.hy1);
+                if (am)
+                {
+                    var hairModel = Mesh(am, b.head, "HairModel", Vector3.zero, Vector3.one, HairAssets.Dress(mat("HairModel", L.hair), asset));
+                    hairModel.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    b.hairParts.Add(hairModel.GetComponent<Renderer>());
+                }
+                else hasAsset = false;
+            }
+            if (!hasAsset || asset.keepShell)
+            {
+                string key = $"HumanHair_{L.hairStyle}";
+                var mesh = Cached(key);
+                if (!mesh) mesh = BuildHair(key, front, side, back, thick, top, swoop, bumps, part, coverEars, flat, zc, rzz);
+                var hair = Mesh(mesh, b.head, "Hair", Vector3.zero, Vector3.one, mat("Hair", L.hair));
+                b.hairParts.Insert(0, hair.GetComponent<Renderer>());
+            }
             HatsAndVisor(zc, rzz);
         }
 

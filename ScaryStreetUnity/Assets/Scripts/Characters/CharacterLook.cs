@@ -34,6 +34,8 @@ public class CharacterLook : ScriptableObject
 
     [Header("Hair and hats")]
     public HairStyle hairStyle = HairStyle.Buzz;
+    [Tooltip("Realistic body only: a real hair model from HairAssets (\"cooper_flow\", \"nathan_curls\"); blank = grown hair only.")]
+    public string hairAsset = "";
     public Color hair = Hex("#2a1d14");
     public bool wearsCap;
     public Color cap = Hex("#111111");
@@ -86,7 +88,7 @@ public class CharacterLook : ScriptableObject
                 oversizedShirt = true; shirtGraphic = ShirtGraphic.BasketballHoop;
                 pants = Hex("#1b1b1d"); shorts = true; socks = Hex("#f4f4f4"); shoes = Hex("#e8e8e8");
                 wristband = true; wristbandColor = Hex("#f2f2f2");
-                hair = Hex("#8f6c4c"); brows = Hex("#6e5038"); hairStyle = HairStyle.Flow; wearsCap = false;
+                hair = Hex("#8f6c4c"); brows = Hex("#6e5038"); hairStyle = HairStyle.Flow; wearsCap = false; hairAsset = "cooper_flow";
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
 
@@ -121,7 +123,7 @@ public class CharacterLook : ScriptableObject
                 skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#1c1919"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#1d1713"); shorts = false; shoes = Hex("#1b1b1d");
-                hair = Hex("#2e2119"); brows = Hex("#261a13"); hairStyle = HairStyle.Curly; wearsCap = true; cap = Hex("#3f3530");
+                hair = Hex("#2e2119"); brows = Hex("#261a13"); hairStyle = HairStyle.Curly; wearsCap = true; cap = Hex("#3f3530"); hairAsset = "nathan_curls";
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
         }
