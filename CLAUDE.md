@@ -53,7 +53,9 @@
   - Puffs and the Blinker also carry a dense dark `Head` emitter on the hitbox so the shot is easy to see. The smoke sheet has a darker rim so clumps read as outlined, and particles pick between two grays.
 
   They use a generated 2×2 sheet of **cartoon cloud puffs** (circle unions: flat white fill, gray shadow, crisp gray outline) on URP **Particles/Unlit**. The particles are near-opaque white: they pop in, hold, and shrink out. The sheet is always generated at runtime; the saved material is only there to keep the shader in builds. Simple Lit made it pick up a blue sky tint, and soft particles made it invisible, so don't go back to either. Set Up Player saves `Assets/Weapons/SmokeParticles.mat` + `SmokeSheet.png` (regenerated every run) (assigned to `WeaponInventory.smokeMaterial`) so builds keep the shader variants; without it SmokeFx builds the material at runtime (editor only). The old `Smoke.mat` is unused.
-- Starting weapons (`CharacterRoster.Entry.weapon`; `WeaponInventory` adds it in slot 2 after the cart). `LawBookWeapon` (Cooper): 28-damage cone swing out to 2 m with knockback, 6 pages then a 3 s reload; keep holding after a swing for 0.8 s, then release for the OBJECTION slam (45 damage, 3.5 m radius, costs 2 pages). `GuitarWeapon` (Nathan): hold to strum 2 homing `MusicNote`s (3 from Lv 3), 12 damage each, 8 strums then a 1.3 s reload. Both are `MagazineWeapon`s (Weapon.cs: level, magazine, reload with R / d-pad down, first/third-person held models via `SyncModels`). Weapon levels: +30% damage and +50% magazine per level (web build). First-person hands are posed through `FirstPersonArms.overrideRight/Left`. `Health.TakeDamage(amount, knockback)` passes extra shove to enemies (`LastKnockback`).
+- Starting weapons (`CharacterRoster.Entry.weapon`; `WeaponInventory` adds it in slot 2 after the cart). `LawBookWeapon` (Cooper), toned down from the web build because it one-shot workers and cleared crowds.
+  - Swing: 16 damage to at most the 3 closest enemies in a ~105° cone out to 1.7 m, 0.65 s between swings. 6 pages, then a 3.5 s reload.
+  - OBJECTION slam: hold 1.1 s after a swing, then release. 28 damage in a 2.8 m radius; costs 3 pages. `GuitarWeapon` (Nathan): hold to strum 2 homing `MusicNote`s (3 from Lv 3), 12 damage each, 8 strums then a 1.3 s reload. Both are `MagazineWeapon`s (Weapon.cs: level, magazine, reload with R / d-pad down, first/third-person held models via `SyncModels`). Weapon levels: +30% damage and +50% magazine per level (web build). First-person hands are posed through `FirstPersonArms.overrideRight/Left`. `Health.TakeDamage(amount, knockback)` passes extra shove to enemies (`LastKnockback`).
 - `Assets/Scripts/Progress/PlayerStats.cs` + `LevelUpScreen.cs` — DESIGN.md's 7 stats, all starting at 0: Health +5 max HP, Strength +10% melee, Precision +10% ranged, Speed +5%, Luck +5% extra-cash chance and +2% crit, Defense −5% damage taken (max 60%), Crit +5% chance of double damage. Each level-up pauses the game (timeScale 0) and offers 3 random cards from the stats plus weapon level-ups (the cart levels on its own, so it's excluded); 1/2/3 or click. Weapons get final damage from `PlayerStats.MeleeDamage` / `RangedDamage` (stats × Shooter × crit).
 - McDonald's levels (`McDonaldsWorker.SetLevel`, called by RoundManager from `SpawnEntry.level`): L1 fists 30 HP; L2 spatula (7 damage) or fryer basket (8, slower), 36 HP, longer reach; L3 40 HP, slower, carries a tray, bashes for 8 up close and lobs `FoodShot` burgers / fries / sodas (4 damage) from 3–10 m every 2.4–3.4 s with line of sight. Round mix: R1 L1, R2 L1–2, R3+ L1–3. Rerun Set Up Rounds to get the level mix into an existing scene.
 - Cart model (`CartWeapon.BuildCart`): a box disposable modelled on the user's photo.
@@ -86,7 +88,7 @@
   - stage3: UrbanOutfit sweater + pants at 0.96 scale; push-out from the body with a smoothed displacement.
     - Weights: DataTransfer, then **per UV panel** (sleeve panels copy the nearest same-side arm vertex; torso panels below the armpit copy the torso).
     - Cooper's tee is the same sweater with the mock neck cut off (z > 1.555) and the sleeve panels cut below z 1.30.
-  - stage4 also shapes the face (`shape_face`): Nathan is narrower and longer (chin +7 mm) with a stronger nose and hollower cheeks; Cooper is a touch broader. Nathan also gets ~120 procedural helix curls (`coils`, the `Curls` part) on his sides, back and forehead under the brim.
+  - stage4 also shapes the face (`shape_face`). The chin is found on the jaw bones, below the mouth; an earlier bug found it at the mouth and dragged Nathan's whole upper face (eyelids over the eyes) down 7 mm. Check the eyes with a ray test after changing the face: Nathan is narrower and longer (chin +7 mm) with a stronger nose and hollower cheeks; Cooper is a touch broader. Nathan's hair is ~180 procedural helix curls (`coils`, the `Curls` part) on his sides, back and forehead under the brim, over a dark `HairBase` layer on the scalp (the MakeHuman curl cards were dropped). Both tops are crew necks (the mock neck is cut above z 1.555).
   - Eyebrows are texture edits (Skin_Head_Nathan_D darker and thicker, Skin_Head_Cooper_D medium brown), done with Pillow using the brow UV box.
   - stage5: first-person arms. The arm is posed straight forward (no elbow squash) with the fingers curled into a fist (one curl sign per hand).
     - The forearm + hand (Nathan's sleeve re-centred and snugged; Cooper's wristband) is cut out and centred on the fist.
@@ -126,6 +128,20 @@
 - `Assets/Scripts/Characters/MeshKit.cs` — procedural `HairCap(front, side, back)` (sphere cut along a hairline) and `Torus`. While building prefabs the editor sets `MeshKit.Persist` so these get saved under `Assets/Characters/Meshes/`.
 - `Assets/Scripts/Shop/` — `DoorDashCourier` (after a round, the driver walks the web build's front path (x 1.7, z −8.5 → −0.6, X-mirrored to match the Front door) to the porch unless `DeliveryPoint` markers override it. F opens the shop, and they leave afterwards. `RoundManager` starts the next round `shopToRoundDelay` = 2.5 s later; Enter / Start skips the delivery). `DoorDashShop` (uGUI: 4 random items from the pool, price = base × (1 + 0.15 × round) like the web build, upgrades cost ×(1 + 0.5 × level), reroll = 10 + 5 per reroll; the player's controller is disabled while it's open). `PlayerUpgrades` (DESIGN.md's 8 upgrades, each unlimited levels, max 5 kinds + 5 per To-go box. Effects: Energy drink +15% speed, Shooter +20% damage + camera sway, Pee +0.4 m knockback, McDonald's bag 0.4 HP/s regen after 2 s unhit, Cane's chicken +10 max HP, Backpack +1 weapon slot, Skateboard 2× speed / 1.5× jump). Food heals, and the cart upgrade unlocks the next tier early (`CartWeapon.UpgradeTier`).
 - `Assets/Scripts/World/IInteractable.cs` — what PlayerInteract's F uses (Door, DoorDashCourier).
+- Score + leaderboard + endless (`Rounds/ScoreKeeper.cs`, `Rounds/Leaderboard.cs`). One team score, fed by RoundManager:
+  - Knockouts: 100 / 150 / 200 by worker level; a boss is 2500.
+  - Combo: every knockout within 3 s adds ×0.1, up to ×2.
+  - Round clear: 250 × round, +500 if nobody was hurt that round.
+  - Rounds past 10 are worth +10% each.
+
+  Where it shows:
+  - HUD: score tag (flashes +points) and combo.
+  - The game-over card shows score, knockouts and the run's place.
+  - `Leaderboard`: top 10 in PlayerPrefs (`leaderboard_story` / `leaderboard_endless`), shown from the title screen's LEADERBOARD button.
+
+  `GameFlow.Endless` is set by the select screen's RUN: STORY / ENDLESS switch.
+  - Story ends in Victory after round 10.
+  - Endless generates rounds from round 10's crew: shorter spawn gaps, +1 max alive, bigger packs, workers +12% HP per endless round, Jack every third.
 - `Assets/Scripts/Rounds/SpawnPoint.cs` — optional spawn marker. With none placed, RoundManager spawns at random NavMesh spots 10–40 m away that can reach the player and are out of the camera's view.
 
 Conventions: plain MonoBehaviours, public tunable fields with `[Header]`s, short comments explaining intent, no third-party packages. Enemies find the player via the `Player` tag (fallback: `FindAnyObjectByType<FirstPersonController>`). Characters use the web build's human mesh driven by code (no Mixamo); the user wants them to look less Roblox-like and closer to the real Cooper and Nathan. Enemies build a body at runtime if their prefab has no model.
@@ -135,6 +151,8 @@ Conventions: plain MonoBehaviours, public tunable fields with `[Header]`s, short
 McDonald's L1: 30 HP, speed ~2.9–3.5, starts a punch at 1.1 m, 0.62 s windup, hit lands at 55% if still within 1.45 m and on the same floor, 5 damage, 1.8 s cooldown.
 
 ## Known issues / notes
+
+- The repo is in ~/Documents. When iCloud (Desktop & Documents) syncs mid-write it can make copies like `SmokeFx 3.cs` or `RealBody 3.cs`. Those duplicate the class, Unity stops compiling, and it silently keeps running the old build (this broke the smoke once). Delete any `* 2.cs` / `* 3.cs` copies.
 
 - Render quality lives on the **PC** quality level's URP asset (`Assets/Settings/PC_RPAsset`); GraphicsSettings' default pipeline slot is empty. It's set to 4× MSAA with shadow bias 1 / normal 1, and the player camera adds SMAA at runtime (`ThirdPersonView`). Without anti-aliasing, the hair, curls and cloth edges shimmer.
 

@@ -263,12 +263,13 @@ def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
     def ss(a,b,x): t=np.clip((x-a)/(b-a),0,1); return t*t*(3-2*t)
     x,y,z=co[:,0],co[:,1],co[:,2]
     front=ss(cy+0.02,cy-0.05,y)
-    lower=ss(eyeZ-0.005,eyeZ-0.03,z)*ss(chinZ-0.02,chinZ+0.005,z)
+    lower=ss(eyeZ-0.02,eyeZ-0.045,z)*ss(chinZ-0.02,chinZ+0.005,z)       # well below the lower lid
     def blob(c,r):
         dist=np.linalg.norm(co-np.array(c),axis=1); return np.clip(1-dist/r,0,1)**2
     if who=='nathan':
         d[:,0]+= -x*0.08*lower*front                                            # narrower cheeks and jaw
-        d[:,2]+= -0.007*ss(mouthZ-0.01,chinZ,z)*front*(np.abs(x)<0.05)*ss(chinZ-0.02,chinZ,z)   # longer chin
+        below=(z<mouthZ-0.008)&(chinZ<mouthZ-0.02)
+        d[:,2]+= -0.007*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*ss(chinZ-0.025,chinZ,z)*below   # longer chin (only below the mouth)
         nose=blob((0,-0.105,mouthZ+0.035),0.026); d[:,1]-=0.0045*nose; d[:,2]-=0.0015*nose       # longer, stronger nose
         bridge=blob((0,-0.092,eyeZ-0.005),0.016); d[:,1]-=0.0022*bridge
         for sx in (1,-1):

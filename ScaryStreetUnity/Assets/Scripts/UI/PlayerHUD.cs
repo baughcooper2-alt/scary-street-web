@@ -29,6 +29,7 @@ public class PlayerHUD : MonoBehaviour
     RectTransform area, slotBar;
     Image hpFill, hpGhost, xpFill, hurt, haze, bossFill;
     PlayerControls controls;
+    Text scoreText, comboText;
     Text promptKey, hpText, levelText, cashText, extrasText, roundText, timerText, countText, bannerText, subText,
          promptText, toastText, hintText, downText, bossText, levelUpText, statusText;
     GameObject bossRoot, promptRoot, toastRoot, downRoot, roundRoot, crosshair;
@@ -126,6 +127,10 @@ public class PlayerHUD : MonoBehaviour
         UIArt.Print(roundText.transform.parent.GetComponent<Image>(), 4f);
         timerText = UIArt.Tag(rr, "2:00", UIArt.Theme.Ink, paper, 488, 0, 150, 46, 30);
         UIArt.Print(timerText.transform.parent.GetComponent<Image>(), 4f);
+        scoreText = UIArt.Tag(rr, "0", UIArt.Theme.Ink, UIArt.Theme.Money, 646, 0, 190, 46, 28);
+        UIArt.Print(scoreText.transform.parent.GetComponent<Image>(), 4f);
+        comboText = UIKit.Label(rr, "", 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft); comboText.font = UIArt.Display;
+        UIKit.Place(UIArt.Print(comboText, 2f).rectTransform, 648, 50, 260, 30);
         countText = UIKit.Label(rr, "", 19, paper, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(UIArt.Print(countText, 2f).rectTransform, 150, 52, 600, 26);
         bossRoot = Layer(top, "Boss");
@@ -164,11 +169,11 @@ public class PlayerHUD : MonoBehaviour
         // --- downed / game over
         downRoot = Layer(area, "Down");
         UIKit.Fill(UIKit.Panel(downRoot.transform, "Dim", new Color(0, 0, 0, 0.62f)).rectTransform);
-        var card = Group((RectTransform)downRoot.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760, 230));
+        var card = Group((RectTransform)downRoot.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 260));
         UIKit.Fill(UIArt.Print(UIArt.RoundPanel(card, "Card", UIArt.Theme.Ink2, 18), 8f).rectTransform);
-        UIArt.Stripe(card, 0, 0, 760, 12);
+        UIArt.Stripe(card, 0, 0, 900, 12);
         downText = UIKit.Label(card, "", 44, paper, TextAnchor.MiddleCenter); downText.font = UIArt.Display;
-        UIKit.Place(downText.rectTransform, 20, 30, 720, 180);
+        UIKit.Place(downText.rectTransform, 20, 30, 860, 210);
         downRoot.SetActive(false);
     }
 
@@ -233,6 +238,14 @@ public class PlayerHUD : MonoBehaviour
 
     static UIArt.Icon IconFor(Weapon w) =>
         w is CartWeapon ? UIArt.Icon.Cart : w is LawBookWeapon ? UIArt.Icon.Book : w is GuitarWeapon ? UIArt.Icon.Guitar : UIArt.Icon.Fist;
+
+    static string RunLine()
+    {
+        if (!ScoreKeeper.Active) return "";
+        string board = ScoreKeeper.Endless ? "Endless" : "Story";
+        string place = ScoreKeeper.NewBest ? $"NEW BEST on the {board} board!" : ScoreKeeper.LastRank > 0 ? $"#{ScoreKeeper.LastRank} on the {board} board" : "not on the board this time";
+        return $"Score {ScoreKeeper.Score:N0}   ·   {ScoreKeeper.Kills} knocked out   ·   {place}";
+    }
 
     // ---------- every frame ----------
 
@@ -331,6 +344,11 @@ public class PlayerHUD : MonoBehaviour
                            : rm.CurrentState == RoundManager.State.Boss ? "BOSS"
                            : rm.CurrentState == RoundManager.State.Shop ? "SHOP" : "0:00";
             timerText.color = fighting && rm.TimeLeft <= 10f && Mathf.Repeat(Time.time, 0.6f) < 0.3f ? UIArt.Theme.Blood : UIArt.Theme.Paper;
+            scoreText.transform.parent.gameObject.SetActive(!free);
+            scoreText.text = ScoreKeeper.GainTime > 0 ? $"+{ScoreKeeper.LastGain:N0}" : ScoreKeeper.Score.ToString("N0");
+            scoreText.color = ScoreKeeper.GainTime > 0 ? Color.white : UIArt.Theme.Money;
+            comboText.text = !free && ScoreKeeper.Combo > 1 ? $"COMBO x{ScoreKeeper.Multiplier:0.0}  ({ScoreKeeper.Combo})" : "";
+            if (!free && GameFlow.Endless && rm.RoundNumber > 10) roundText.text = $"ENDLESS {rm.RoundNumber}";
             countText.text = fighting ? $"WORKERS  {rm.AliveCount}      KNOCKED OUT  {rm.KillsThisRound}"
                            : free && rm.AliveCount > 0 ? $"ENEMIES  {rm.AliveCount}" : "";
         }
@@ -355,7 +373,7 @@ public class PlayerHUD : MonoBehaviour
         downRoot.SetActive(dead);
         if (dead)
             downText.text = Players.AnyAlive ? "YOU'RE DOWN\n<size=24>You'll be back up when the round ends</size>"
-                          : Players.All.Count > 1 ? "EVERYBODY GOT FRIED\n<size=24>R / Start to restart   ·   M / Select for the main menu</size>"
-                          : $"YOU GOT FRIED\n<size=24>{controls.Prompt("R", GamepadInfo.StartButton)} to restart   ·   {controls.Prompt("M", GamepadInfo.SelectButton)} for the main menu</size>";
+                          : Players.All.Count > 1 ? "EVERYBODY GOT FRIED\n<size=26>" + RunLine() + "</size>\n<size=22>R / Start to restart   ·   M / Select for the main menu</size>"
+                          : $"YOU GOT FRIED\n<size=26>{RunLine()}</size>\n<size=22>{controls.Prompt("R", GamepadInfo.StartButton)} to restart   ·   {controls.Prompt("M", GamepadInfo.SelectButton)} for the main menu</size>";
     }
 }

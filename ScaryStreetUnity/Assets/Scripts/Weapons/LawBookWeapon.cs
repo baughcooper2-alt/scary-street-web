@@ -2,26 +2,28 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Cooper's starting weapon (DESIGN.md): melee hits, and when charged you slam it on the ground yelling "OBJECTION".
-// Web build numbers: 28 damage in a cone 2 m in front of you, knockback, 0.55 s between swings,
-// 6 swings then 3 s "reading up on the law". Lv 3+ reaches further and shoves harder.
+// Toned down from the web build (it one-shot workers and cleared crowds): 16 damage to the 3 closest enemies in
+// a ~105° cone 1.7 m in front of you, 0.65 s between swings, 6 swings then 3.5 s "reading up on the law".
+// The OBJECTION slam takes 1.1 s to charge, costs 3 pages and hits 28 in 2.8 m. Lv 3+ reaches further, shoves harder.
 // Click to swing. Keep holding after a swing to charge; let go once it's charged to slam everyone around you.
 public class LawBookWeapon : MagazineWeapon
 {
     [Header("Swing")]
-    public float damage = 28f;
-    public float range = 2f;
-    public float knockback = 0.6f;
-    public float swingCooldown = 0.55f;
+    public float damage = 16f;
+    public float range = 1.7f;
+    public float knockback = 0.5f;
+    public float swingCooldown = 0.65f;
+    [Tooltip("Most enemies one swing can hit (closest first).")] public int maxTargets = 3;
     [Header("OBJECTION slam")]
-    public float chargeTime = 0.8f;
-    public float slamDamage = 45f;
-    public float slamRadius = 3.5f;
-    public float slamKnockback = 1.5f;
-    public int slamPages = 2;
+    public float chargeTime = 1.1f;
+    public float slamDamage = 28f;
+    public float slamRadius = 2.8f;
+    public float slamKnockback = 1.2f;
+    public int slamPages = 3;
 
     protected override int BaseMagazine => 6;
     protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
-    protected override float ReloadTime => 3f;
+    protected override float ReloadTime => 3.5f;
     protected override string ReloadText => "Reading up…";
 
     bool L3 => level >= 3;
@@ -86,11 +88,16 @@ public class LawBookWeapon : MagazineWeapon
 
         Vector3 eye = Eye, fwd = cam.forward; fwd.y = 0; fwd.Normalize();
         float reach = range + (L3 ? 0.6f : 0f), shove = knockback * (L3 ? 1.5f : 1f);
-        foreach (var h in Nearby(inventory.transform.position, reach))
+        var targets = Nearby(inventory.transform.position, reach);
+        targets.Sort((a, b) => (a.transform.position - inventory.transform.position).sqrMagnitude.CompareTo((b.transform.position - inventory.transform.position).sqrMagnitude));
+        int struck = 0;
+        foreach (var h in targets)
         {
+            if (struck >= maxTargets) break;
             Vector3 to = h.transform.position - inventory.transform.position; to.y = 0;
-            if (to.sqrMagnitude > 0.01f && Vector3.Dot(to.normalized, fwd) < 0.35f) continue;   // only in front of you
+            if (to.sqrMagnitude > 0.01f && Vector3.Dot(to.normalized, fwd) < 0.6f) continue;    // only in front of you
             if (!ClearLine(eye, h.transform.position + Vector3.up * 1.2f)) continue;             // not through walls
+            struck++;
             h.TakeDamage(PlayerStats.MeleeDamage(damage * LevelDamage, inventory.gameObject), shove + PlayerUpgrades.KnockbackFor(inventory.gameObject));
             SoundKit.PlayAt(Sfx.Punch, h.transform.position + Vector3.up, 0.9f);
             Rumble(0.3f, 0.5f, 0.1f);

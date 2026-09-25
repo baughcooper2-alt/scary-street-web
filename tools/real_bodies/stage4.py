@@ -10,7 +10,8 @@ bpy.context.view_layer.update()
 _e=mesh_co(O['CC_Game_Eye']); _t=mesh_co(O['CC_Game_Teeth'])
 eyeZ=float(_e[:,2].mean()); mouthZ=float(_t[:,2].mean())
 Bw,bn=weights(body); bco=mesh_co(body)
-_front=bco[(np.abs(bco[:,0])<0.015)&(bco[:,1]<-0.02)&(Bw[:,bn.index('CC_Base_Head')]>0.5)]
+_hw=sum(Bw[:,i] for i,n in enumerate(bn) if n in ('CC_Base_Head','CC_Base_JawRoot','CC_Base_FacialBone') or 'Jaw' in n)   # the chin is on the jaw
+_front=bco[(np.abs(bco[:,0])<0.015)&(bco[:,1]<-0.02)&(_hw>0.5)&(bco[:,2]<mouthZ)]
 chinZ=float(_front[:,2].min())
 shape_face(body, who, _e, eyeZ, mouthZ, chinZ, 0.009)
 bco=mesh_co(body)
@@ -127,13 +128,31 @@ if who=='nathan':                                                            # e
     import random; rnd=random.Random(11); rnd.shuffle(cand)
     picked=[]
     for i,fore in cand:
-        if all(np.linalg.norm(bco[i]-bco[j])>(0.009 if fore else 0.011) for j,_ in picked): picked.append((i,fore))
-        if len(picked)>=150: break
+        if all(np.linalg.norm(bco[i]-bco[j])>(0.0075 if fore else 0.0085) for j,_ in picked): picked.append((i,fore))
+        if len(picked)>=240: break
     cu=coils([bco[i] for i,_ in picked],[nrm[i] for i,_ in picked],forehead=[f for _,f in picked])
     material(cu,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(cu); sel(cu); bpy.ops.object.shade_smooth()
     print('curls',len(picked),'verts',len(cu.data.vertices))
-hair.name='Hair'; material(hair,'Hair',(0.45,0.3,0.18,1) if who=='cooper' else (0.07,0.05,0.04,1)); rigid_to_head(hair)
-sel(hair); bpy.ops.object.shade_smooth()
+    # a thin dark layer on the scalp under the curls, so no bald skin shows between them
+    bm=bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table()
+    def scalp(v):
+        return v.co.z>eyeZ-0.05 and v.co.y>-0.045 and not (abs(v.co.x)<0.03 and v.co.y<0) or (v.co.y<-0.045 and abs(v.co.x)<0.066 and v.co.z>eyeZ+0.04)
+    keepf=set(f for f in bm.faces if all(hw_[v.index]>0.6 and scalp(v) for v in f.verts))
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f not in keepf], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    dl=bm.verts.layers.deform.active
+    if dl: bm.verts.layers.deform.remove(dl)                                  # the body's weights don't belong here
+    for v in bm.verts: v.co=v.co+v.normal*0.0025
+    sm=bpy.data.meshes.new('HairBase'); bm.to_mesh(sm); bm.free()
+    base=bpy.data.objects.new('HairBase',sm); bpy.context.scene.collection.objects.link(base)
+    if base.data.shape_keys: base.shape_key_clear()
+    material(base,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(base); sel(base); bpy.ops.object.shade_smooth()
+    print('hair base verts',len(base.data.vertices))
+    bpy.data.objects.remove(hair)                                               # the flat curl cards: the 3D curls replace them
+    hair=None
+if hair:
+    hair.name='Hair'; material(hair,'Hair',(0.45,0.3,0.18,1) if who=='cooper' else (0.07,0.05,0.04,1)); rigid_to_head(hair)
+    sel(hair); bpy.ops.object.shade_smooth()
 
 # ---- shoes: the feet, puffed out and smoothed into sneakers ----
 footw=sum(Bw[:,i] for i,n in enumerate(bn) if 'Foot' in n or 'Toe' in n)
@@ -203,10 +222,10 @@ bpy.ops.wm.save_as_mainfile(filepath=W+f'/stage4_{who}.blend')
 
 material(body,'SkinPrev',(0.85,0.68,0.58,1))
 for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []): k.value=0
-parts=[body,top,pants,shoes,hair]+([O['Cap']] if who=='nathan' else [])
+parts=[p for p in [body,top,pants,shoes,hair,O.get('Cap'),O.get('HairBase')] if p]
 parts=[p for p in parts if p]
-headparts=[hair]+([O['Cap'],O['Curls']] if who=='nathan' else [])
-parts+= [O['Curls']] if who=='nathan' else []
+headparts=[p for p in [hair,O.get('Cap'),O.get('Curls'),O.get('HairBase')] if p]
+parts+= [O['Curls']] if O.get('Curls') else []
 shoot(parts, W+f'/s4_{who}_f.png', azim=0, elev=3)
 shoot(parts, W+f'/s4_{who}_34.png', azim=35, elev=8)
 for i,az in enumerate((0,60,150)):

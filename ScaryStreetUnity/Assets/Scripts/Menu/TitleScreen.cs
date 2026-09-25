@@ -10,8 +10,8 @@ using UnityEngine.InputSystem;
 public class TitleScreen : MonoBehaviour
 {
     GameFlow flow;
-    GameObject main, settings, controls;
-    Button startButton, settingsBack, controlsBack;
+    GameObject main, settings, controls, board;
+    Button startButton, settingsBack, controlsBack, boardBack;
     Selectable settingsFirst;
 
     public static TitleScreen Create(GameFlow flow)
@@ -76,11 +76,12 @@ public class TitleScreen : MonoBehaviour
         UIArt.PopIn(top, 0.05f); UIArt.PopIn(struck, 0.15f); UIArt.PopIn(end, 0.22f); UIArt.PopIn(slash, 0.4f); UIArt.PopIn(scary, 0.55f);
 
         var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
-        UIKit.Place(tag.rectTransform, 112, 584, 560, 70);
+        UIKit.Place(tag.rectTransform, 112, 568, 600, 60);
 
-        startButton = MenuButton(main.transform, "START", 656, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 748, () => Open(settings, settingsFirst), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 840, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
+        startButton = MenuButton(main.transform, "START", 634, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 716, () => Open(settings, settingsFirst), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 798, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
+        MenuButton(main.transform, "LEADERBOARD", 880, () => { RefreshBoard(); Open(board, boardBack); }, UIArt.Icon.Star, 0.54f, UIArt.Theme.Ink3);
 
         UIArt.Stripe(mt, 112, 990, 120, 8);
         var foot = UIKit.Label(main.transform, "EARLY PROTOTYPE  ·  MAC & WINDOWS", 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -88,8 +89,10 @@ public class TitleScreen : MonoBehaviour
 
         settings = BuildSettings(root);
         controls = BuildControls(root);
+        board = BuildBoard(root);
         settings.SetActive(false);
         controls.SetActive(false);
+        board.SetActive(false);
         Select(startButton);
     }
 
@@ -185,6 +188,52 @@ public class TitleScreen : MonoBehaviour
         UIKit.Place(l.rectTransform, x, y, 240, 36);
     }
 
+    // ---------- Leaderboard: best runs on this computer, story and endless side by side ----------
+
+    Text[] storyRows, endlessRows;
+
+    GameObject BuildBoard(Transform root)
+    {
+        var card = Card(root, "LEADERBOARD");
+        storyRows = Column(card, "STORY", 50);
+        endlessRows = Column(card, "ENDLESS", 400);
+        var note = UIKit.Label(card, "Endless keeps going after round 10: pick ENDLESS on the character screen.", 18, UIArt.Theme.Muted, TextAnchor.UpperLeft);
+        UIKit.Place(note.rectTransform, 50, 640, 660, 40);
+        boardBack = BackButton(card, () => Close(board));
+        return card.gameObject;
+    }
+
+    static Text[] Column(RectTransform card, string title, float x)
+    {
+        UIArt.Tag(card, title, title == "ENDLESS" ? UIArt.Theme.Blood : UIArt.Theme.Mustard, title == "ENDLESS" ? UIArt.Theme.Paper : UIArt.Theme.Ink, x, 140, 150, 36, 22);
+        var rows = new Text[Leaderboard.Size];
+        for (int i = 0; i < rows.Length; i++)
+        {
+            rows[i] = UIKit.Label(card, "", 19, UIArt.Theme.Paper, TextAnchor.MiddleLeft);
+            UIKit.Place(rows[i].rectTransform, x, 186 + i * 44, 320, 40);
+        }
+        return rows;
+    }
+
+    void RefreshBoard()
+    {
+        void Fill(Text[] rows, bool endless)
+        {
+            var list = Leaderboard.Load(endless);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                if (i < list.Count)
+                {
+                    var e = list[i];
+                    rows[i].text = $"<b>#{i + 1}  {e.score:N0}</b>   <color=#{ColorUtility.ToHtmlStringRGB(UIArt.Theme.Muted)}>R{e.round} · {e.who}</color>";
+                    rows[i].color = i == 0 ? UIArt.Theme.Mustard : UIArt.Theme.Paper;
+                }
+                else { rows[i].text = i == 0 ? "No runs yet" : ""; rows[i].color = UIArt.Theme.Muted; }
+            }
+        }
+        Fill(storyRows, false); Fill(endlessRows, true);
+    }
+
     public static Button BackButton(RectTransform card, System.Action onClick)
     {
         var b = UIArt.Button(card, "BACK", 32, onClick, UIArt.Theme.Ink3);
@@ -196,6 +245,7 @@ public class TitleScreen : MonoBehaviour
     {
         settings.SetActive(panel == settings);
         controls.SetActive(panel == controls);
+        board.SetActive(panel == board);
         Select(focus);
     }
 
@@ -223,7 +273,8 @@ public class TitleScreen : MonoBehaviour
         {
             if (settings.activeSelf) Close(settings);
             else if (controls.activeSelf) Close(controls);
+            else if (board.activeSelf) Close(board);
         }
-        UIKit.KeepSelected(settings.activeSelf ? settingsFirst : controls.activeSelf ? controlsBack : startButton);
+        UIKit.KeepSelected(settings.activeSelf ? settingsFirst : controls.activeSelf ? controlsBack : board.activeSelf ? boardBack : startButton);
     }
 }

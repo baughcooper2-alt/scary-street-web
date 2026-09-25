@@ -33,6 +33,7 @@ public class CharacterSelectScreen : MonoBehaviour
     GameFlow flow;
     int players = 1, picking;                    // how many are playing, and whose turn it is to pick
     bool freeRoam;
+    Button storyButton, endlessButton;
     readonly CharacterLook[] picks = new CharacterLook[2];
     readonly List<Button> modeButtons = new List<Button>();
     Text titleText, p2Text, p2Note, p2Name, p2Mark;
@@ -254,9 +255,27 @@ public class CharacterSelectScreen : MonoBehaviour
         toastText = UIKit.Label(root, "", 26, UIArt.Theme.Mustard, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(toastText.rectTransform, 560, 1010, 800, 44);
 
+        // run type: the story (10 rounds and a win) or endless (it keeps going; your score goes on the board)
+        var runLabel = UIKit.Label(root, "RUN", 20, UIArt.Theme.Muted, TextAnchor.MiddleRight, FontStyle.Bold);
+        UIKit.Place(runLabel.rectTransform, 600, 956, 90, 44);
+        storyButton = UIArt.Button(root, "STORY", 24, () => { GameFlow.Endless = false; HighlightRun(); }, UIArt.Theme.Ink3);
+        UIKit.Place((RectTransform)storyButton.transform, 700, 956, 190, 44);
+        endlessButton = UIArt.Button(root, "ENDLESS", 24, () => { GameFlow.Endless = true; HighlightRun(); }, UIArt.Theme.Ink3);
+        UIKit.Place((RectTransform)endlessButton.transform, 900, 956, 190, 44);
+        HighlightRun();
         HighlightModes();
         SetCursor(0);
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(tiles[0].button.gameObject);
+    }
+
+    void HighlightRun()
+    {
+        foreach (var (b, on) in new[] { (storyButton, !GameFlow.Endless), (endlessButton, GameFlow.Endless) })
+        {
+            var cb = b.colors; cb.normalColor = on ? UIArt.Theme.Mustard : UIArt.Theme.Ink3;
+            cb.highlightedColor = cb.selectedColor = on ? new Color(1f, 0.82f, 0.38f) : new Color(0.3f, 0.24f, 0.24f); b.colors = cb;
+            foreach (var t in b.GetComponentsInChildren<Text>()) t.color = on ? UIArt.Theme.Ink : UIArt.Theme.Paper;
+        }
     }
 
     void HighlightModes()

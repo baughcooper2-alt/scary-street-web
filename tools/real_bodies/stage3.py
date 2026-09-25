@@ -15,8 +15,7 @@ pants=O['Urban']; set_co(pants, mesh_co(pants)*0.96)
 if who=='nathan' or mode=='urban':
     top=O['Urban.002']; set_co(top, mesh_co(top)*0.96)
     for n in ['Sweat','Sweat.001','Sweat.002','Sweat.003']: bpy.data.objects.remove(O[n])
-    if who=='cooper':                                                       # tee from the sweater: crew neck, no mock neck
-        c=mesh_co(top); delete_verts(top, c[:,2]>1.555)
+    c=mesh_co(top); delete_verts(top, c[:,2]>1.555)                       # crew neck for both (no mock neck), like the photo
 else:
     for n in ['Sweat','Sweat.003']: bpy.data.objects.remove(O[n])
     top=join([O['Sweat.001'],O['Sweat.002']],'Top')

@@ -25,7 +25,7 @@ body=O['CC_Base_Body']; f.write(struct.pack('<f', float(mesh_co(body)[:,2].max()
 f.write(struct.pack('<i',len(order)))
 for b in order:
     S(b.name); f.write(struct.pack('<i', bidx[b.parent.name] if b.parent else -1)); f.write(struct.pack('<3f',*U(b.head_local)))
-names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','Curls','Cap','Wristband','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, unskinned)
+names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, unskinned)
 parts=[O[n] for n in names if n in O]
 f.write(struct.pack('<i',len(parts)))
 for o in parts:
@@ -35,7 +35,7 @@ for o in parts:
     gname={g.index:g.name for g in o.vertex_groups}
     vw=[]
     for v in me.vertices:
-        ws=[(g.weight,bidx[gname[g.group]]) for g in v.groups if gname[g.group] in bidx and g.weight>0.0005]
+        ws=[(g.weight,bidx[gname[g.group]]) for g in v.groups if gname.get(g.group) in bidx and g.weight>0.0005]
         ws.sort(reverse=True); ws=ws[:4]; t=sum(w for w,_ in ws) or 1
         ws=[(bi,w/t) for w,bi in ws]+[(0,0.0)]*(4-len(ws)); vw.append(ws)
     keys=me.shape_keys.key_blocks if me.shape_keys else []

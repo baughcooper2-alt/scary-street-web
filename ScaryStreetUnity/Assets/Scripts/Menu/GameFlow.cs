@@ -19,6 +19,9 @@ public class GameFlow : MonoBehaviour
     static readonly List<CharacterLook> chosen = new List<CharacterLook>();
     static bool startImmediately;
     public static bool FreeRoam { get; private set; }
+    // set by the select screen: rounds keep coming after round 10 (scored on the Endless board)
+    public static bool Endless { get; set; }
+    public static string ChosenNames => string.Join(" & ", chosen.ConvertAll(l => l ? l.displayName : "?"));
 
     [Header("Title")]
     public string titleIntro = "BOOGYING DOWN ON";
@@ -45,7 +48,7 @@ public class GameFlow : MonoBehaviour
 
     // with "Enter Play Mode Options" (no domain reload) statics would survive between plays
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { chosen.Clear(); startImmediately = false; FreeRoam = false; }
+    static void ResetStatics() { chosen.Clear(); startImmediately = false; FreeRoam = false; Endless = false; }
 
     public static void Restart()
     {

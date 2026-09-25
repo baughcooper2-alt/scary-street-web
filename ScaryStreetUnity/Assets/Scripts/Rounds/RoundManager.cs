@@ -152,8 +152,16 @@ public class RoundManager : MonoBehaviour
         foreach (var pl in Players.All)                                  // co-op: game over only when everyone is down
         {
             var h = pl ? pl.GetComponent<Health>() : null;
-            if (h) h.Died += () => { if (!Players.AnyAlive) CurrentState = State.GameOver; };
+            if (!h) continue;
+            h.Died += () =>
+            {
+                if (Players.AnyAlive) return;
+                CurrentState = State.GameOver;
+                ScoreKeeper.Finish(RoundNumber, GameFlow.ChosenNames);
+            };
+            h.Damaged += _ => ScoreKeeper.PlayerHurt();
         }
+        storyRounds = rounds.Count;
 
         spawnPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
         var tri = NavMesh.CalculateTriangulation();
@@ -170,6 +178,7 @@ public class RoundManager : MonoBehaviour
             return;
         }
         if (rounds.Count == 0) { Debug.LogError("RoundManager: no rounds. Run Tools > Scary Street > Set Up Rounds.", this); enabled = false; return; }
+        ScoreKeeper.StartRun(GameFlow.Endless, storyRounds);
         StartRound(Mathf.Clamp(startAtRound - 1, 0, rounds.Count - 1));
     }
 
@@ -191,6 +200,7 @@ public class RoundManager : MonoBehaviour
     {
         if (!begun) return;
         bannerT -= Time.deltaTime;
+        ScoreKeeper.Tick(Time.deltaTime);
         alive.RemoveAll(h => !h || h.IsDead);
 
         switch (CurrentState)
@@ -213,6 +223,7 @@ public class RoundManager : MonoBehaviour
                 if (boss && boss.IsDead && !bossDown)
                 {
                     bossDown = true; stateT = 4f;
+                    ScoreKeeper.Boss(RoundNumber);
                     Show($"{Current.bossAfter} is down!", "Grab the loot");
                 }
                 if ((stateT -= Time.deltaTime) <= 0) { Pickup.VacuumAll(); boss = null; GoToShop(); }
@@ -246,7 +257,8 @@ public class RoundManager : MonoBehaviour
             if (h.IsDead) h.ResetHealth(h.maxHealth);                   // co-op: downed players get back up
             else if (healBetweenRounds) h.Heal(h.maxHealth);
         }
-        Show($"{Current.name} cleared!", $"{KillsThisRound} knocked out");
+        ScoreKeeper.RoundCleared(RoundNumber);
+        Show($"{Current.name} cleared!", $"{KillsThisRound} knocked out   ·   score {ScoreKeeper.Score:N0}");
         SoundKit.Play(Sfx.RoundClear, 0.6f, 0f);
         RoundEnded?.Invoke(RoundNumber);
     }
@@ -270,7 +282,14 @@ public class RoundManager : MonoBehaviour
 
     void GoToShop()
     {
-        if (index + 1 >= rounds.Count) { CurrentState = State.Victory; Show("You survived Scary Street!", "Endless mode is coming later."); }
+        if (index + 1 >= rounds.Count && GameFlow.Endless) rounds.Add(EndlessRound(index + 1));   // endless: make the next one
+        if (index + 1 >= rounds.Count)
+        {
+            CurrentState = State.Victory;
+            ScoreKeeper.Finish(RoundNumber, GameFlow.ChosenNames);
+            string place = ScoreKeeper.LastRank > 0 ? $"   ·   #{ScoreKeeper.LastRank} on the Story board" : "";
+            Show("You survived Scary Street!", $"Score {ScoreKeeper.Score:N0}{place}   ·   try Endless next");
+        }
         else
         {
             // web build: the DoorDash driver walks up to the porch; shopping, then 2.5 s later the next round
@@ -325,8 +344,10 @@ public class RoundManager : MonoBehaviour
             if (worker) worker.SetLevel(entry.level);
             var h = go.GetComponent<Health>();
             if (!h) continue;
+            if (index >= storyRounds) h.SetMaxHealth(h.maxHealth * (1f + 0.12f * (index + 1 - storyRounds)), true);   // endless: tougher every round
             alive.Add(h);
-            h.Died += () => { if (CurrentState == State.Fighting) KillsThisRound++; };
+            int lvl = entry.level;
+            h.Died += () => { if (CurrentState == State.Fighting) { KillsThisRound++; ScoreKeeper.Knockout(lvl, RoundNumber); } };
         }
 
         // speeds up over the round; bigger packs buy a longer gap (web build formula)
@@ -421,6 +442,30 @@ public class RoundManager : MonoBehaviour
 
 
     void Show(string title, string sub) { banner = title; subBanner = sub; bannerT = bannerTime; }
+
+    int storyRounds = 10;
+    public bool InEndless => index >= storyRounds;
+
+    // Endless (after the story's last round): the last round's crew, faster and bigger every round, Jack every third.
+    RoundDefinition EndlessRound(int i)
+    {
+        var last = rounds[storyRounds - 1];
+        int e = i + 1 - storyRounds;                                  // 1 = the first endless round
+        if (e == 1) Show("ENDLESS", "No more story. Every round is tougher. How long can you last?");
+        return new RoundDefinition
+        {
+            name = $"Round {i + 1}",
+            subtitle = e % 3 == 0 ? "Endless: and Jack's back" : "Endless: they keep coming",
+            duration = 150f,
+            plannedEnemies = last.plannedEnemies,
+            enemies = last.enemies,
+            spawnIntervalStart = Mathf.Max(0.9f, last.spawnIntervalStart - 0.05f * e),
+            spawnIntervalEnd = Mathf.Max(0.45f, last.spawnIntervalEnd - 0.03f * e),
+            maxAlive = Mathf.Min(30, last.maxAlive + e),
+            maxPackSize = Mathf.Min(8, last.maxPackSize + e / 3),
+            bossAfter = e % 3 == 0 ? "Jack" : "",
+        };
+    }
 
 
 
