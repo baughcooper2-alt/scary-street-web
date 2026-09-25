@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterLook
   displayName: McDonald's Worker
   height: 1.76
+  realisticBody: 0
   skin: {r: 0.89411765, g: 0.7254902, b: 0.5882353, a: 1}
   eyes: {r: 0.3529412, g: 0.24705882, b: 0.16470589, a: 1}
   brows: {r: 0.14117648, g: 0.09411765, b: 0.0627451, a: 1}

@@ -14668,6 +14668,54 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -1054288056301961452, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &259944872
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 259944873}
+  - component: {fileID: 259944874}
+  m_Layer: 0
+  m_Name: Bedroom 1 mirror (full length)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &259944873
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259944872}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: -0.12, y: 1.16, z: 6.6}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1922695530}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &259944874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259944872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4629bf3bdf6da4ceb940ed6aab3e7ab6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mirror
+  size: {x: 0.9, y: 1.9}
+  maxDistance: 10
+  resolution: 1024
+  frameColor: {r: 0.17, g: 0.17, b: 0.18, a: 1}
 --- !u!1 &260527567 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -6780897018526008035, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -50650,6 +50698,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8725402460723877865, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2076508763}
+    - targetCorrespondingSourceObject: {fileID: 8725402460723877865, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2076508764}
     - targetCorrespondingSourceObject: {fileID: -1646610768851409832, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 951799225}
@@ -69356,6 +69407,54 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 3613313816599776130, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &1022280641
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1022280642}
+  - component: {fileID: 1022280643}
+  m_Layer: 0
+  m_Name: Bathroom 2 mirror
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1022280642
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1022280641}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: -2.13, y: 1.45, z: 18.45}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1922695530}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1022280643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1022280641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4629bf3bdf6da4ceb940ed6aab3e7ab6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mirror
+  size: {x: 0.55, y: 0.72}
+  maxDistance: 10
+  resolution: 1024
+  frameColor: {r: 0.17, g: 0.17, b: 0.18, a: 1}
 --- !u!1 &1022930207 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3482234388868913090, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -99683,23 +99782,28 @@ MonoBehaviour:
   rounds:
   - name: Round 1
     subtitle: McDonald's workers are coming in the front door and the back gate
-    duration: 20
+    duration: 60
     plannedEnemies: McDonald's L1
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
       weight: 1
+      level: 1
     spawnIntervalStart: 3
     spawnIntervalEnd: 1.5
     maxAlive: 6
     maxPackSize: 1
     bossAfter: 
   - name: Round 2
-    subtitle: Now they brought spatulas and fryer cages
-    duration: 150
+    subtitle: Now they brought spatulas and fryer baskets
+    duration: 70
     plannedEnemies: "McDonald's L1\u20132"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.6
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.4
+      level: 2
     spawnIntervalStart: 2.8
     spawnIntervalEnd: 1.4
     maxAlive: 8
@@ -99707,11 +99811,18 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 3
     subtitle: 'Heads up: they throw burgers, fries and sodas'
-    duration: 180
+    duration: 70
     plannedEnemies: "McDonald's L1\u20133"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 2.6
     spawnIntervalEnd: 1.3
     maxAlive: 10
@@ -99719,11 +99830,18 @@ MonoBehaviour:
     bossAfter: Jack
   - name: Round 4
     subtitle: The chicken finger crew shows up throwing tenders
-    duration: 210
+    duration: 80
     plannedEnemies: "McDonald's L1\u20133, Cane's L1"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 2.4
     spawnIntervalEnd: 1.2
     maxAlive: 11
@@ -99731,11 +99849,18 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 5
     subtitle: Texas toast bombs incoming
-    duration: 240
+    duration: 75
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20132"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 2.2
     spawnIntervalEnd: 1.1
     maxAlive: 12
@@ -99743,11 +99868,18 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 6
     subtitle: 'Sauce guns: they blind you'
-    duration: 270
+    duration: 80
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20133"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 2
     spawnIntervalEnd: 1
     maxAlive: 13
@@ -99755,11 +99887,18 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 7
     subtitle: Everybody's here before Eva
-    duration: 300
+    duration: 90
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20133"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 1.9
     spawnIntervalEnd: 0.95
     maxAlive: 14
@@ -99767,11 +99906,18 @@ MonoBehaviour:
     bossAfter: Eva
   - name: Round 8
     subtitle: The cops showed up with batons
-    duration: 330
+    duration: 110
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20133, Cops L1"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 1.8
     spawnIntervalEnd: 0.9
     maxAlive: 15
@@ -99779,11 +99925,18 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 9
     subtitle: Now the cops have pistols
-    duration: 360
+    duration: 140
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20133, Cops L1\u20132"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 1.7
     spawnIntervalEnd: 0.85
     maxAlive: 16
@@ -99791,17 +99944,24 @@ MonoBehaviour:
     bossAfter: 
   - name: Round 10
     subtitle: Shotguns. Good luck.
-    duration: 390
+    duration: 200
     plannedEnemies: "McDonald's L1\u20133, Cane's L1\u20133, Cops L1\u20133"
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
-      weight: 1
+      weight: 0.4
+      level: 1
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 2
+    - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
+      weight: 0.3
+      level: 3
     spawnIntervalStart: 1.6
     spawnIntervalEnd: 0.8
     maxAlive: 18
     maxPackSize: 5
     bossAfter: Andique
-  startAtRound: 1
+  startAtRound: 3
   healBetweenRounds: 1
   minSpawnDistance: 10
   maxSpawnDistance: 40
@@ -109446,6 +109606,54 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5739691647351940921, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &1770416824
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1770416825}
+  - component: {fileID: 1770416826}
+  m_Layer: 0
+  m_Name: Bathroom mirror
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1770416825
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1770416824}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: -0.12, y: 1.5, z: 8.55}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1922695530}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1770416826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1770416824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4629bf3bdf6da4ceb940ed6aab3e7ab6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mirror
+  size: {x: 0.6, y: 0.72}
+  maxDistance: 10
+  resolution: 1024
+  frameColor: {r: 0.17, g: 0.17, b: 0.18, a: 1}
 --- !u!1 &1771476665 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3640848074417720258, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -117700,6 +117908,40 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4092405950103389953, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &1922695529
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1922695530}
+  m_Layer: 0
+  m_Name: Mirrors
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1922695530
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1922695529}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1770416825}
+  - {fileID: 259944873}
+  - {fileID: 1022280642}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1923739866 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -463223551680670063, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -126666,6 +126908,22 @@ MonoBehaviour:
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 23800000, guid: 803af2f6bd4f34c7884d908f9ad963bc, type: 2}
   m_BuildHeightMesh: 0
+--- !u!114 &2076508764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2076508761}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e184adf9375c84c24a087d39960331de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldDetail
+  bumpStrength: 1
+  detailStrength: 1
+  detailSize: 0.5
+  variantKeeper: {fileID: 2100000, guid: c848e0d39bb204bfb8bb61e0190b4eb4, type: 2}
 --- !u!1 &2076538009 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -427775900869701934, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -130079,3 +130337,4 @@ SceneRoots:
   - {fileID: 1580777022}
   - {fileID: 148457514}
   - {fileID: 75833924}
+  - {fileID: 1922695530}
