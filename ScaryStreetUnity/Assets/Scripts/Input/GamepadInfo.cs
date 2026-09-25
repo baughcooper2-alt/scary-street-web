@@ -12,7 +12,9 @@ public class GamepadInfo : MonoBehaviour
     public static bool UsingGamepad { get; private set; }
 
 #if ENABLE_INPUT_SYSTEM
-    public static bool IsPlayStation => Gamepad.current != null && InputSystem.IsFirstLayoutBasedOnSecond(Gamepad.current.layout, "DualShockGamepad");
+    // The last controller used, or the first one plugged in if none has been touched yet.
+    public static Gamepad Current => Gamepad.current ?? (Gamepad.all.Count > 0 ? Gamepad.all[0] : null);
+    public static bool IsPlayStation => Current != null && InputSystem.IsFirstLayoutBasedOnSecond(Current.layout, "DualShockGamepad");
 #else
     public const bool IsPlayStation = false;
 #endif
@@ -42,8 +44,7 @@ public class GamepadInfo : MonoBehaviour
 #if ENABLE_INPUT_SYSTEM
     void Update()
     {
-        var pad = Gamepad.current;
-        if (pad != null && Touched(pad)) UsingGamepad = true;
+        foreach (var pad in Gamepad.all) if (Touched(pad)) UsingGamepad = true;
         var kb = Keyboard.current; var mouse = Mouse.current;
         if ((kb != null && kb.anyKey.wasPressedThisFrame) ||
             (mouse != null && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame || mouse.delta.ReadValue().sqrMagnitude > 25f)))

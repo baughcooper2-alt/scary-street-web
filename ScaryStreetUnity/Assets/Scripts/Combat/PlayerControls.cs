@@ -18,7 +18,8 @@ public class PlayerControls : MonoBehaviour
 
 #if ENABLE_INPUT_SYSTEM
     [System.NonSerialized] public Gamepad pad;                  // a specific controller (co-op)
-    Gamepad MyPad => pad ?? (useAnyGamepad ? Gamepad.current : null);
+    // Gamepad.current can still be null right after a controller connects, so fall back to the first one.
+    Gamepad MyPad => pad ?? (useAnyGamepad ? GamepadInfo.Current : null);
     Gamepad Pad => PauseMenu.InputBlocked ? null : MyPad;
     Keyboard Kb => useKeyboardMouse && !PauseMenu.InputBlocked ? Keyboard.current : null;
     Mouse Ms => useKeyboardMouse && !PauseMenu.InputBlocked ? Mouse.current : null;
