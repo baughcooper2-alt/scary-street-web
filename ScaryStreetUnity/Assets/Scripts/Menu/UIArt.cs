@@ -14,6 +14,91 @@ public static class UIArt
         Board, Book, Guitar, Cart, Burger, Dice, Play, Gear, Gamepad, Coin,
     }
 
+    // The look: a night-street poster. Ink and paper, mustard caution tape, blood red, a teal for stats;
+    // condensed display type over a clean sans; slanted tags; hard offset "print" shadows; a little film grain.
+    public static class Theme
+    {
+        public static readonly Color Ink = new Color(0.06f, 0.047f, 0.05f), Ink2 = new Color(0.11f, 0.09f, 0.095f), Ink3 = new Color(0.17f, 0.14f, 0.145f);
+        public static readonly Color Paper = new Color(0.95f, 0.92f, 0.87f), Muted = new Color(0.95f, 0.92f, 0.87f, 0.58f);
+        public static readonly Color Mustard = new Color(0.95f, 0.71f, 0.2f), Blood = new Color(0.85f, 0.22f, 0.17f), Teal = new Color(0.25f, 0.72f, 0.65f);
+        public static readonly Color Money = new Color(0.55f, 0.88f, 0.45f);
+        public const float Shadow = 6f;
+    }
+
+    static Font body;
+    // Clean sans for body text (falls back to Arial).
+    public static Font Body => body ? body : body = Font.CreateDynamicFontFromOSFont(new[] { "Helvetica Neue", "Segoe UI", "Avenir Next", "Arial" }, 32);
+
+    static Sprite stripe, tag, grain;
+
+    // Caution tape: mustard and ink diagonal stripes (tile it).
+    public static Sprite StripeSprite()
+    {
+        if (stripe) return stripe;
+        const int n = 32; var tex = NewTex(n, n); tex.wrapMode = TextureWrapMode.Repeat;
+        for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
+            tex.SetPixel(x, y, ((x + y) / 8) % 2 == 0 ? Theme.Mustard : Theme.Ink);
+        tex.Apply();
+        return stripe = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 32);
+    }
+
+    public static Image Stripe(RectTransform parent, float x, float y, float w, float h = 10f)
+    {
+        var img = UIKit.Panel(parent, "Stripe", Color.white);
+        img.sprite = StripeSprite(); img.type = Image.Type.Tiled;
+        UIKit.Place(img.rectTransform, x, y, w, h);
+        return img;
+    }
+
+    // Slanted tag shape (parallelogram with soft edges), 9-sliced.
+    public static Sprite TagSprite()
+    {
+        if (tag) return tag;
+        const int w = 64, h = 32; const float slant = 8f; var tex = NewTex(w, h);
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+        {
+            float off = slant * (y / (float)(h - 1));
+            float left = x + 0.5f - off, right = (w - slant + off) - (x + 0.5f);
+            tex.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(Mathf.Min(left, right) + 0.5f)));
+        }
+        tex.Apply();
+        return tag = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100, 0, SpriteMeshType.FullRect, new Vector4(14, 2, 14, 2));
+    }
+
+    // A slanted label chip: "ROUND 1", "UPGRADE", key hints.
+    public static Text Tag(RectTransform parent, string text, Color back, Color fore, float x, float y, float w, float h, int size = 22)
+    {
+        var img = UIKit.Panel(parent, "Tag", back); img.sprite = TagSprite(); img.type = Image.Type.Sliced;
+        UIKit.Place(img.rectTransform, x, y, w, h);
+        var t = UIKit.Label(img.rectTransform, text, size, fore, TextAnchor.MiddleCenter);
+        t.font = Display; UIKit.Fill(t.rectTransform);
+        return t;
+    }
+
+    // Faint film grain for full-screen menus.
+    public static Image Grain(Transform parent, float alpha = 0.05f)
+    {
+        if (!grain)
+        {
+            const int n = 128; var tex = NewTex(n, n); tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Point;
+            var r = new System.Random(3);
+            for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) { float v = (float)r.NextDouble(); tex.SetPixel(x, y, new Color(v, v, v, 1)); }
+            tex.Apply();
+            grain = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100);
+        }
+        var img = UIKit.Panel(parent, "Grain", new Color(1, 1, 1, alpha)); img.sprite = grain; img.type = Image.Type.Tiled;
+        UIKit.Fill(img.rectTransform);
+        return img;
+    }
+
+    // Hard offset shadow, like a printed sticker.
+    public static T Print<T>(T g, float distance = Theme.Shadow) where T : Graphic
+    {
+        var s = g.gameObject.AddComponent<Shadow>();
+        s.effectColor = new Color(0, 0, 0, 0.85f); s.effectDistance = new Vector2(distance, -distance);
+        return g;
+    }
+
     static readonly Dictionary<int, Sprite> rounded = new Dictionary<int, Sprite>();
     static readonly Dictionary<Icon, Sprite> icons = new Dictionary<Icon, Sprite>();
     static Sprite vertical, burst, vignette;
@@ -113,7 +198,8 @@ public static class UIArt
     {
         var b = UIKit.Button(parent, label, size, onClick, align);
         var img = b.GetComponent<Image>();
-        img.sprite = Rounded(22); img.type = Image.Type.Sliced;
+        img.sprite = Rounded(12); img.type = Image.Type.Sliced;
+        Print(img, 4f);
         var cb = b.colors;
         cb.normalColor = baseColor;
         cb.highlightedColor = cb.selectedColor = Color.Lerp(baseColor, Color.white, 0.25f);
@@ -121,10 +207,11 @@ public static class UIArt
         b.colors = cb;
         var text = b.GetComponentInChildren<Text>();
         text.font = Display; text.fontStyle = FontStyle.Normal;
-        Shadowed(text, 2f, 0.6f);
+        bool light = baseColor.grayscale > 0.55f;                        // dark text on mustard / paper buttons
+        text.color = light ? Theme.Ink : Theme.Paper;
         if (icon.HasValue)
         {
-            var ic = IconImage(b.transform, icon.Value, Color.white);
+            var ic = IconImage(b.transform, icon.Value, light ? Theme.Ink : Theme.Paper);
             var rt = ic.rectTransform;
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0, 0.5f);
             rt.sizeDelta = new Vector2(size * 1.1f, size * 1.1f);

@@ -27,34 +27,38 @@ public class TitleScreen : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // vignette around the house, plus a darker left side so the text reads (stacked strips fake a gradient)
-        var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.85f)); vig.sprite = UIArt.Vignette();
+        // vignette around the house, a solid ink column on the left for the menu (caution-tape edge), film grain
+        var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.8f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        for (int i = 0; i < 6; i++)
-            UIKit.Place(UIKit.Panel(root, "Shade", new Color(0, 0, 0, 0.13f)).rectTransform, 0, 0, 1100 - i * 150, 1080);
+        var column = UIKit.Panel(root, "Column", new Color(UIArt.Theme.Ink.r, UIArt.Theme.Ink.g, UIArt.Theme.Ink.b, 0.86f));
+        UIKit.Place(column.rectTransform, 0, 0, 720, 1080);
+        UIArt.Stripe((RectTransform)root, 720, 0, 12, 1080);
+        UIArt.Grain(root, 0.045f);
 
         main = UIKit.Node("Main", root).gameObject;
         UIKit.Fill((RectTransform)main.transform);
-        var top = UIKit.Label(main.transform, flow.titleTop, 76, UIKit.Gold, TextAnchor.LowerLeft);
+        var mt = (RectTransform)main.transform;
+        UIArt.PopIn(UIArt.Tag(mt, "1–4 PLAYER CO-OP SURVIVAL", UIArt.Theme.Mustard, UIArt.Theme.Ink, 110, 118, 380, 42, 24), 0f);
+        var top = UIKit.Label(main.transform, flow.titleTop, 84, UIArt.Theme.Paper, TextAnchor.LowerLeft);
         top.font = UIArt.Display;
-        UIKit.Place(UIKit.Outlined(top, Color.black).rectTransform, 110, 110, 1200, 90);
-        var titleHolder = UIKit.Place(UIKit.Node("TitleHolder", main.transform), 104, 190, 1500, 200);
+        UIKit.Place(UIArt.Print(top, 5f).rectTransform, 108, 162, 1200, 96);
+        var titleHolder = UIKit.Place(UIKit.Node("TitleHolder", main.transform), 104, 244, 1500, 200);
         titleHolder.pivot = new Vector2(0.2f, 0.5f);
-        titleHolder.gameObject.AddComponent<UIPulse>().amount = 0.012f;
-        var title = UIKit.Label(titleHolder, flow.titleMain, 176, UIKit.Blood, TextAnchor.UpperLeft);
+        titleHolder.gameObject.AddComponent<UIPulse>().amount = 0.01f;
+        var title = UIKit.Label(titleHolder, flow.titleMain, 176, UIArt.Theme.Blood, TextAnchor.UpperLeft);
         title.font = UIArt.Display;
-        UIKit.Fill(UIKit.Outlined(title, new Color(0.12f, 0.01f, 0.01f), 6f).rectTransform);
+        UIKit.Fill(UIArt.Print(title, 9f).rectTransform);
         UIArt.PopIn(top, 0.05f); UIArt.PopIn(title, 0.15f);
-        var tag = UIKit.Label(main.transform, flow.tagline, 30, new Color(1, 1, 1, 0.8f), TextAnchor.UpperLeft, FontStyle.Italic);
-        UIKit.Place(UIKit.Outlined(tag, Color.black, 1.5f).rectTransform, 112, 380, 1200, 44);
+        var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
+        UIKit.Place(tag.rectTransform, 112, 444, 560, 70);
 
-        startButton = MenuButton(main.transform, "START", 520, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 612, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f);
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 704, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f);
-        var cb = startButton.colors; cb.normalColor = new Color(0.72f, 0.11f, 0.09f, 0.95f); cb.highlightedColor = cb.selectedColor = new Color(0.9f, 0.2f, 0.14f); startButton.colors = cb;
+        startButton = MenuButton(main.transform, "START", 560, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 652, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 744, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
 
-        var foot = UIKit.Label(main.transform, "Early prototype · Mac & Windows", 20, new Color(1, 1, 1, 0.45f), TextAnchor.LowerLeft);
-        UIKit.Place(foot.rectTransform, 112, 1010, 800, 40);
+        UIArt.Stripe(mt, 112, 990, 120, 8);
+        var foot = UIKit.Label(main.transform, "EARLY PROTOTYPE  ·  MAC & WINDOWS", 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);
+        UIKit.Place(foot.rectTransform, 246, 978, 600, 32);
 
         settings = BuildSettings(root);
         controls = BuildControls(root);
@@ -63,12 +67,11 @@ public class TitleScreen : MonoBehaviour
         Select(startButton);
     }
 
-    Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay)
+    Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay, Color color)
     {
-        var b = UIArt.Button(parent, label, 40, onClick, new Color(0.08f, 0.05f, 0.06f, 0.82f), icon, TextAnchor.MiddleLeft);
-        var rt = UIKit.Place((RectTransform)b.transform, 110, y, 400, 76);
+        var b = UIArt.Button(parent, label, 40, onClick, color, icon, TextAnchor.MiddleLeft);
+        var rt = UIKit.Place((RectTransform)b.transform, 110, y, 460, 76);
         rt.pivot = new Vector2(0, 0.5f); rt.anchoredPosition += new Vector2(0, -38);   // grow to the right on hover
-        UIArt.Shadowed(b.GetComponent<Image>(), 5f, 0.5f);
         UIArt.PopIn(b, delay);
         return b;
     }
@@ -102,7 +105,7 @@ public class TitleScreen : MonoBehaviour
         var full = UIKit.Toggle(card, Screen.fullScreen, v => Screen.fullScreen = v);
         UIKit.Place((RectTransform)full.transform, 380, y + 14, 40, 40);
 
-        var note = UIKit.Label(card, "More options (graphics, key rebinding) are coming later.", 22, UIKit.Dim, TextAnchor.UpperLeft, FontStyle.Italic);
+        var note = UIKit.Label(card, "More options (graphics, key rebinding) are coming later.", 20, UIArt.Theme.Muted, TextAnchor.UpperLeft);
         UIKit.Place(note.rectTransform, 50, y + 100, 660, 60);
 
         settingsBack = BackButton(card, () => Close(settings));
@@ -133,11 +136,12 @@ public class TitleScreen : MonoBehaviour
         for (int i = 0; i < ControlRows.GetLength(0); i++)
         {
             float y = 175 + i * 50;
-            var a = UIKit.Label(card, ControlRows[i, 0], 24, Color.white);
+            if (i % 2 == 0) UIKit.Place(UIArt.RoundPanel(card, "Zebra", new Color(1, 1, 1, 0.035f), 8).rectTransform, 36, y, 688, 46);
+            var a = UIKit.Label(card, ControlRows[i, 0], 24, UIArt.Theme.Paper);
             UIKit.Place(a.rectTransform, 50, y, 250, 44);
-            var k = UIKit.Label(card, ControlRows[i, 1], 24, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var k = UIKit.Label(card, ControlRows[i, 1], 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
             UIKit.Place(k.rectTransform, 300, y, 240, 44);
-            var g = UIKit.Label(card, ControlRows[i, 2], 24, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var g = UIKit.Label(card, ControlRows[i, 2], 22, UIArt.Theme.Teal, TextAnchor.MiddleLeft, FontStyle.Bold);
             UIKit.Place(g.rectTransform, 540, y, 200, 44);
         }
         controlsBack = BackButton(card, () => Close(controls));
@@ -148,35 +152,35 @@ public class TitleScreen : MonoBehaviour
 
     RectTransform Card(Transform root, string title)
     {
-        var img = UIArt.RoundPanel(root, title, new Color(0.05f, 0.025f, 0.035f, 0.94f), 28);
+        var img = UIArt.RoundPanel(root, title, UIArt.Theme.Ink2, 18);
         var card = UIKit.Place(img.rectTransform, 1080, 150, 760, 780);
         img.raycastTarget = true;
-        UIArt.Shadowed(img, 10f, 0.6f);
-        var band = UIArt.RoundPanel(card, "Band", new Color(0.7f, 0.1f, 0.08f), 28);
-        UIKit.Place(band.rectTransform, 0, 0, 760, 110);
-        UIKit.Place(UIKit.Panel(card, "BandEdge", new Color(0.7f, 0.1f, 0.08f)).rectTransform, 0, 80, 760, 30);
-        var t = UIKit.Label(card, title, 60, Color.white, TextAnchor.MiddleLeft);
+        UIArt.Print(img, 10f);
+        UIArt.Stripe(card, 0, 0, 760, 14);
+        var t = UIKit.Label(card, title, 64, UIArt.Theme.Mustard, TextAnchor.MiddleLeft);
         t.font = UIArt.Display;
-        UIKit.Place(UIArt.Shadowed(t, 3f).rectTransform, 50, 16, 660, 80);
+        UIKit.Place(UIArt.Print(t, 4f).rectTransform, 50, 30, 460, 86);
+        UIArt.Tag(card, "ESC · BACK", UIArt.Theme.Ink3, UIArt.Theme.Muted, 550, 52, 160, 38, 20);
+        UIKit.Place(UIKit.Panel(card, "Rule", new Color(1, 1, 1, 0.08f)).rectTransform, 50, 124, 660, 2);
         UIArt.PopIn(img, 0f);
         return card;
     }
 
     static void Row(RectTransform card, string label, float y)
     {
-        var l = UIKit.Label(card, label, 28, Color.white);
+        var l = UIKit.Label(card, label.ToUpper(), 26, UIArt.Theme.Paper, TextAnchor.MiddleLeft, FontStyle.Bold);
         UIKit.Place(l.rectTransform, 50, y, 320, 64);
     }
 
     static void Header(RectTransform card, string label, float x, float y)
     {
-        var l = UIKit.Label(card, label, 20, UIKit.Dim, TextAnchor.MiddleLeft, FontStyle.Bold);
+        var l = UIKit.Label(card, label, 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);
         UIKit.Place(l.rectTransform, x, y, 240, 36);
     }
 
     Button BackButton(RectTransform card, System.Action onClick)
     {
-        var b = UIArt.Button(card, "BACK", 32, onClick, new Color(0.2f, 0.12f, 0.12f));
+        var b = UIArt.Button(card, "BACK", 32, onClick, UIArt.Theme.Ink3);
         UIKit.Place((RectTransform)b.transform, 50, 690, 220, 64);
         return b;
     }

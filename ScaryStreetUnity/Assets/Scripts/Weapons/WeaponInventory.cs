@@ -28,7 +28,6 @@ public class WeaponInventory : MonoBehaviour
     Health health;
     Transform weaponRoot;
     string toast; float toastT;
-    GUIStyle slotName, slotStatus, hintStyle, toastStyle;
 
     void Awake()
     {
@@ -78,6 +77,8 @@ public class WeaponInventory : MonoBehaviour
     }
 
     public void Toast(string msg, float time = 2f) { toast = msg; toastT = time; }
+    public string ToastText => toastT > 0 ? toast : null;
+    public float ToastAge => toastT;
 
     void Update()
     {
@@ -102,53 +103,10 @@ public class WeaponInventory : MonoBehaviour
 
     void Cycle(int dir) => Select((Selected + dir + slots.Count) % slots.Count);
 
-    // ---------- HUD ----------
 
-    void OnGUI()
-    {
-        var area = HudArea.For(this);
-        GUI.BeginGroup(area);
-        DrawHud(area.width, area.height);
-        GUI.EndGroup();
-    }
 
-    void DrawHud(float W, float H)
-    {
-        if (health && health.IsDead) return;
-        if (slotName == null)
-        {
-            slotName = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter, wordWrap = true };
-            slotStatus = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.LowerCenter };
-            hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
-            toastStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        }
 
-        if (haze > 0.01f) Fill(new Rect(0, 0, W, H), new Color(0.86f, 0.9f, 0.86f, haze * 0.55f));
 
-        const float w = 112, h = 74, gap = 8;
-        float total = slots.Count * w + (slots.Count - 1) * gap;
-        float x0 = (W - total) / 2f, y = H - h - 18;
-        for (int i = 0; i < slots.Count; i++)
-        {
-            var r = new Rect(x0 + i * (w + gap), y, w, h);
-            bool sel = i == Selected;
-            if (sel) Fill(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(0.95f, 0.76f, 0.19f));
-            Fill(r, new Color(0.06f, 0.04f, 0.05f, sel ? 0.92f : 0.7f));
-            GUI.Label(new Rect(r.x + 6, r.y + 3, 20, 20), (i + 1).ToString());
-            var wpn = slots[i];
-            GUI.Label(new Rect(r.x + 4, r.y + 20, r.width - 8, 32), wpn ? wpn.displayName : "Fists", slotName);
-            if (wpn) GUI.Label(new Rect(r.x + 4, r.y + 40, r.width - 8, 30), wpn.SlotStatus, slotStatus);
-        }
 
-        string hint = Current ? Current.Hint : "Left click to punch";
-        GUI.Label(new Rect(0, y - 30, W, 24), hint, hintStyle);
-        if (toastT > 0) GUI.Label(new Rect(0, H * 0.7f, W, 34), toast, toastStyle);
-    }
 
-    static void Fill(Rect r, Color c)
-    {
-        var old = GUI.color; GUI.color = c;
-        GUI.DrawTexture(r, Texture2D.whiteTexture);
-        GUI.color = old;
-    }
 }

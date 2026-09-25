@@ -18,6 +18,7 @@ public class GameFlow : MonoBehaviour
     public static int PlayerCount => Mathf.Max(1, chosen.Count);
     static readonly List<CharacterLook> chosen = new List<CharacterLook>();
     static bool startImmediately;
+    public static bool FreeRoam { get; private set; }
 
     [Header("Title")]
     public string titleTop = "BOOGIE DOWN";
@@ -41,7 +42,7 @@ public class GameFlow : MonoBehaviour
 
     // with "Enter Play Mode Options" (no domain reload) statics would survive between plays
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { chosen.Clear(); startImmediately = false; }
+    static void ResetStatics() { chosen.Clear(); startImmediately = false; FreeRoam = false; }
 
     public static void Restart()
     {
@@ -65,6 +66,7 @@ public class GameFlow : MonoBehaviour
         {
             startImmediately = false;
             SetUpPlayers();                  // RoundManager starts on its own
+            if (FreeRoam && rounds) { rounds.autoStart = false; rounds.BeginFreeRoam(); gameObject.AddComponent<SandboxMenu>(); }
             return;
         }
         startImmediately = false;
@@ -87,8 +89,20 @@ public class GameFlow : MonoBehaviour
         screen = next;
     }
 
+    public void StartFreeRoam(CharacterLook look)
+    {
+        FreeRoam = true;
+        chosen.Clear(); chosen.Add(look);
+        if (screen) Destroy(screen);
+        if (menuCam) Destroy(menuCam.gameObject);
+        SetUpPlayers();
+        if (rounds) rounds.BeginFreeRoam();
+        gameObject.AddComponent<SandboxMenu>();
+    }
+
     public void StartGame(params CharacterLook[] looks)
     {
+        FreeRoam = false;
         chosen.Clear();
         chosen.AddRange(looks);
         if (screen) Destroy(screen);

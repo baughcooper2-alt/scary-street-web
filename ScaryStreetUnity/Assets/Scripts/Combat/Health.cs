@@ -14,6 +14,7 @@ public class Health : MonoBehaviour
 
     // Extra shove the last hit asked for (Law Book swings, the OBJECTION slam); enemies read it in their Damaged handler.
     public float LastKnockback { get; private set; }
+    [System.NonSerialized] public bool invincible;       // sandbox god mode
 
     public float Current { get; private set; }
     public float Fraction => maxHealth > 0 ? Current / maxHealth : 0f;
@@ -28,7 +29,7 @@ public class Health : MonoBehaviour
 
     public void TakeDamage(float amount, float knockback = 0f)
     {
-        if (IsDead || amount <= 0 || Time.time < invulnUntil) return;
+        if (IsDead || invincible || amount <= 0 || Time.time < invulnUntil) return;
         amount *= 1f - Mathf.Clamp(damageReduction, 0f, 0.8f);
         LastKnockback = knockback;
         Current = Mathf.Max(0, Current - amount);

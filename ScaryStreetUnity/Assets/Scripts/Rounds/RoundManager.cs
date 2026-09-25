@@ -39,7 +39,7 @@ public class RoundDefinition
 // Also draws a temporary IMGUI round HUD (round, timer, enemies left, banners).
 public class RoundManager : MonoBehaviour
 {
-    public enum State { Fighting, Cleared, Boss, Shop, Victory, GameOver }
+    public enum State { Fighting, Cleared, Boss, Shop, Victory, GameOver, FreeRoam }
 
     public static RoundManager Instance { get; private set; }
 
@@ -71,6 +71,15 @@ public class RoundManager : MonoBehaviour
 
     public event Action<int> RoundStarted, RoundEnded;   // round number
 
+    // for the HUD
+    public Health BossHealth => boss && !boss.IsDead ? boss : null;
+    public string BossName => CurrentState == State.Boss && rounds.Count > 0 ? Current.bossAfter : "Jack";
+    public string Banner => bannerT > 0 ? banner : null;
+    public string SubBanner => subBanner;
+    public float BannerAlpha => Mathf.Clamp01(bannerT);
+    public bool WaitingForNextRound => nextRoundT >= 0;
+    public string NextRoundName => index + 1 < rounds.Count ? rounds[index + 1].name : "";
+
     readonly List<Health> alive = new List<Health>();
     SpawnPoint[] spawnPoints;
     Vector3[] navVerts;
@@ -83,7 +92,6 @@ public class RoundManager : MonoBehaviour
     Health boss;
     bool bossDown;
     string banner, subBanner;
-    GUIStyle bigStyle, smallStyle, hudStyle;
 
     [System.NonSerialized] public bool autoStart = true;   // GameFlow turns this off while the menus are up
     bool begun;
@@ -94,6 +102,44 @@ public class RoundManager : MonoBehaviour
     {
         if (autoStart) Begin();
     }
+
+    // Free roam: the house with no rounds and no enemies (the sandbox menu can spawn some).
+    public void BeginFreeRoam()
+    {
+        freeRoam = true;
+        Begin();
+    }
+
+    bool freeRoam;
+    public bool IsFreeRoam => freeRoam;
+
+    // ---------- sandbox helpers ----------
+
+    public GameObject SpawnWorker(int level)
+    {
+        GameObject prefab = null;
+        foreach (var r in rounds) foreach (var e in r.enemies) if (e.prefab && !prefab) prefab = e.prefab;
+        if (!prefab || !FindSpawnSpot(out var spot)) return null;
+        var go = Instantiate(prefab, spot, Quaternion.identity);
+        var w = go.GetComponent<McDonaldsWorker>(); if (w) w.SetLevel(level);
+        var h = go.GetComponent<Health>(); if (h) alive.Add(h);
+        return go;
+    }
+
+    public void SpawnJack()
+    {
+        if (FindSpawnSpot(out var spot)) { var j = JackBoss.Spawn(spot); alive.Add(j.Health); Show("BOSS: Jack", "Bad jokes, worse farts"); SoundKit.Play(Sfx.Boss, 0.8f, 0f); }
+    }
+
+    public void ClearEnemies()
+    {
+        LootDrop.Enabled = false;
+        foreach (var h in alive.ToArray()) if (h) h.TakeDamage(float.MaxValue);
+        LootDrop.Enabled = true;
+        alive.Clear();
+    }
+
+    public void CallDoorDash() { DoorDashCourier.Deliver(null); Show("Knock knock", "Your DoorDash is on the way up the front steps"); }
 
     public void Begin()
     {
@@ -116,6 +162,13 @@ public class RoundManager : MonoBehaviour
         if (spawnPoints.Length == 0 && navTris.Length == 0)
             Debug.LogError("RoundManager: no SpawnPoints and no baked NavMesh, so nothing can spawn.", this);
 
+        if (freeRoam)
+        {
+            CurrentState = State.FreeRoam;
+            Show("FREE ROAM", "No enemies. Press Tab (or Select) for the sandbox menu.");
+            SoundKit.PlayMusic(MusicTrack.Menu);
+            return;
+        }
         if (rounds.Count == 0) { Debug.LogError("RoundManager: no rounds. Run Tools > Scary Street > Set Up Rounds.", this); enabled = false; return; }
         StartRound(Mathf.Clamp(startAtRound - 1, 0, rounds.Count - 1));
     }
@@ -365,55 +418,10 @@ public class RoundManager : MonoBehaviour
 
     static float Flat(Vector3 v) { v.y = 0; return v.magnitude; }
 
-    // ---------- HUD ----------
 
     void Show(string title, string sub) { banner = title; subBanner = sub; bannerT = bannerTime; }
 
-    void OnGUI()
-    {
-        if (!begun || rounds.Count == 0) return;
-        if (bigStyle == null)
-        {
-            bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
-            hudStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        }
-        float w = Screen.width;
 
-        // top bar: round, timer, enemies left
-        string timer = CurrentState == State.Fighting ? $"{Mathf.FloorToInt(TimeLeft / 60)}:{Mathf.FloorToInt(TimeLeft % 60):00}"
-                     : CurrentState == State.Boss && boss && !boss.IsDead ? "BOSS FIGHT" : "--:--";
-        GUI.Label(new Rect(0, 12, w, 30), $"{Current.name.ToUpper()}    {timer}", hudStyle);
-        if (CurrentState == State.Fighting) GUI.Label(new Rect(0, 40, w, 26), $"Workers: {alive.Count}    Knocked out: {KillsThisRound}", smallStyle);
-
-        if (bannerT > 0 && !string.IsNullOrEmpty(banner))
-        {
-            var old = GUI.color; GUI.color = new Color(1, 1, 1, Mathf.Clamp01(bannerT));
-            GUI.Label(new Rect(0, Screen.height * 0.22f, w, 60), banner, bigStyle);
-            if (!string.IsNullOrEmpty(subBanner)) GUI.Label(new Rect(0, Screen.height * 0.22f + 55, w, 30), subBanner, smallStyle);
-            GUI.color = old;
-        }
-
-        if (CurrentState == State.Boss && boss && !boss.IsDead)
-        {
-            float bw = Mathf.Min(700, w * 0.6f), bx = (w - bw) / 2f, by = 70;
-            var old = GUI.color;
-            GUI.color = new Color(0, 0, 0, 0.7f); GUI.DrawTexture(new Rect(bx - 3, by - 3, bw + 6, 26), Texture2D.whiteTexture);
-            GUI.color = new Color(0.55f, 0.75f, 0.23f); GUI.DrawTexture(new Rect(bx, by, bw * boss.Fraction, 20), Texture2D.whiteTexture);
-            GUI.color = old;
-            GUI.Label(new Rect(0, by - 2, w, 24), $"{Current.bossAfter.ToUpper()}  {Mathf.CeilToInt(boss.Current)} / {boss.maxHealth:0}", smallStyle);
-        }
-
-        if (CurrentState == State.Shop && nextRoundT < 0 && !DoorDashShop.IsOpen)
-        {
-            var c = DoorDashCourier.Current;
-            string line = !c ? "" : c.State == DoorDashCourier.Phase.Waiting
-                ? "Your DoorDash is on the front porch: go look at them and press F"
-                : "Your DoorDash is on the way to the front porch";
-            GUI.Label(new Rect(0, 74, w, 30), line, hudStyle);
-            GUI.Label(new Rect(0, 104, w, 26), $"Enter (or Start) to skip the shop and start {rounds[index + 1].name}", smallStyle);
-        }
-    }
 
     // ---------- defaults from DESIGN.md ----------
 

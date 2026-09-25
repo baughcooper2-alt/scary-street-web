@@ -153,12 +153,13 @@ public class DoorDashShop : MonoBehaviour
         UIKit.Fill(UIKit.Panel(root, "Dim", new Color(0, 0, 0, 0.5f)).rectTransform);
         var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.8f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
+        UIArt.Grain(root, 0.035f);
 
         // the "app": rounded card sliding up
         var bag = UIArt.RoundPanel(root, "Bag", Ink, 36);
         var card = UIKit.Place(bag.rectTransform, 240, 90, 1440, 900);
         bag.raycastTarget = true;
-        UIArt.Shadowed(bag, 16f, 0.7f);
+        UIArt.Print(bag, 12f);
         UIArt.PopIn(bag, 0f).GetComponent<UIPop>().from = 0.9f;
 
         var header = UIArt.RoundPanel(card, "Header", Red, 36);
@@ -171,7 +172,7 @@ public class DoorDashShop : MonoBehaviour
 
         var title = UIKit.Label(card, "DOORDASH", 70, Color.white, TextAnchor.MiddleLeft);
         title.font = UIArt.Display;
-        UIKit.Place(UIArt.Shadowed(title, 3f).rectTransform, 140, 14, 600, 90);
+        UIKit.Place(UIArt.Print(title, 4f).rectTransform, 140, 14, 600, 90);
         var arms = player.GetComponentInChildren<FirstPersonArms>(true);
         string who = arms && arms.look ? arms.look.displayName : "you";
         var sub = UIKit.Label(card, $"Delivery for {who}  ·  after Round {round}", 24, new Color(1, 1, 1, 0.9f), TextAnchor.MiddleLeft);
@@ -192,7 +193,7 @@ public class DoorDashShop : MonoBehaviour
 
         upgradesText = UIKit.Label(card, "", 22, new Color(1, 1, 1, 0.6f), TextAnchor.UpperLeft);
         UIKit.Place(upgradesText.rectTransform, 60, 718, 1320, 36);
-        noteText = UIKit.Label(card, "", 24, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
+        noteText = UIKit.Label(card, "", 24, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
         UIKit.Place(noteText.rectTransform, 380, 800, 520, 40);
 
         rerollButton = UIArt.Button(card, "", 30, Reroll, new Color(0.22f, 0.14f, 0.14f), UIArt.Icon.Dice, TextAnchor.MiddleLeft);
@@ -233,7 +234,7 @@ public class DoorDashShop : MonoBehaviour
 
             var tileImg = UIArt.RoundPanel(cardArea, it.name, new Color(0.13f, 0.09f, 0.09f), 26);
             var tile = UIKit.Place(tileImg.rectTransform, i * (w + gap), 0, w, h);
-            UIArt.Shadowed(tileImg, 8f, 0.5f);
+            UIArt.Print(tileImg, 7f);
             if (animateCards) UIArt.PopIn(tileImg, 0.1f + i * 0.08f);
 
             // picture area: coloured, with the icon

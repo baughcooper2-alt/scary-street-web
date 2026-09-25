@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 // Fighting-game style select: game modes along the top, P1's fighter shown big on the left,
 // the roster grid in the middle (DESIGN.md's 8 base characters + 8 DLC), P2 waiting on the right.
 // 1 Player, or 2 Player split-screen (needs a controller for P2; P1 picks, then P2). Only characters with a look
-// (Cooper, Nathan) can be picked; the rest say COMING SOON, as do 3 / 4 Player and Free Roam.
+// (Cooper, Nathan) can be picked; the rest say COMING SOON, as do 3 / 4 Player. Free Roam is the sandbox (no enemies).
 // The fighters are real 3D models on a hidden stage far below the house, filmed into RenderTextures.
 public class CharacterSelectScreen : MonoBehaviour
 {
@@ -32,6 +32,7 @@ public class CharacterSelectScreen : MonoBehaviour
 
     GameFlow flow;
     int players = 1, picking;                    // how many are playing, and whose turn it is to pick
+    bool freeRoam;
     readonly CharacterLook[] picks = new CharacterLook[2];
     readonly List<Button> modeButtons = new List<Button>();
     Text titleText, p2Text, p2Note, p2Name, p2Mark;
@@ -150,13 +151,15 @@ public class CharacterSelectScreen : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        var bg = UIKit.Panel(root, "Background", new Color(0.05f, 0.025f, 0.03f, 0.96f));
+        var bg = UIKit.Panel(root, "Background", UIArt.Theme.Ink);
         UIKit.Fill(bg.rectTransform);
-        UIKit.Place(UIKit.Panel(root, "Glow", new Color(0.7f, 0.08f, 0.05f, 0.22f)).rectTransform, 0, 0, 1920, 170);
-        UIKit.Place(UIKit.Panel(root, "GlowLine", UIKit.Blood).rectTransform, 0, 170, 1920, 4);
+        UIKit.Place(UIKit.Panel(root, "TopBand", UIArt.Theme.Ink2).rectTransform, 0, 0, 1920, 176);
+        UIArt.Stripe((RectTransform)root, 0, 176, 1920, 10);
+        UIArt.Grain(root, 0.04f);
 
-        titleText = UIKit.Label(root, "CHOOSE YOUR FIGHTER", 64, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
-        UIKit.Place(UIKit.Outlined(titleText, Color.black, 4f).rectTransform, 0, 18, 1920, 80);
+        titleText = UIKit.Label(root, "CHOOSE YOUR FIGHTER", 64, UIArt.Theme.Paper, TextAnchor.MiddleCenter);
+        titleText.font = UIArt.Display;
+        UIKit.Place(UIArt.Print(titleText, 5f).rectTransform, 0, 16, 1920, 80);
 
         // game modes
         for (int m = 0; m < Modes.Length; m++)
@@ -164,12 +167,21 @@ public class CharacterSelectScreen : MonoBehaviour
             int mode = m;
             float x = 303 + m * 266;
             var b = UIKit.Button(root, "", 30, () => OnMode(mode));
+            var bi = b.GetComponent<Image>(); bi.sprite = UIArt.Rounded(10); bi.type = Image.Type.Sliced;
+            UIArt.Print(bi, 4f);
             modeButtons.Add(b);
             var rt = UIKit.Place((RectTransform)b.transform, x, 100, 250, 60);
-            bool available = m <= 1;
-            var label = UIKit.Label(rt, Modes[m], available ? 30 : 26, available ? Color.white : UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
+            bool available = m <= 1 || m == 4;
+            var label = UIKit.Label(rt, Modes[m], available ? 30 : 26, available ? UIArt.Theme.Paper : UIArt.Theme.Muted, TextAnchor.MiddleCenter);
+            label.font = UIArt.Display;
             UIKit.Fill(label.rectTransform);
-            if (m == 1)
+            if (m == 4)
+            {
+                label.rectTransform.offsetMax = new Vector2(0, -8);
+                var sub = UIKit.Label(rt, "NO ENEMIES · SANDBOX", 13, UIKit.Gold, TextAnchor.LowerCenter, FontStyle.Bold);
+                UIKit.Fill(sub.rectTransform); sub.rectTransform.offsetMin = new Vector2(0, 3);
+            }
+            else if (m == 1)
             {
                 label.rectTransform.offsetMax = new Vector2(0, -8);
                 var pad = UIKit.Label(rt, "SPLIT-SCREEN · CONTROLLER", 13, UIKit.Gold, TextAnchor.LowerCenter, FontStyle.Bold);
@@ -184,16 +196,18 @@ public class CharacterSelectScreen : MonoBehaviour
         }
 
         // P1 (left): big preview
-        var p1 = UIKit.Place(UIKit.Panel(root, "P1Frame", UIKit.Gold).rectTransform, 56, 196, 468, 698);
+        var p1Img = UIArt.RoundPanel(root, "P1Frame", UIArt.Theme.Mustard, 14);
+        var p1 = UIKit.Place(UIArt.Print(p1Img, 8f).rectTransform, 56, 210, 468, 684);
         var preview = UIKit.Node("Preview", p1).gameObject.AddComponent<RawImage>();
         preview.texture = previewCam.targetTexture; preview.raycastTarget = false;
         UIKit.Fill(preview.rectTransform, 4);
-        Badge(p1, "P1", UIKit.Blood);
+        Badge(p1, "P1", UIArt.Theme.Blood);
         previewMark = UIKit.Label(p1, "?", 260, new Color(1, 1, 1, 0.12f), TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Fill(previewMark.rectTransform);
-        nameText = UIKit.Outlined(UIKit.Label(root, "", 54, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold), Color.black);
+        nameText = UIArt.Print(UIKit.Label(root, "", 60, UIArt.Theme.Paper, TextAnchor.MiddleLeft), 5f);
+        nameText.font = UIArt.Display;
         UIKit.Place(nameText.rectTransform, 60, 904, 700, 66);
-        weaponText = UIKit.Label(root, "", 24, UIKit.Dim, TextAnchor.UpperLeft);
+        weaponText = UIKit.Label(root, "", 22, UIArt.Theme.Muted, TextAnchor.UpperLeft);
         UIKit.Place(weaponText.rectTransform, 62, 970, 520, 60);
 
         // roster grid (middle): base 8, then DLC 8
@@ -201,8 +215,8 @@ public class CharacterSelectScreen : MonoBehaviour
         var portraits = new Dictionary<CharacterLook, RenderTexture>();
         foreach (var kv in spots) portraits[kv.Key] = Portrait(kv.Value);
 
-        var dlcLabel = UIKit.Label(root, "DLC", 24, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
-        UIKit.Place(dlcLabel.rectTransform, 599, 566, 400, 40);
+        UIArt.Tag((RectTransform)root, "DLC", UIArt.Theme.Mustard, UIArt.Theme.Ink, 599, 570, 90, 32, 20);
+        UIKit.Place(UIKit.Panel(root, "DlcRule", new Color(1, 1, 1, 0.1f)).rectTransform, 700, 585, 620, 2);
         for (int i = 0; i < CharacterRoster.All.Length; i++)
         {
             var e = CharacterRoster.All[i];
@@ -213,29 +227,31 @@ public class CharacterSelectScreen : MonoBehaviour
         }
 
         // P2 (right): waiting
-        var p2 = UIKit.Place(UIKit.Panel(root, "P2Frame", new Color(1, 1, 1, 0.12f)).rectTransform, 1396, 196, 468, 698);
-        UIKit.Fill(UIKit.Panel(p2, "Inside", new Color(0.07f, 0.03f, 0.035f)).rectTransform, 4);
-        Badge(p2, "P2", new Color(0.2f, 0.35f, 0.8f));
+        var p2Img = UIArt.RoundPanel(root, "P2Frame", UIArt.Theme.Ink3, 14);
+        var p2 = UIKit.Place(UIArt.Print(p2Img, 8f).rectTransform, 1396, 210, 468, 684);
+        UIKit.Fill(UIArt.RoundPanel(p2, "Inside", new Color(0.07f, 0.03f, 0.035f), 12).rectTransform, 4);
+        Badge(p2, "P2", UIArt.Theme.Teal);
         var q = UIKit.Label(p2, "?", 260, new Color(1, 1, 1, 0.1f), TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Fill(q.rectTransform);
         p2Preview = UIKit.Node("Preview", p2).gameObject.AddComponent<RawImage>();
         p2Preview.raycastTarget = false; p2Preview.enabled = false;
         UIKit.Fill(p2Preview.rectTransform, 4);
         p2Mark = q;
-        p2Text = UIKit.Label(p2, "PLAYER 2\nPICK 2 PLAYER TO JOIN", 36, UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
+        p2Text = UIKit.Label(p2, "PLAYER 2\nPICK 2 PLAYER TO JOIN", 36, UIArt.Theme.Muted, TextAnchor.MiddleCenter);
+        p2Text.font = UIArt.Display;
         UIKit.Place(p2Text.rectTransform, 0, 520, 468, 110);
-        p2Note = UIKit.Label(p2, "Split-screen: player 2 plays on a controller. LAN and online come later.", 20, UIKit.Dim, TextAnchor.UpperCenter, FontStyle.Italic);
+        p2Note = UIKit.Label(p2, "Split-screen: player 2 plays on a controller. LAN and online come later.", 19, UIArt.Theme.Muted, TextAnchor.UpperCenter);
         UIKit.Place(p2Note.rectTransform, 30, 632, 408, 60);
-        p2Name = UIKit.Outlined(UIKit.Label(root, "", 44, Color.white, TextAnchor.MiddleRight, FontStyle.Bold), Color.black);
+        p2Name = UIArt.Print(UIKit.Label(root, "", 48, UIArt.Theme.Paper, TextAnchor.MiddleRight), 4f);
+        p2Name.font = UIArt.Display;
         UIKit.Place(p2Name.rectTransform, 1160, 860, 700, 60);
 
         // bottom buttons + messages
-        var back = UIKit.Button(root, "BACK", 32, () => flow.ShowTitle());
+        var back = UIArt.Button(root, "BACK", 32, () => flow.ShowTitle(), UIArt.Theme.Ink3);
         UIKit.Place((RectTransform)back.transform, 1396, 930, 200, 64);
-        fightButton = UIKit.Button(root, "FIGHT!", 38, Fight);
-        UIKit.Place((RectTransform)fightButton.transform, 1640, 930, 224, 64);
-        var fcb = fightButton.colors; fcb.normalColor = UIKit.Blood; fightButton.colors = fcb;
-        toastText = UIKit.Label(root, "", 26, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
+        fightButton = UIArt.Button(root, "FIGHT!", 38, Fight, UIArt.Theme.Blood);
+        UIKit.Place((RectTransform)fightButton.transform, 1620, 930, 244, 64);
+        toastText = UIKit.Label(root, "", 26, UIArt.Theme.Mustard, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(toastText.rectTransform, 560, 1010, 800, 44);
 
         HighlightModes();
@@ -248,35 +264,39 @@ public class CharacterSelectScreen : MonoBehaviour
         for (int m = 0; m < modeButtons.Count; m++)
         {
             var b = modeButtons[m]; var cb = b.colors;
-            bool on = m == players - 1;
-            cb.normalColor = on ? UIKit.Gold : new Color(0.08f, 0.05f, 0.06f, 0.8f);
-            cb.highlightedColor = cb.selectedColor = on ? new Color(1f, 0.86f, 0.35f) : new Color(0.62f, 0.1f, 0.08f, 0.95f);
+            bool on = freeRoam ? m == 4 : m == players - 1;
+            cb.normalColor = on ? UIArt.Theme.Mustard : UIArt.Theme.Ink3;
+            cb.highlightedColor = cb.selectedColor = on ? new Color(1f, 0.82f, 0.38f) : new Color(0.3f, 0.24f, 0.24f);
             b.colors = cb;
-            foreach (var t in b.GetComponentsInChildren<Text>()) if (t.fontSize >= 26) t.color = on ? Color.black : (m <= 1 ? Color.white : UIKit.Dim);
+            foreach (var t in b.GetComponentsInChildren<Text>())
+                t.color = t.fontSize >= 26 ? (on ? UIArt.Theme.Ink : (m <= 1 || m == 4 ? UIArt.Theme.Paper : UIArt.Theme.Muted))
+                        : on ? new Color(0.06f, 0.047f, 0.05f, 0.75f) : (m <= 1 || m == 4 ? UIArt.Theme.Mustard : UIArt.Theme.Blood);
         }
     }
 
     Tile MakeTile(Transform root, int index, CharacterRoster.Entry e, CharacterLook look, float x, float y, Texture portrait)
     {
         var t = new Tile { entry = e, look = look };
-        t.frame = UIKit.Place(UIKit.Panel(root, "Cursor", UIKit.Gold).rectTransform, x - 6, y - 6, 182, 182).gameObject;
+        t.frame = UIKit.Place(UIArt.RoundPanel(root, "Cursor", UIArt.Theme.Mustard, 14).rectTransform, x - 6, y - 6, 182, 182).gameObject;
 
         t.button = UIKit.Button(root, "", 20, () => OnTileClicked(index));
         var rt = UIKit.Place((RectTransform)t.button.transform, x, y, 170, 170);
-        var cb = t.button.colors; cb.normalColor = new Color(0.15f, 0.1f, 0.1f); cb.highlightedColor = cb.selectedColor = Color.white; t.button.colors = cb;
+        var ti = t.button.GetComponent<Image>(); ti.sprite = UIArt.Rounded(10); ti.type = Image.Type.Sliced;
+        var cb = t.button.colors; cb.normalColor = UIArt.Theme.Ink3; cb.highlightedColor = cb.selectedColor = Color.white; t.button.colors = cb;
 
         var img = UIKit.Node("Portrait", rt).gameObject.AddComponent<RawImage>();
         img.texture = portrait; img.raycastTarget = false;
         UIKit.Fill(img.rectTransform, 4);
         if (!look) img.color = new Color(0.55f, 0.55f, 0.55f);
 
-        var strip = UIKit.Place(UIKit.Panel(rt, "NameStrip", new Color(0, 0, 0, 0.75f)).rectTransform, 4, 132, 162, 34);
-        var name = UIKit.Label(strip, e.name.ToUpper(), 20, look ? Color.white : UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
+        var strip = UIKit.Place(UIKit.Panel(rt, "NameStrip", new Color(0.06f, 0.047f, 0.05f, 0.85f)).rectTransform, 4, 132, 162, 34);
+        var name = UIKit.Label(strip, e.name.ToUpper(), 22, look ? UIArt.Theme.Paper : UIArt.Theme.Muted, TextAnchor.MiddleCenter);
+        name.font = UIArt.Display;
         UIKit.Fill(name.rectTransform);
         if (!look)
         {
             var soonBg = UIKit.Place(UIKit.Panel(rt, "SoonBg", new Color(0, 0, 0, 0.7f)).rectTransform, 4, 8, 162, 26);
-            var soon = UIKit.Label(soonBg, "COMING SOON", 16, UIKit.Blood, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var soon = UIKit.Label(soonBg, "COMING SOON", 15, UIArt.Theme.Blood, TextAnchor.MiddleCenter, FontStyle.Bold);
             UIKit.Fill(soon.rectTransform);
         }
 
@@ -287,9 +307,7 @@ public class CharacterSelectScreen : MonoBehaviour
 
     static void Badge(RectTransform panel, string text, Color color)
     {
-        var b = UIKit.Place(UIKit.Panel(panel, "Badge", color).rectTransform, 12, 12, 78, 46);
-        var l = UIKit.Label(b, text, 30, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-        UIKit.Fill(l.rectTransform);
+        UIArt.Print(UIArt.Tag(panel, text, color, UIArt.Theme.Paper, 14, 14, 84, 46, 30).transform.parent.GetComponent<Image>(), 3f);
     }
 
     // ---------- behavior ----------
@@ -329,7 +347,9 @@ public class CharacterSelectScreen : MonoBehaviour
 
     void OnMode(int mode)
     {
+        if (mode == 4) { freeRoam = !freeRoam; players = 1; picking = 0; HighlightModes(); titleText.text = freeRoam ? "FREE ROAM: PICK WHO TO EXPLORE AS" : "CHOOSE YOUR FIGHTER"; return; }
         if (mode >= 2) { Toast($"{Modes[mode].ToLower()} is coming soon"); return; }
+        freeRoam = false;
         if (mode == 1 && !ControllerConnected()) { Toast("Plug in a controller for player 2 first"); return; }
         players = mode + 1;
         picking = 0;
@@ -364,6 +384,7 @@ public class CharacterSelectScreen : MonoBehaviour
     {
         var t = tiles[cursor];
         if (!t.look) { Toast($"{t.entry.name} is coming soon"); return; }
+        if (freeRoam) { flow.StartFreeRoam(t.look); return; }
         picks[picking] = t.look;
         if (players == 2 && picking == 0)
         {

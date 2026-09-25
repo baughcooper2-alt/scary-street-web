@@ -10,13 +10,13 @@ using UnityEngine.InputSystem.UI;
 // Positions use a 1920×1080 layout measured from the top-left corner; the CanvasScaler fits it to any screen.
 public static class UIKit
 {
-    public static readonly Color Gold = new Color(0.95f, 0.76f, 0.19f);
-    public static readonly Color Blood = new Color(0.85f, 0.15f, 0.12f);
+    public static readonly Color Gold = UIArt.Theme.Mustard;
+    public static readonly Color Blood = UIArt.Theme.Blood;
     public static readonly Color Ink = new Color(0.05f, 0.03f, 0.035f);
     public static readonly Color Dim = new Color(1f, 1f, 1f, 0.55f);
 
     static Font font;
-    public static Font Font => font ? font : font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    public static Font Font => font ? font : font = (UIArt.Body ? UIArt.Body : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
 
     public static Canvas MakeCanvas(string name, int order)
     {
@@ -102,9 +102,9 @@ public static class UIKit
         img.color = Color.white;
         var b = rt.gameObject.AddComponent<Button>();
         var cb = b.colors;
-        cb.normalColor = new Color(0.08f, 0.05f, 0.06f, 0.8f);
-        cb.highlightedColor = new Color(0.62f, 0.1f, 0.08f, 0.95f);
-        cb.selectedColor = new Color(0.62f, 0.1f, 0.08f, 0.95f);
+        cb.normalColor = UIArt.Theme.Ink2;
+        cb.highlightedColor = UIArt.Theme.Ink3;
+        cb.selectedColor = UIArt.Theme.Ink3;
         cb.pressedColor = Gold;
         cb.disabledColor = new Color(0.1f, 0.1f, 0.1f, 0.5f);
         cb.fadeDuration = 0.08f;

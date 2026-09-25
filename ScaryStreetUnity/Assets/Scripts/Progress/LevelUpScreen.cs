@@ -52,6 +52,7 @@ public class LevelUpScreen : MonoBehaviour
         UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.55f)).rectTransform);
         var vig = UIKit.Panel(s.root, "Vignette", new Color(0.15f, 0.02f, 0.02f, 0.9f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
+        UIArt.Grain(s.root, 0.04f);
         SoundKit.Play(Sfx.LevelUp, 0.7f, 0f);
         s.NextPage();
     }
@@ -72,14 +73,15 @@ public class LevelUpScreen : MonoBehaviour
         burst.gameObject.AddComponent<UISpin>();
 
         var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}  " : "";   // co-op: whose pick
-        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 120, UIKit.Gold, TextAnchor.MiddleCenter);
+        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 120, UIArt.Theme.Mustard, TextAnchor.MiddleCenter);
         title.font = UIArt.Display;
-        UIKit.Place(UIKit.Outlined(title, new Color(0.25f, 0.08f, 0f), 6f).rectTransform, 0, 100, 1920, 140);
+        UIKit.Place(UIArt.Print(title, 8f).rectTransform, 0, 100, 1920, 140);
         UIArt.PopIn(title, 0f);
         string more = progress.PendingPicks > 1 ? $"   ·   {progress.PendingPicks - 1} more after this" : "";
-        var sub = UIKit.Label(t, "PICK ONE" + more, 30, Color.white, TextAnchor.MiddleCenter);
+        UIArt.Stripe((RectTransform)t, 760, 236, 400, 8);
+        var sub = UIKit.Label(t, "PICK ONE" + more, 30, UIArt.Theme.Paper, TextAnchor.MiddleCenter);
         sub.font = UIArt.Display;
-        UIKit.Place(UIArt.Shadowed(sub, 2f).rectTransform, 0, 240, 1920, 44);
+        UIKit.Place(UIArt.Print(sub, 3f).rectTransform, 0, 250, 1920, 44);
 
         Button first = null;
         float w = 420, h = 520, gap = 44, x0 = (1920 - (choices.Count * w + (choices.Count - 1) * gap)) / 2f;
@@ -90,8 +92,8 @@ public class LevelUpScreen : MonoBehaviour
             var card = UIKit.Place((RectTransform)b.transform, x0 + i * (w + gap), 310, w, h);
             card.pivot = new Vector2(0.5f, 0.5f); card.anchoredPosition += new Vector2(w / 2f, -h / 2f);   // lift from the centre
             var img = b.GetComponent<Image>(); img.sprite = UIArt.Rounded(28); img.type = Image.Type.Sliced;
-            var cb = b.colors; cb.normalColor = new Color(0.1f, 0.07f, 0.08f, 0.97f); cb.highlightedColor = cb.selectedColor = new Color(0.2f, 0.12f, 0.1f); b.colors = cb;
-            UIArt.Shadowed(img, 12f, 0.6f);
+            var cb = b.colors; cb.normalColor = UIArt.Theme.Ink2; cb.highlightedColor = cb.selectedColor = UIArt.Theme.Ink3; b.colors = cb;
+            UIArt.Print(img, 10f);
             b.gameObject.AddComponent<UIHover>().lift = 1.07f;
             UIArt.PopIn(b, 0.12f + i * 0.09f);
 
