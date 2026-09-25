@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cc0d4ce2eab34d0d85609a750b7708f, type: 3}
+  m_Name: Cooper
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterLook
+  displayName: Cooper
+  height: 1.86
+  skin: {r: 0.9019608, g: 0.74509805, b: 0.63529414, a: 1}
+  eyes: {r: 0.24705882, g: 0.19215687, b: 0.16078432, a: 1}
+  brows: {r: 0.43137255, g: 0.3137255, b: 0.21960784, a: 1}
+  shirt: {r: 0.37254903, g: 0.3529412, b: 0.33333334, a: 1}
+  longSleeves: 0
+  oversizedShirt: 1
+  shirtGraphic: 1
+  pants: {r: 0.105882354, g: 0.105882354, b: 0.11372549, a: 1}
+  shorts: 1
+  socks: {r: 0.95686275, g: 0.95686275, b: 0.95686275, a: 1}
+  shoes: {r: 0.9098039, g: 0.9098039, b: 0.9098039, a: 1}
+  wristband: 1
+  wristbandColor: {r: 0.9490196, g: 0.9490196, b: 0.9490196, a: 1}
+  hairStyle: 4
+  hair: {r: 0.56078434, g: 0.42352942, b: 0.29803923, a: 1}
+  wearsCap: 0
+  cap: {r: 0.06666667, g: 0.06666667, b: 0.06666667, a: 1}
+  workerUniform: 0
+  collar: {r: 0.9490196, g: 0.7607843, b: 0.1882353, a: 1}
+  visorBand: {r: 0.78431374, g: 0.1254902, b: 0.11764706, a: 1}
+  visorBrim: {r: 0.9490196, g: 0.7607843, b: 0.1882353, a: 1}
+  skinVariants: []
+  hairVariants: []
