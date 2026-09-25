@@ -71,13 +71,31 @@ public class PlayerStats : MonoBehaviour
 
     float Roll(float dmg)
     {
-        if (PlayerUpgrades.Instance) dmg *= PlayerUpgrades.Instance.DamageMultiplier;
+        var up = GetComponent<PlayerUpgrades>();
+        if (up) dmg *= up.DamageMultiplier;
         return UnityEngine.Random.value < CritChance ? dmg * 2f : dmg;
     }
 
-    // Works with or without a PlayerStats on the player.
-    public static float MeleeDamage(float d) => Instance ? Instance.Melee(d) : d * (PlayerUpgrades.Instance ? PlayerUpgrades.Instance.DamageMultiplier : 1f);
-    public static float RangedDamage(float d) => Instance ? Instance.Ranged(d) : d * (PlayerUpgrades.Instance ? PlayerUpgrades.Instance.DamageMultiplier : 1f);
+    // Final damage for a hit by `player` (their own stats and upgrades; co-op safe). Works without PlayerStats too.
+    public static float MeleeDamage(float d, GameObject player)
+    {
+        var s = player ? player.GetComponent<PlayerStats>() : null;
+        return s ? s.Melee(d) : d * PlayerUpgrades.DamageMultiplierFor(player);
+    }
+
+    public static float RangedDamage(float d, GameObject player)
+    {
+        var s = player ? player.GetComponent<PlayerStats>() : null;
+        return s ? s.Ranged(d) : d * PlayerUpgrades.DamageMultiplierFor(player);
+    }
+
+    // Best Luck among the players (loot doesn't know who got the kill).
+    public static float BestExtraCashChance()
+    {
+        float best = 0;
+        foreach (var p in Players.All) { var s = p ? p.GetComponent<PlayerStats>() : null; if (s) best = Mathf.Max(best, s.ExtraCashChance); }
+        return best;
+    }
 
     public string Summary()
     {

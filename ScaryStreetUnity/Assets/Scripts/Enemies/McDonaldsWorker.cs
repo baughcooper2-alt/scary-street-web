@@ -286,7 +286,7 @@ public class McDonaldsWorker : MonoBehaviour
             agent.velocity = Vector3.zero;
             Vector3 away = player ? transform.position - player.position : -transform.forward;
             away.y = 0;
-            float shove = knockback + health.LastKnockback + (PlayerUpgrades.Instance ? PlayerUpgrades.Instance.KnockbackBonus : 0f);   // weapon + Pee upgrade
+            float shove = knockback + health.LastKnockback;           // the attacker's weapon + Pee upgrade ride along with the hit
             agent.Move(away.normalized * shove);   // Move stays on the NavMesh, so no shoving through walls
         }
         if (model) model.localScale = Vector3.Scale(modelScale, new Vector3(1.15f, 0.85f, 1.15f));   // squash, eases back in UpdateAnim

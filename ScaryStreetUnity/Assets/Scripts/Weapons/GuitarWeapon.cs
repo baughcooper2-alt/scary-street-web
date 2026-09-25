@@ -60,7 +60,7 @@ public class GuitarWeapon : MagazineWeapon
         for (int k = 0; k < notes; k++)
         {
             var d = dir + cam.right * Random.Range(-0.12f, 0.12f) + Vector3.up * Random.Range(0.05f, 0.13f);
-            MusicNote.Spawn(from + Vector3.up * (k * 0.1f), d, PlayerStats.RangedDamage(noteDamage * LevelDamage),
+            MusicNote.Spawn(from + Vector3.up * (k * 0.1f), d, PlayerStats.RangedDamage(noteDamage * LevelDamage, inventory.gameObject),
                             noteSpeed, noteLife, homing, inventory.gameObject, strums + k);
         }
         strums++;

@@ -139,7 +139,7 @@ public class DoorDashShop : MonoBehaviour
         Cursor.visible = false;
         current = null;
         Destroy(gameObject);
-        if (courier) courier.FinishShopping();
+        if (courier) courier.FinishShopping(player);
     }
 
     // ---------- UI ----------
@@ -153,7 +153,8 @@ public class DoorDashShop : MonoBehaviour
 
         var title = UIKit.Label(card, "DOORDASH", 64, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic);
         UIKit.Place(UIKit.Outlined(title, new Color(0.3f, 0.02f, 0.02f)).rectTransform, 50, 14, 700, 84);
-        string who = GameFlow.Chosen ? GameFlow.Chosen.displayName : "you";
+        var arms = player.GetComponentInChildren<FirstPersonArms>(true);
+        string who = arms && arms.look ? arms.look.displayName : "you";
         var sub = UIKit.Label(card, $"Delivery for {who} · after Round {round}", 24, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleLeft);
         UIKit.Place(sub.rectTransform, 380, 34, 600, 50);
         cashText = UIKit.Outlined(UIKit.Label(card, "", 52, new Color(0.55f, 1f, 0.55f), TextAnchor.MiddleRight, FontStyle.Bold), Color.black);

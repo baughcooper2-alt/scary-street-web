@@ -55,7 +55,8 @@ public class WorldHealthBar : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!cam && Camera.main) cam = Camera.main.transform;
+        var c = Players.NearestCamera(transform.position);
+        cam = c ? c.transform : null;
         bool visible = !health.IsDead && !(hideWhenFull && health.Fraction >= 0.999f);
         if (bar.gameObject.activeSelf != visible) bar.gameObject.SetActive(visible);
         if (!visible || !cam) return;

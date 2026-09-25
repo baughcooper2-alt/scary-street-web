@@ -17,6 +17,9 @@ public class DoorDashCourier : MonoBehaviour, IInteractable
     public string Prompt => "Open your DoorDash";
     public bool CanInteract => State == Phase.Waiting;
 
+    // co-op: everyone alive gets their own order before the driver leaves
+    readonly System.Collections.Generic.HashSet<GameObject> served = new System.Collections.Generic.HashSet<GameObject>();
+
     NavMeshAgent agent;
     Vector3 street, porch;
     Transform player;
@@ -54,9 +57,15 @@ public class DoorDashCourier : MonoBehaviour, IInteractable
         Current = null;
     }
 
-    // Called by the shop when you close it.
-    public void FinishShopping()
+    // Called by the shop when a player closes it. The driver waits for anyone who hasn't shopped yet.
+    public void FinishShopping(GameObject shopper)
     {
+        if (shopper) served.Add(shopper);
+        foreach (var p in Players.All)
+        {
+            var h = p ? p.GetComponent<Health>() : null;
+            if (p && h && !h.IsDead && !served.Contains(p.gameObject)) { State = Phase.Waiting; return; }
+        }
         State = Phase.Leaving;
         leaveT = 0;
         if (agent && agent.isOnNavMesh) { agent.isStopped = false; agent.SetDestination(street); }
@@ -65,14 +74,14 @@ public class DoorDashCourier : MonoBehaviour, IInteractable
 
     public void Interact(GameObject who)
     {
-        if (!CanInteract) return;
+        if (!CanInteract || served.Contains(who)) return;
         State = Phase.Shopping;
         DoorDashShop.Open(who, this);
     }
 
     void Update()
     {
-        if (!player) { var p = GameObject.FindWithTag("Player"); if (p) player = p.transform; }
+        player = Players.Nearest(transform.position, out _);
         float dt = Time.deltaTime;
 
         switch (State)

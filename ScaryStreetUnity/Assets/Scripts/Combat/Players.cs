@@ -25,6 +25,20 @@ public static class Players
         return best;
     }
 
+    // Camera of the player nearest to `pos` (for billboards in split-screen); falls back to Camera.main.
+    public static Camera NearestCamera(Vector3 pos)
+    {
+        Camera best = null; float bestD = float.MaxValue;
+        foreach (var p in All)
+        {
+            var c = p ? p.GetComponentInChildren<Camera>() : null;
+            if (!c || !c.enabled) continue;
+            float d = (c.transform.position - pos).sqrMagnitude;
+            if (d < bestD) { bestD = d; best = c; }
+        }
+        return best ? best : Camera.main;
+    }
+
     static bool Alive(FirstPersonController p)
     {
         var h = p.GetComponent<Health>();

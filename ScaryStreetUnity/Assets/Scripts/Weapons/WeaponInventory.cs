@@ -45,8 +45,8 @@ public class WeaponInventory : MonoBehaviour
         if (startWithCharacterWeapon)
         {
             // who you're playing: the select-screen pick, or whoever the first-person arms are dressed as
-            var look = GameFlow.Chosen;
-            if (!look) { var arms = GetComponentInChildren<FirstPersonArms>(true); if (arms) look = arms.look; }
+            var arms = GetComponentInChildren<FirstPersonArms>(true);
+            var look = arms && arms.look ? arms.look : GameFlow.Chosen;   // each player's own pick (co-op)
             var entry = look ? CharacterRoster.Find(look.displayName) : null;
             if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.LawBook) Add<LawBookWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Guitar) Add<GuitarWeapon>();
@@ -85,47 +85,17 @@ public class WeaponInventory : MonoBehaviour
         toastT -= Time.deltaTime;
         if (health && health.IsDead) { if (Current && Current.Equipped) Current.Unequip(); return; }
 
+        if (Current && !Current.Equipped) Current.Equip();            // back up after being downed
         var input = new WeaponInput();
-        bool locked = Cursor.lockState == CursorLockMode.Locked;
         if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen) return;     // their number keys and clicks aren't for us
-#if ENABLE_INPUT_SYSTEM
-        var kb = Keyboard.current; var mouse = Mouse.current; var pad = Gamepad.current;
-        if (kb != null)
-        {
-            if (kb.digit1Key.wasPressedThisFrame) Select(0);
-            if (kb.digit2Key.wasPressedThisFrame) Select(1);
-            if (kb.digit3Key.wasPressedThisFrame) Select(2);
-            if (kb.digit4Key.wasPressedThisFrame) Select(3);
-            if (kb.digit5Key.wasPressedThisFrame) Select(4);
-            input.secondaryHeld |= kb.eKey.isPressed;
-            input.reloadPressed |= kb.rKey.wasPressedThisFrame;
-        }
-        if (mouse != null)
-        {
-            float wheel = mouse.scroll.ReadValue().y;
-            if (wheel > 0.1f) Cycle(-1); else if (wheel < -0.1f) Cycle(1);
-            input.primaryPressed |= mouse.leftButton.wasPressedThisFrame;
-            input.primaryHeld |= mouse.leftButton.isPressed;
-            input.secondaryHeld |= mouse.rightButton.isPressed;
-        }
-        if (pad != null)
-        {
-            if (pad.rightShoulder.wasPressedThisFrame) Cycle(1);
-            if (pad.leftShoulder.wasPressedThisFrame) Cycle(-1);
-            input.primaryPressed |= pad.rightTrigger.wasPressedThisFrame;
-            input.primaryHeld |= pad.rightTrigger.isPressed;
-            input.secondaryHeld |= pad.leftTrigger.isPressed;
-            input.reloadPressed |= pad.dpad.down.wasPressedThisFrame;
-        }
-#else
-        for (int i = 0; i < 5; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Select(i);
-        float wheel = Input.mouseScrollDelta.y;
-        if (wheel > 0.1f) Cycle(-1); else if (wheel < -0.1f) Cycle(1);
-        input.primaryPressed = Input.GetMouseButtonDown(0);
-        input.primaryHeld = Input.GetMouseButton(0);
-        input.secondaryHeld = Input.GetMouseButton(1) || Input.GetKey(KeyCode.E);
-        input.reloadPressed = Input.GetKeyDown(KeyCode.R);
-#endif
+        var c = PlayerControls.For(gameObject);
+        bool locked = c.Active;
+        if (c.SlotPressed >= 0) Select(c.SlotPressed);
+        if (c.SlotCycle != 0) Cycle(c.SlotCycle);
+        input.primaryPressed = c.PrimaryPressed;
+        input.primaryHeld = c.PrimaryHeld;
+        input.secondaryHeld = c.SecondaryHeld;
+        input.reloadPressed = c.ReloadPressed;
         if (!locked) input = new WeaponInput();                    // clicks that grab the mouse don't fire
         if (Current) Current.Tick(input);
     }
@@ -136,6 +106,14 @@ public class WeaponInventory : MonoBehaviour
 
     void OnGUI()
     {
+        var area = HudArea.For(this);
+        GUI.BeginGroup(area);
+        DrawHud(area.width, area.height);
+        GUI.EndGroup();
+    }
+
+    void DrawHud(float W, float H)
+    {
         if (health && health.IsDead) return;
         if (slotName == null)
         {
@@ -145,11 +123,11 @@ public class WeaponInventory : MonoBehaviour
             toastStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         }
 
-        if (haze > 0.01f) Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.86f, 0.9f, 0.86f, haze * 0.55f));
+        if (haze > 0.01f) Fill(new Rect(0, 0, W, H), new Color(0.86f, 0.9f, 0.86f, haze * 0.55f));
 
         const float w = 112, h = 74, gap = 8;
         float total = slots.Count * w + (slots.Count - 1) * gap;
-        float x0 = (Screen.width - total) / 2f, y = Screen.height - h - 18;
+        float x0 = (W - total) / 2f, y = H - h - 18;
         for (int i = 0; i < slots.Count; i++)
         {
             var r = new Rect(x0 + i * (w + gap), y, w, h);
@@ -163,8 +141,8 @@ public class WeaponInventory : MonoBehaviour
         }
 
         string hint = Current ? Current.Hint : "Left click to punch";
-        GUI.Label(new Rect(0, y - 30, Screen.width, 24), hint, hintStyle);
-        if (toastT > 0) GUI.Label(new Rect(0, Screen.height * 0.7f, Screen.width, 34), toast, toastStyle);
+        GUI.Label(new Rect(0, y - 30, W, 24), hint, hintStyle);
+        if (toastT > 0) GUI.Label(new Rect(0, H * 0.7f, W, 34), toast, toastStyle);
     }
 
     static void Fill(Rect r, Color c)

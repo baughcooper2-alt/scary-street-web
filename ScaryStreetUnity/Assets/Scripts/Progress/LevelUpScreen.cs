@@ -63,7 +63,8 @@ public class LevelUpScreen : MonoBehaviour
         UIKit.Fill((RectTransform)page.transform);
         var t = page.transform;
 
-        var title = UIKit.Label(t, $"LEVEL {progress.Level - progress.PendingPicks + 1}!", 90, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
+        var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}: " : "";   // co-op: whose pick
+        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 90, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(UIKit.Outlined(title, Color.black, 5f).rectTransform, 0, 120, 1920, 110);
         string more = progress.PendingPicks > 1 ? $"  ({progress.PendingPicks - 1} more after this)" : "";
         var sub = UIKit.Label(t, "Pick one" + more, 30, Color.white, TextAnchor.MiddleCenter);

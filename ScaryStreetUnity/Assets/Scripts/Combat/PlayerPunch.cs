@@ -35,15 +35,9 @@ public class PlayerPunch : MonoBehaviour
     {
         cooldownT -= Time.deltaTime;
         if (!allowInput || (self && self.IsDead)) return;
-        if (Cursor.lockState != CursorLockMode.Locked) return;   // first click just grabs the mouse
-
-        bool pressed;
-#if ENABLE_INPUT_SYSTEM
-        pressed = (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) ||
-                  (Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame);
-#else
-        pressed = Input.GetMouseButtonDown(0);
-#endif
+        var controls = PlayerControls.For(gameObject);
+        if (!controls.Active) return;                              // first click just grabs the mouse
+        bool pressed = controls.PrimaryPressed;
         if (!pressed || cooldownT > 0) return;
         cooldownT = cooldown;
         Punched?.Invoke();
@@ -55,7 +49,11 @@ public class PlayerPunch : MonoBehaviour
         if (Physics.SphereCast(eye, radius, cam.forward, out var hit, range, ~0, QueryTriggerInteraction.Ignore))
         {
             var target = hit.collider.GetComponentInParent<Health>();
-            if (target && target != self) { target.TakeDamage(PlayerStats.MeleeDamage(damage)); SoundKit.PlayAt(Sfx.Punch, hit.point); }   // Strength, Shooter, crits
+            if (target && target != self)                               // Strength, Shooter, crits, Pee knockback: all this player's own
+            {
+                target.TakeDamage(PlayerStats.MeleeDamage(damage, gameObject), PlayerUpgrades.KnockbackFor(gameObject));
+                SoundKit.PlayAt(Sfx.Punch, hit.point);
+            }
         }
     }
 }

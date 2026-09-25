@@ -27,6 +27,9 @@ public class PlayerUpgrades : MonoBehaviour
     };
 
     public static Def Get(Id id) => Array.Find(All, d => d.id == id);
+
+    public static float DamageMultiplierFor(GameObject player) { var u = player ? player.GetComponent<PlayerUpgrades>() : null; return u ? u.DamageMultiplier : 1f; }
+    public static float KnockbackFor(GameObject player) { var u = player ? player.GetComponent<PlayerUpgrades>() : null; return u ? u.KnockbackBonus : 0f; }
     public static PlayerUpgrades Instance { get; private set; }
 
     [Min(1)] public int baseSlots = 5;
@@ -84,7 +87,7 @@ public class PlayerUpgrades : MonoBehaviour
         if (!fpc) return;
         int skate = Level(Id.Skateboard);
         float speed = (1f + 0.15f * Level(Id.EnergyDrink)) * (skate > 0 ? 2f + 0.1f * (skate - 1) : 1f)
-                    * (PlayerStats.Instance ? PlayerStats.Instance.SpeedMultiplier : 1f);   // Speed stat
+                    * (GetComponent<PlayerStats>() ? GetComponent<PlayerStats>().SpeedMultiplier : 1f);   // Speed stat
         fpc.walkSpeed = baseWalk * speed;
         fpc.crouchSpeed = baseCrouch * speed;
         fpc.jumpHeight = baseJump * (skate > 0 ? 1.5f : 1f);

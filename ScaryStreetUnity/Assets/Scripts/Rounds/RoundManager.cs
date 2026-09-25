@@ -76,7 +76,7 @@ public class RoundManager : MonoBehaviour
     Vector3[] navVerts;
     int[] navTris;
     NavMeshPath path;
-    Transform player, cam;
+    Transform player;
     Health playerHealth;
     int index;
     float stateT, spawnT, bannerT, nextRoundT = -1f;
@@ -103,8 +103,11 @@ public class RoundManager : MonoBehaviour
         if (!p) { Debug.LogError("RoundManager: no object tagged Player. Run Tools > Scary Street > Set Up Player.", this); enabled = false; return; }
         player = p.transform;
         playerHealth = p.GetComponent<Health>();
-        if (playerHealth) playerHealth.Died += () => CurrentState = State.GameOver;
-        cam = Camera.main ? Camera.main.transform : null;
+        foreach (var pl in Players.All)                                  // co-op: game over only when everyone is down
+        {
+            var h = pl ? pl.GetComponent<Health>() : null;
+            if (h) h.Died += () => { if (!Players.AnyAlive) CurrentState = State.GameOver; };
+        }
 
         spawnPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
         var tri = NavMesh.CalculateTriangulation();
@@ -183,7 +186,13 @@ public class RoundManager : MonoBehaviour
         LootDrop.Enabled = true;
         alive.Clear();
         Pickup.VacuumAll();                                                        // collect whatever's still on the floor
-        if (healBetweenRounds && playerHealth) playerHealth.Heal(playerHealth.maxHealth);
+        foreach (var pl in Players.All)
+        {
+            var h = pl ? pl.GetComponent<Health>() : null;
+            if (!h) continue;
+            if (h.IsDead) h.ResetHealth(h.maxHealth);                   // co-op: downed players get back up
+            else if (healBetweenRounds) h.Heal(h.maxHealth);
+        }
         Show($"{Current.name} cleared!", $"{KillsThisRound} knocked out");
         SoundKit.Play(Sfx.RoundClear, 0.6f, 0f);
         RoundEnded?.Invoke(RoundNumber);
@@ -254,7 +263,8 @@ public class RoundManager : MonoBehaviour
                 var jitter = UnityEngine.Random.insideUnitCircle * 1.2f;
                 if (NavMesh.SamplePosition(spot + new Vector3(jitter.x, 0, jitter.y), out var hit, 1.5f, NavMesh.AllAreas)) pos = hit.position;
             }
-            Vector3 face = player.position - pos; face.y = 0;
+            var near = Players.Nearest(pos, out _);
+            Vector3 face = (near ? near.position : player.position) - pos; face.y = 0;
             var go = Instantiate(prefab, pos, face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity);
 
             var worker = go.GetComponent<McDonaldsWorker>();
@@ -285,15 +295,17 @@ public class RoundManager : MonoBehaviour
 
     bool FindSpawnSpot(out Vector3 spot)
     {
-        Vector3 p = player.position;
+        // spawn around a random living player, but far enough from (and out of sight of) all of them
+        var living = Players.All.FindAll(pl => pl && pl.GetComponent<Health>() && !pl.GetComponent<Health>().IsDead);
+        Vector3 p = living.Count > 0 ? living[UnityEngine.Random.Range(0, living.Count)].transform.position : player.position;
         spot = default;
 
         // placed SpawnPoints win: one that's far enough away and out of sight, else far enough, else any
         if (spawnPoints.Length > 0)
         {
             var choices = new List<Vector3>();
-            foreach (var sp in spawnPoints) if (sp && Flat(sp.transform.position - p) >= minSpawnDistance && !InView(sp.transform.position)) choices.Add(sp.transform.position);
-            if (choices.Count == 0) foreach (var sp in spawnPoints) if (sp && Flat(sp.transform.position - p) >= minSpawnDistance) choices.Add(sp.transform.position);
+            foreach (var sp in spawnPoints) if (sp && NearestPlayerDist(sp.transform.position) >= minSpawnDistance && !InView(sp.transform.position)) choices.Add(sp.transform.position);
+            if (choices.Count == 0) foreach (var sp in spawnPoints) if (sp && NearestPlayerDist(sp.transform.position) >= minSpawnDistance) choices.Add(sp.transform.position);
             if (choices.Count == 0) foreach (var sp in spawnPoints) if (sp) choices.Add(sp.transform.position);
             if (choices.Count == 0) return false;
             spot = choices[UnityEngine.Random.Range(0, choices.Count)];
@@ -309,7 +321,7 @@ public class RoundManager : MonoBehaviour
         {
             Vector3 c = RandomNavPoint();
             float d = Vector3.Distance(c, p);
-            if (d < minSpawnDistance || d > maxSpawnDistance) continue;
+            if (NearestPlayerDist(c) < minSpawnDistance || d > maxSpawnDistance) continue;
             bool seen = InView(c);
             if (seen && haveFallback) continue;
             if (!NavMesh.CalculatePath(c, ph.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) continue;
@@ -329,14 +341,26 @@ public class RoundManager : MonoBehaviour
         return a + u * (b - a) + v * (c - a);
     }
 
-    // true if the camera could see someone standing here
+    // true if any player's camera could see someone standing here
     bool InView(Vector3 pos)
     {
-        if (!cam) return false;
         Vector3 target = pos + Vector3.up * 1.2f;
-        Vector3 vp = cam.GetComponent<Camera>().WorldToViewportPoint(target);
-        if (vp.z < 0 || vp.x < 0 || vp.x > 1 || vp.y < 0 || vp.y > 1) return false;
-        return !Physics.Linecast(cam.position, target, ~0, QueryTriggerInteraction.Ignore);
+        foreach (var pl in Players.All)
+        {
+            var c = pl ? pl.GetComponentInChildren<Camera>() : null;
+            if (!c) continue;
+            Vector3 vp = c.WorldToViewportPoint(target);
+            if (vp.z < 0 || vp.x < 0 || vp.x > 1 || vp.y < 0 || vp.y > 1) continue;
+            if (!Physics.Linecast(c.transform.position, target, ~0, QueryTriggerInteraction.Ignore)) return true;
+        }
+        return false;
+    }
+
+    static float NearestPlayerDist(Vector3 pos)
+    {
+        float best = float.MaxValue;
+        foreach (var pl in Players.All) if (pl) best = Mathf.Min(best, Flat(pl.transform.position - pos));
+        return best;
     }
 
     static float Flat(Vector3 v) { v.y = 0; return v.magnitude; }

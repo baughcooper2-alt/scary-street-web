@@ -12,6 +12,7 @@ public class PlayerHUD : MonoBehaviour
     PlayerProgress progress;
     PlayerUpgrades upgrades;
     float hurtFlash, levelFlash, cashFlash, lastHurtSound;
+    bool downed;
     Texture2D white;
     GUIStyle bigStyle, cashStyle;
 
@@ -34,12 +35,13 @@ public class PlayerHUD : MonoBehaviour
         white = Texture2D.whiteTexture;
     }
 
+    // Downed: stop moving. Co-op: RoundManager revives you at the end of the round if a teammate survives it.
     void OnDied()
     {
         var fpc = GetComponent<FirstPersonController>();
         if (fpc) fpc.enabled = false;
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        downed = true;
+        if (!Players.AnyAlive) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
     }
 
     void Update()
@@ -47,26 +49,30 @@ public class PlayerHUD : MonoBehaviour
         hurtFlash = Mathf.MoveTowards(hurtFlash, 0, Time.deltaTime * 3f);
         levelFlash = Mathf.MoveTowards(levelFlash, 0, Time.deltaTime);
         cashFlash = Mathf.MoveTowards(cashFlash, 0, Time.deltaTime * 2f);
+        if (downed && !health.IsDead)                  // revived
+        {
+            downed = false;
+            var fpc = GetComponent<FirstPersonController>();
+            if (fpc) fpc.enabled = true;
+        }
         if (!health.IsDead) return;
-        bool restart;
-#if ENABLE_INPUT_SYSTEM
-        restart = Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame;
-#else
-        restart = Input.GetKeyDown(KeyCode.R);
-#endif
-        bool menu;
-#if ENABLE_INPUT_SYSTEM
-        menu = Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame;
-#else
-        menu = Input.GetKeyDown(KeyCode.M);
-#endif
-        if (restart) GameFlow.Restart();              // same character, straight back in
-        else if (menu) GameFlow.BackToMenu();
+        if (Players.AnyAlive) return;                 // co-op: you're only downed while a teammate is still up
+        var c = PlayerControls.For(gameObject);
+        if (c.RestartPressed) GameFlow.Restart();     // same characters, straight back in
+        else if (c.MenuPressed) GameFlow.BackToMenu();
     }
 
     void OnGUI()
     {
-        float w = 260, h = 22, x = 20, y = Screen.height - h - 20;
+        var area = HudArea.For(this);
+        GUI.BeginGroup(area);
+        DrawHud(area.width, area.height);
+        GUI.EndGroup();
+    }
+
+    void DrawHud(float W, float H)
+    {
+        float w = 260, h = 22, x = 20, y = H - h - 20;
         Box(new Rect(x - 2, y - 2, w + 4, h + 4), new Color(0, 0, 0, 0.6f));
         Box(new Rect(x, y, w * health.Fraction, h), new Color(0.85f, 0.15f, 0.12f));
         GUI.Label(new Rect(x + 8, y + 2, w, h), $"HP {Mathf.CeilToInt(health.Current)} / {health.maxHealth:0}");
@@ -89,26 +95,29 @@ public class PlayerHUD : MonoBehaviour
             GUI.Label(new Rect(x + 80, xy - 26, w + 200, 24), $"LV {progress.Level}   XP {progress.Xp} / {progress.XpToNext}");
             float line = xy - 54;
             if (upgrades && upgrades.Used > 0) { GUI.Label(new Rect(x, line, 900, 24), upgrades.Summary()); line -= 24; }
-            var stats = PlayerStats.Instance;
+            var stats = GetComponent<PlayerStats>();
             if (stats && stats.Summary().Length > 0) GUI.Label(new Rect(x, line, 900, 24), stats.Summary());
 
             if (levelFlash > 0 && !LevelUpScreen.IsOpen)
             {
                 GUI.color = new Color(0.55f, 0.85f, 1f, Mathf.Clamp01(levelFlash));
-                GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 50), $"LEVEL {progress.Level}!", bigStyle);
+                GUI.Label(new Rect(0, H * 0.62f, W, 50), $"LEVEL {progress.Level}!", bigStyle);
                 GUI.color = old;
             }
         }
 
-        if (hurtFlash > 0) Box(new Rect(0, 0, Screen.width, Screen.height), new Color(0.8f, 0, 0, 0.35f * hurtFlash));
+        if (hurtFlash > 0) Box(new Rect(0, 0, W, H), new Color(0.8f, 0, 0, 0.35f * hurtFlash));
 
         if (health.IsDead)
         {
-            Box(new Rect(0, 0, Screen.width, Screen.height), new Color(0, 0, 0, 0.6f));
+            Box(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.6f));
             var style = new GUIStyle(GUI.skin.label) { fontSize = 32, alignment = TextAnchor.MiddleCenter };
-            GUI.Label(new Rect(0, Screen.height / 2f - 40, Screen.width, 80), "You got fried.\nR to restart  ·  M for main menu", style);
+            string msg = Players.AnyAlive ? "You're down!\nYou'll be back up when the round ends"
+                                          : Players.All.Count > 1 ? "Everybody got fried.\nR / Start to restart  ·  M / Select for main menu"
+                                          : "You got fried.\nR to restart  ·  M for main menu";
+            GUI.Label(new Rect(0, H / 2f - 40, W, 80), msg, style);
         }
-        else Box(new Rect(Screen.width / 2f - 2, Screen.height / 2f - 2, 4, 4), Color.white);   // crosshair
+        else Box(new Rect(W / 2f - 2, H / 2f - 2, 4, 4), Color.white);   // crosshair
     }
 
     void Box(Rect r, Color c)

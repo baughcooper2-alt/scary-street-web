@@ -90,7 +90,7 @@ public class LawBookWeapon : MagazineWeapon
             Vector3 to = h.transform.position - inventory.transform.position; to.y = 0;
             if (to.sqrMagnitude > 0.01f && Vector3.Dot(to.normalized, fwd) < 0.35f) continue;   // only in front of you
             if (!ClearLine(eye, h.transform.position + Vector3.up * 1.2f)) continue;             // not through walls
-            h.TakeDamage(PlayerStats.MeleeDamage(damage * LevelDamage), shove);
+            h.TakeDamage(PlayerStats.MeleeDamage(damage * LevelDamage, inventory.gameObject), shove + PlayerUpgrades.KnockbackFor(inventory.gameObject));
             SoundKit.PlayAt(Sfx.Punch, h.transform.position + Vector3.up, 0.9f);
         }
     }
@@ -106,7 +106,7 @@ public class LawBookWeapon : MagazineWeapon
         if (BodyAnim) BodyAnim.Punch(0.5f, 0.6f);
         float radius = slamRadius + (L3 ? 0.5f : 0f);
         foreach (var h in Nearby(inventory.transform.position, radius))
-            h.TakeDamage(PlayerStats.MeleeDamage(slamDamage * LevelDamage), slamKnockback);
+            h.TakeDamage(PlayerStats.MeleeDamage(slamDamage * LevelDamage, inventory.gameObject), slamKnockback + PlayerUpgrades.KnockbackFor(inventory.gameObject));
     }
 
     // Enemies on your floor within `radius` (anything with Health except you).

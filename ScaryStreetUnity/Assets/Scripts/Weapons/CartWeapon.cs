@@ -125,7 +125,7 @@ public class CartWeapon : Weapon
         Vector3 mouth = cam.position;
         var cc = inventory.GetComponent<CharacterController>();
         if (cc) mouth = inventory.transform.position + Vector3.up * (cc.height - 0.2f);
-        float dmg = PlayerStats.RangedDamage(1f);                     // Precision, Shooter, crits (rolled once per shot)
+        float dmg = PlayerStats.RangedDamage(1f, inventory.gameObject);                     // Precision, Shooter, crits (rolled once per shot)
         SmokeShot.Spawn(kind, mouth + cam.forward * 0.5f, cam.forward, inventory.gameObject, inventory.smokeMaterial, dmg);
     }
 

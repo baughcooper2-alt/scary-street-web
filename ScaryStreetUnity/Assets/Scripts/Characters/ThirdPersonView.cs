@@ -55,14 +55,7 @@ public class ThirdPersonView : MonoBehaviour
 
     void Update()
     {
-        bool toggle;
-#if ENABLE_INPUT_SYSTEM
-        toggle = (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame) ||
-                 (Gamepad.current != null && Gamepad.current.buttonNorth.wasPressedThisFrame);
-#else
-        toggle = Input.GetKeyDown(KeyCode.V);
-#endif
-        if (toggle) Apply(!IsThirdPerson);
+        if (PlayerControls.For(gameObject).ToggleViewPressed) Apply(!IsThirdPerson);
     }
 
     // FirstPersonController puts the camera at eye level every Update; this pulls it back behind the shoulder.

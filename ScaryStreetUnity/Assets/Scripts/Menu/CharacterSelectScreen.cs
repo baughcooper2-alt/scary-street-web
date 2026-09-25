@@ -8,7 +8,8 @@ using UnityEngine.InputSystem;
 
 // Fighting-game style select: game modes along the top, P1's fighter shown big on the left,
 // the roster grid in the middle (DESIGN.md's 8 base characters + 8 DLC), P2 waiting on the right.
-// Only 1 Player and the characters with a look (Cooper, Nathan) can be picked; the rest say COMING SOON.
+// 1 Player, or 2 Player split-screen (needs a controller for P2; P1 picks, then P2). Only characters with a look
+// (Cooper, Nathan) can be picked; the rest say COMING SOON, as do 3 / 4 Player and Free Roam.
 // The fighters are real 3D models on a hidden stage far below the house, filmed into RenderTextures.
 public class CharacterSelectScreen : MonoBehaviour
 {
@@ -30,6 +31,12 @@ public class CharacterSelectScreen : MonoBehaviour
     }
 
     GameFlow flow;
+    int players = 1, picking;                    // how many are playing, and whose turn it is to pick
+    readonly CharacterLook[] picks = new CharacterLook[2];
+    readonly List<Button> modeButtons = new List<Button>();
+    Text titleText, p2Text, p2Note, p2Name, p2Mark;
+    RawImage p2Preview;
+    Camera previewCam2;
     readonly List<Tile> tiles = new List<Tile>();
     readonly Dictionary<CharacterLook, Spot> spots = new Dictionary<CharacterLook, Spot>();
     readonly List<RenderTexture> textures = new List<RenderTexture>();
@@ -127,8 +134,9 @@ public class CharacterSelectScreen : MonoBehaviour
         return cam.targetTexture;
     }
 
-    void AimPreview(Spot spot)
+    void AimPreview(Camera previewCam, Spot spot)
     {
+        if (!previewCam) return;
         float s = spot.height / 1.8f;
         var target = spot.pos + new Vector3(0, 0.93f * s, 0);
         previewCam.transform.position = target + Quaternion.Euler(0, -18f, 0) * new Vector3(0, 0.12f, 4.6f);   // three-quarter view
@@ -147,8 +155,8 @@ public class CharacterSelectScreen : MonoBehaviour
         UIKit.Place(UIKit.Panel(root, "Glow", new Color(0.7f, 0.08f, 0.05f, 0.22f)).rectTransform, 0, 0, 1920, 170);
         UIKit.Place(UIKit.Panel(root, "GlowLine", UIKit.Blood).rectTransform, 0, 170, 1920, 4);
 
-        var title = UIKit.Label(root, "CHOOSE YOUR FIGHTER", 64, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
-        UIKit.Place(UIKit.Outlined(title, Color.black, 4f).rectTransform, 0, 18, 1920, 80);
+        titleText = UIKit.Label(root, "CHOOSE YOUR FIGHTER", 64, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
+        UIKit.Place(UIKit.Outlined(titleText, Color.black, 4f).rectTransform, 0, 18, 1920, 80);
 
         // game modes
         for (int m = 0; m < Modes.Length; m++)
@@ -156,14 +164,18 @@ public class CharacterSelectScreen : MonoBehaviour
             int mode = m;
             float x = 303 + m * 266;
             var b = UIKit.Button(root, "", 30, () => OnMode(mode));
+            modeButtons.Add(b);
             var rt = UIKit.Place((RectTransform)b.transform, x, 100, 250, 60);
-            var label = UIKit.Label(rt, Modes[m], m == 0 ? 30 : 26, m == 0 ? Color.black : UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
+            bool available = m <= 1;
+            var label = UIKit.Label(rt, Modes[m], available ? 30 : 26, available ? Color.white : UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
             UIKit.Fill(label.rectTransform);
-            if (m == 0)
+            if (m == 1)
             {
-                var cb = b.colors; cb.normalColor = UIKit.Gold; cb.highlightedColor = cb.selectedColor = new Color(1f, 0.86f, 0.35f); b.colors = cb;
+                label.rectTransform.offsetMax = new Vector2(0, -8);
+                var pad = UIKit.Label(rt, "SPLIT-SCREEN · CONTROLLER", 13, UIKit.Gold, TextAnchor.LowerCenter, FontStyle.Bold);
+                UIKit.Fill(pad.rectTransform); pad.rectTransform.offsetMin = new Vector2(0, 3);
             }
-            else
+            else if (!available)
             {
                 label.rectTransform.offsetMax = new Vector2(0, -8);
                 var soon = UIKit.Label(rt, "COMING SOON", 15, UIKit.Blood, TextAnchor.LowerCenter, FontStyle.Bold);
@@ -206,10 +218,16 @@ public class CharacterSelectScreen : MonoBehaviour
         Badge(p2, "P2", new Color(0.2f, 0.35f, 0.8f));
         var q = UIKit.Label(p2, "?", 260, new Color(1, 1, 1, 0.1f), TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Fill(q.rectTransform);
-        var p2Text = UIKit.Label(p2, "PLAYER 2\nCOMING SOON", 40, UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
+        p2Preview = UIKit.Node("Preview", p2).gameObject.AddComponent<RawImage>();
+        p2Preview.raycastTarget = false; p2Preview.enabled = false;
+        UIKit.Fill(p2Preview.rectTransform, 4);
+        p2Mark = q;
+        p2Text = UIKit.Label(p2, "PLAYER 2\nPICK 2 PLAYER TO JOIN", 36, UIKit.Dim, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(p2Text.rectTransform, 0, 520, 468, 110);
-        var p2Note = UIKit.Label(p2, "Co-op for up to 4 (LAN, split-screen, online) is planned.", 20, UIKit.Dim, TextAnchor.UpperCenter, FontStyle.Italic);
+        p2Note = UIKit.Label(p2, "Split-screen: player 2 plays on a controller. LAN and online come later.", 20, UIKit.Dim, TextAnchor.UpperCenter, FontStyle.Italic);
         UIKit.Place(p2Note.rectTransform, 30, 632, 408, 60);
+        p2Name = UIKit.Outlined(UIKit.Label(root, "", 44, Color.white, TextAnchor.MiddleRight, FontStyle.Bold), Color.black);
+        UIKit.Place(p2Name.rectTransform, 1160, 860, 700, 60);
 
         // bottom buttons + messages
         var back = UIKit.Button(root, "BACK", 32, () => flow.ShowTitle());
@@ -220,8 +238,22 @@ public class CharacterSelectScreen : MonoBehaviour
         toastText = UIKit.Label(root, "", 26, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
         UIKit.Place(toastText.rectTransform, 560, 1010, 800, 44);
 
+        HighlightModes();
         SetCursor(0);
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(tiles[0].button.gameObject);
+    }
+
+    void HighlightModes()
+    {
+        for (int m = 0; m < modeButtons.Count; m++)
+        {
+            var b = modeButtons[m]; var cb = b.colors;
+            bool on = m == players - 1;
+            cb.normalColor = on ? UIKit.Gold : new Color(0.08f, 0.05f, 0.06f, 0.8f);
+            cb.highlightedColor = cb.selectedColor = on ? new Color(1f, 0.86f, 0.35f) : new Color(0.62f, 0.1f, 0.08f, 0.95f);
+            b.colors = cb;
+            foreach (var t in b.GetComponentsInChildren<Text>()) if (t.fontSize >= 26) t.color = on ? Color.black : (m <= 1 ? Color.white : UIKit.Dim);
+        }
     }
 
     Tile MakeTile(Transform root, int index, CharacterRoster.Entry e, CharacterLook look, float x, float y, Texture portrait)
@@ -267,13 +299,25 @@ public class CharacterSelectScreen : MonoBehaviour
         cursor = index;
         for (int i = 0; i < tiles.Count; i++) tiles[i].frame.SetActive(i == index);
         var t = tiles[index];
-        nameText.text = t.entry.name.ToUpper();
-        nameText.color = t.look ? Color.white : UIKit.Dim;
-        weaponText.text = t.look ? $"Starts with: {t.entry.startsWith}"
-                        : t.entry.dlc ? "DLC character · coming soon" : $"Starts with: {t.entry.startsWith}\nComing soon";
-        previewMark.enabled = !t.look;
-        AimPreview(t.look ? spots[t.look] : mystery);
+        string info = t.look ? $"Starts with: {t.entry.startsWith}"
+                    : t.entry.dlc ? "DLC character · coming soon" : $"Starts with: {t.entry.startsWith}\nComing soon";
         fightButton.interactable = t.look;
+        if (picking == 0)
+        {
+            nameText.text = t.entry.name.ToUpper();
+            nameText.color = t.look ? Color.white : UIKit.Dim;
+            weaponText.text = info;
+            previewMark.enabled = !t.look;
+            AimPreview(previewCam, t.look ? spots[t.look] : mystery);
+        }
+        else
+        {
+            p2Name.text = t.entry.name.ToUpper();
+            p2Name.color = t.look ? Color.white : UIKit.Dim;
+            p2Note.text = info;
+            p2Mark.enabled = !t.look;
+            AimPreview(previewCam2, t.look ? spots[t.look] : mystery);
+        }
     }
 
     // Clicking (or Enter / A on) a fighter picks them, like a fighting game.
@@ -285,14 +329,53 @@ public class CharacterSelectScreen : MonoBehaviour
 
     void OnMode(int mode)
     {
-        if (mode != 0) Toast($"{Modes[mode].ToLower()} is coming soon. 1 Player only for now");
+        if (mode >= 2) { Toast($"{Modes[mode].ToLower()} is coming soon"); return; }
+        if (mode == 1 && !ControllerConnected()) { Toast("Plug in a controller for player 2 first"); return; }
+        players = mode + 1;
+        picking = 0;
+        HighlightModes();
+        titleText.text = "CHOOSE YOUR FIGHTER";
+        if (players == 2)
+        {
+            if (!previewCam2) previewCam2 = MakeCamera("PreviewCam2", 30f, 512, 768);
+            p2Preview.texture = previewCam2.targetTexture;
+            p2Text.text = "PLAYER 2 IS IN\nPLAYER 1 PICKS FIRST";
+            p2Text.color = Color.white;
+        }
+        else
+        {
+            p2Preview.enabled = false; p2Mark.enabled = true; p2Name.text = "";
+            p2Text.text = "PLAYER 2\nPICK 2 PLAYER TO JOIN"; p2Text.color = UIKit.Dim;
+            p2Note.text = "Split-screen: player 2 plays on a controller. LAN and online come later.";
+        }
+        SetCursor(cursor);
+    }
+
+    static bool ControllerConnected()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Gamepad.all.Count > 0;
+#else
+        return false;
+#endif
     }
 
     void Fight()
     {
         var t = tiles[cursor];
         if (!t.look) { Toast($"{t.entry.name} is coming soon"); return; }
-        flow.StartGame(t.look);
+        picks[picking] = t.look;
+        if (players == 2 && picking == 0)
+        {
+            // player 1 is locked in; player 2's turn (their pick shows on the right)
+            picking = 1;
+            titleText.text = "PLAYER 2: CHOOSE YOUR FIGHTER";
+            p2Text.text = ""; p2Preview.enabled = true;
+            nameText.text = $"{t.entry.name.ToUpper()}  ✓";
+            SetCursor(cursor);
+            return;
+        }
+        flow.StartGame(players == 2 ? new[] { picks[0], picks[1] } : new[] { picks[0] });
     }
 
     void Toast(string msg)
@@ -313,7 +396,8 @@ public class CharacterSelectScreen : MonoBehaviour
 #else
         back = Input.GetKeyDown(KeyCode.Escape);
 #endif
-        if (back) flow.ShowTitle();
+        if (back && picking == 1) { picking = 0; titleText.text = "CHOOSE YOUR FIGHTER"; p2Preview.enabled = false; OnMode(1); }   // back to P1's pick
+        else if (back) flow.ShowTitle();
         else if (confirm) Fight();
     }
 }

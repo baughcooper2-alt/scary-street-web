@@ -47,7 +47,8 @@ public class JokeBubble : MonoBehaviour
             && !wall.collider.GetComponentInParent<FirstPersonController>() && !wall.collider.GetComponentInParent<JackBoss>())
         { Destroy(gameObject); return; }                               // a wall ate the joke
         transform.position += step;
-        if (Camera.main) transform.rotation = Quaternion.LookRotation(transform.position - Camera.main.transform.position);
+        var viewer = Players.NearestCamera(transform.position);
+        if (viewer) transform.rotation = Quaternion.LookRotation(transform.position - viewer.transform.position);
 
         foreach (var p in Players.All)
         {

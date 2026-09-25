@@ -26,6 +26,7 @@ public class FirstPersonController : MonoBehaviour
     public float eyeFromTop = 0.12f;
 
     CharacterController cc;
+    PlayerControls controls;
     Transform cam;
     float pitch, verticalVel, currentHeight;
     bool crouching;
@@ -59,50 +60,24 @@ public class FirstPersonController : MonoBehaviour
 
     void Start()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        controls = PlayerControls.For(gameObject);
+        if (controls.useKeyboardMouse) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
     }
 
     void Update()
     {
-        Vector2 move = Vector2.zero, look = Vector2.zero;
-        bool jump = false, crouchPressed = false, unlock = false, relock = false;
+        // input comes from this player's own devices (co-op: P1 keyboard + mouse, P2 a controller)
+        if (!controls) controls = PlayerControls.For(gameObject);
+        Vector2 move = controls.Move, look = controls.Look(mouseSensitivity, stickSensitivity);
+        bool jump = controls.JumpPressed, crouchPressed = controls.CrouchPressed;
 
-#if ENABLE_INPUT_SYSTEM
-        var kb = Keyboard.current; var mouse = Mouse.current; var pad = Gamepad.current;
-        if (kb != null)
+        // cursor (mouse player only): Esc frees the mouse, click to grab it again
+        if (controls.useKeyboardMouse)
         {
-            move.x = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
-            move.y = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
-            jump |= kb.spaceKey.wasPressedThisFrame;
-            crouchPressed |= kb.cKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame;
-            unlock |= kb.escapeKey.wasPressedThisFrame;
+            if (controls.UnlockPressed) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            else if (controls.RelockPressed) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
+            if (Cursor.lockState != CursorLockMode.Locked) look = Vector2.zero;
         }
-        if (mouse != null)
-        {
-            look += mouse.delta.ReadValue() * mouseSensitivity;
-            relock |= mouse.leftButton.wasPressedThisFrame;
-        }
-        if (pad != null)
-        {
-            move += pad.leftStick.ReadValue();
-            look += pad.rightStick.ReadValue() * stickSensitivity * Time.deltaTime;
-            jump |= pad.buttonSouth.wasPressedThisFrame;
-            crouchPressed |= pad.buttonEast.wasPressedThisFrame;
-        }
-#else
-        move = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        look = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 2f;
-        jump = Input.GetButtonDown("Jump");
-        crouchPressed = Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftShift);
-        unlock = Input.GetKeyDown(KeyCode.Escape);
-        relock = Input.GetMouseButtonDown(0);
-#endif
-
-        // cursor: Esc frees the mouse, click to grab it again
-        if (unlock) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-        if (relock) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
-        if (Cursor.lockState != CursorLockMode.Locked) look = Vector2.zero;
 
         // look
         transform.Rotate(0f, look.x, 0f);

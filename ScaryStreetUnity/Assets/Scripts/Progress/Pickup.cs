@@ -14,8 +14,7 @@ public class Pickup : MonoBehaviour
     public float collectRadius = 0.55f;
 
     static readonly List<Pickup> all = new List<Pickup>();
-    static Transform player;
-    static PlayerProgress progress;
+    Transform player;                                   // nearest living player this frame (co-op: whoever gets there first)
     static Material cashMat, xpMat;
     static float lastSound;
 
@@ -72,7 +71,7 @@ public class Pickup : MonoBehaviour
     void Update()
     {
         t += Time.deltaTime;
-        if (!player) FindPlayer();
+        player = Players.Nearest(transform.position, out _);
 
         Vector3 target = player ? player.position + Vector3.up * 0.9f : transform.position;
         float dist = Vector3.Distance(transform.position, target);
@@ -105,6 +104,7 @@ public class Pickup : MonoBehaviour
 
     void Collect()
     {
+        var progress = player ? player.GetComponent<PlayerProgress>() : null;
         if (progress)
         {
             if (kind == Kind.Cash) progress.AddCash(amount);
@@ -114,11 +114,4 @@ public class Pickup : MonoBehaviour
         Destroy(gameObject);
     }
 
-    static void FindPlayer()
-    {
-        var go = GameObject.FindWithTag("Player");
-        if (!go) return;
-        player = go.transform;
-        progress = go.GetComponent<PlayerProgress>();
-    }
 }

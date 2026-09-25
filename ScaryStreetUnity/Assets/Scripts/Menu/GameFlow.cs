@@ -1,15 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 // Title screen → character select → the run, all in the one scene (so the house is only loaded once).
 // While the menus are up, the Player is switched off and the RoundManager waits; StartGame dresses the
 // player as the chosen character, switches them on and starts Round 1. Restart (R) skips the menus.
+// Co-op (2 picks): the Player is cloned for player 2, the screen splits left / right, player 1 keeps
+// keyboard + mouse and player 2 gets the first controller.
 public class GameFlow : MonoBehaviour
 {
     public const string SensitivityKey = "mouseSensitivity", VolumeKey = "volume";
 
-    public static CharacterLook Chosen { get; private set; }
+    public static CharacterLook Chosen => chosen.Count > 0 ? chosen[0] : null;
+    public static int PlayerCount => Mathf.Max(1, chosen.Count);
+    static readonly List<CharacterLook> chosen = new List<CharacterLook>();
     static bool startImmediately;
 
     [Header("Title")]
@@ -34,11 +41,11 @@ public class GameFlow : MonoBehaviour
 
     // with "Enter Play Mode Options" (no domain reload) statics would survive between plays
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { Chosen = null; startImmediately = false; }
+    static void ResetStatics() { chosen.Clear(); startImmediately = false; }
 
     public static void Restart()
     {
-        startImmediately = Chosen != null;
+        startImmediately = chosen.Count > 0;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
@@ -57,7 +64,7 @@ public class GameFlow : MonoBehaviour
         if (startImmediately && Chosen)
         {
             startImmediately = false;
-            Dress(Chosen);                  // RoundManager starts on its own
+            SetUpPlayers();                  // RoundManager starts on its own
             return;
         }
         startImmediately = false;
@@ -80,26 +87,70 @@ public class GameFlow : MonoBehaviour
         screen = next;
     }
 
-    public void StartGame(CharacterLook look)
+    public void StartGame(params CharacterLook[] looks)
     {
-        Chosen = look;
+        chosen.Clear();
+        chosen.AddRange(looks);
         if (screen) Destroy(screen);
         if (menuCam) Destroy(menuCam.gameObject);
-        Dress(look);
-        if (player) player.SetActive(true);
+        SetUpPlayers();
         if (rounds) rounds.Begin();
     }
 
-    // Put the chosen character on the player: first-person arms, third-person body, mouse sensitivity.
-    void Dress(CharacterLook look)
+    // One Player per pick: clone the scene's Player for the others, dress them, give each their input and
+    // their part of the screen, and switch them on.
+    void SetUpPlayers()
     {
         if (!player) return;
-        var arms = player.GetComponentInChildren<FirstPersonArms>(true);
+        int count = PlayerCount;
+        var all = new List<GameObject> { player };
+        for (int i = 1; i < count; i++)
+        {
+            var clone = Instantiate(player, player.transform.position + player.transform.right * (1.2f * i), player.transform.rotation);
+            clone.name = $"Player {i + 1}";
+            all.Add(clone);
+        }
+        for (int i = 0; i < all.Count; i++)
+        {
+            Dress(all[i], chosen.Count > i ? chosen[i] : Chosen, i);
+            SetUpInput(all[i], i, count);
+            SetUpCamera(all[i], i, count);
+            all[i].SetActive(true);
+        }
+    }
+
+    // Put the chosen character on a player: first-person arms, third-person body, mouse sensitivity.
+    static void Dress(GameObject p, CharacterLook look, int index)
+    {
+        var arms = p.GetComponentInChildren<FirstPersonArms>(true);
         if (arms) arms.look = look;
-        var body = player.GetComponent<ThirdPersonView>();
+        var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
-        var fpc = player.GetComponent<FirstPersonController>();
-        if (fpc) fpc.mouseSensitivity = PlayerPrefs.GetFloat(SensitivityKey, fpc.mouseSensitivity);
+        var fpc = p.GetComponent<FirstPersonController>();
+        if (fpc && index == 0) fpc.mouseSensitivity = PlayerPrefs.GetFloat(SensitivityKey, fpc.mouseSensitivity);
+    }
+
+    static void SetUpInput(GameObject p, int index, int count)
+    {
+        var c = PlayerControls.For(p);
+        c.playerIndex = index;
+        if (count == 1) { c.useKeyboardMouse = true; c.useAnyGamepad = true; return; }
+        c.useKeyboardMouse = index == 0;                         // P1: keyboard + mouse
+        c.useAnyGamepad = false;
+#if ENABLE_INPUT_SYSTEM
+        int padIndex = index - 1;                                // P2: controller 1, P3: controller 2...
+        c.pad = padIndex >= 0 && padIndex < Gamepad.all.Count ? Gamepad.all[padIndex] : null;
+#endif
+    }
+
+    // Side by side for two players; only player 1 keeps the audio listener.
+    static void SetUpCamera(GameObject p, int index, int count)
+    {
+        var cam = p.GetComponentInChildren<Camera>(true);
+        if (!cam) return;
+        cam.rect = count == 2 ? new Rect(index * 0.5f, 0, 0.5f, 1) : new Rect(0, 0, 1, 1);
+        var listener = cam.GetComponent<AudioListener>();
+        if (listener) listener.enabled = index == 0;
     }
 
     void MakeMenuCamera()
