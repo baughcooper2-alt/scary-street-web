@@ -27,34 +27,55 @@ public class TitleScreen : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // vignette around the house, a solid ink column on the left for the menu (caution-tape edge), film grain
+        // vignette around the house, ink shade on the left that fades out under the title, film grain
         var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.8f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        var column = UIKit.Panel(root, "Column", new Color(UIArt.Theme.Ink.r, UIArt.Theme.Ink.g, UIArt.Theme.Ink.b, 0.86f));
-        UIKit.Place(column.rectTransform, 0, 0, 720, 1080);
-        UIArt.Stripe((RectTransform)root, 720, 0, 12, 1080);
+        var shade = UIKit.Panel(root, "Shade", new Color(UIArt.Theme.Ink.r, UIArt.Theme.Ink.g, UIArt.Theme.Ink.b, 0.9f));
+        shade.sprite = UIArt.HorizontalFade();
+        UIKit.Place(shade.rectTransform, 0, 0, 1500, 1080);
         UIArt.Grain(root, 0.045f);
 
         main = UIKit.Node("Main", root).gameObject;
         UIKit.Fill((RectTransform)main.transform);
         var mt = (RectTransform)main.transform;
         UIArt.PopIn(UIArt.Tag(mt, "1–4 PLAYER CO-OP SURVIVAL", UIArt.Theme.Mustard, UIArt.Theme.Ink, 110, 118, 380, 42, 24), 0f);
-        var top = UIKit.Label(main.transform, flow.titleTop, 84, UIArt.Theme.Paper, TextAnchor.LowerLeft);
+        // BOOGYING DOWN ON
+        // SCARY ~~MAPLE~~ STREET   (red word, crossed-out word, last word in the intro's style), baselines lined up
+        var top = UIKit.Label(main.transform, flow.titleIntro, 84, UIArt.Theme.Paper, TextAnchor.LowerLeft);
         top.font = UIArt.Display;
-        UIKit.Place(UIArt.Print(top, 5f).rectTransform, 108, 162, 1200, 96);
-        var titleHolder = UIKit.Place(UIKit.Node("TitleHolder", main.transform), 104, 244, 1500, 200);
-        titleHolder.pivot = new Vector2(0.2f, 0.5f);
-        titleHolder.gameObject.AddComponent<UIPulse>().amount = 0.01f;
-        var title = UIKit.Label(titleHolder, flow.titleMain, 176, UIArt.Theme.Blood, TextAnchor.UpperLeft);
-        title.font = UIArt.Display;
-        UIKit.Fill(UIArt.Print(title, 9f).rectTransform);
-        UIArt.PopIn(top, 0.05f); UIArt.PopIn(title, 0.15f);
+        UIKit.Place(UIArt.Print(top, 5f).rectTransform, 108, 160, 1200, 104);
+        var line = UIKit.Place(UIKit.Node("TitleLine", main.transform), 104, 272, 1300, 200);
+        line.pivot = new Vector2(0.15f, 0.5f);
+        line.gameObject.AddComponent<UIPulse>().amount = 0.01f;
+        const float big = 170, small = 84, descent = 0.2f;              // Impact's descent, as a fraction of the size
+        float x = 0;
+        Text Word(string text, float size, Color color, float shadow)
+        {
+            var t = UIKit.Label(line, text, (int)size, color, TextAnchor.LowerLeft);
+            t.font = UIArt.Display; t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            float w = t.preferredWidth;
+            UIKit.Place(UIArt.Print(t, shadow).rectTransform, x, 0, w + 10, 200 - (big - size) * descent);   // raise small words so baselines match
+            x += w + size * 0.28f;
+            return t;
+        }
+        var scary = Word(flow.titleWord, big, UIArt.Theme.Blood, 9f);
+        float struckX = x;
+        var struck = Word(flow.titleStruck, small, new Color(0.95f, 0.92f, 0.87f, 0.55f), 3f);
+        var end = Word(flow.titleEnd, small, UIArt.Theme.Paper, 5f);
+        // the cross-out: a thick red slash through the struck word, a little crooked like it was done by hand
+        var slash = UIArt.Print(UIArt.RoundPanel(line, "Strike", UIArt.Theme.Blood, 4), 3f);
+        float sw = struck.preferredWidth + 20;
+        float baseline = 200 - big * descent;
+        var srt = UIKit.Place(slash.rectTransform, struckX - 10, baseline - small * 0.4f - 7, sw, 14);
+        srt.pivot = new Vector2(0.5f, 0.5f); srt.anchoredPosition += new Vector2(sw / 2f, -7);
+        srt.localRotation = Quaternion.Euler(0, 0, 7f);
+        UIArt.PopIn(top, 0.05f); UIArt.PopIn(scary, 0.15f); UIArt.PopIn(struck, 0.22f); UIArt.PopIn(end, 0.3f); UIArt.PopIn(slash, 0.42f);
         var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
-        UIKit.Place(tag.rectTransform, 112, 444, 560, 70);
+        UIKit.Place(tag.rectTransform, 112, 484, 560, 70);
 
-        startButton = MenuButton(main.transform, "START", 560, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 652, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 744, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
+        startButton = MenuButton(main.transform, "START", 576, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 668, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 760, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
 
         UIArt.Stripe(mt, 112, 990, 120, 8);
         var foot = UIKit.Label(main.transform, "EARLY PROTOTYPE  ·  MAC & WINDOWS", 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);

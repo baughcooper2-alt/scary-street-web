@@ -108,7 +108,7 @@ public class WorldDetail : MonoBehaviour
 
     static Texture2D NormalFrom(Texture tex, Surface kind)
     {
-        if (normals.TryGetValue(tex, out var n)) return n;
+        if (normals.TryGetValue(tex, out var n) && n) return n;
         int w = Mathf.Min(tex.width, 512), h = Mathf.Min(tex.height, 512);
         if (w < 8 || h < 8) return normals[tex] = null;
         // read any texture (imported ones aren't CPU-readable) by drawing it into a RenderTexture
@@ -148,7 +148,7 @@ public class WorldDetail : MonoBehaviour
 
     static (Texture2D albedo, Texture2D normal) Detail(Surface kind)
     {
-        if (details.TryGetValue(kind, out var d)) return d;
+        if (details.TryGetValue(kind, out var d) && d.albedo && d.normal) return d;
         const int n = 256;
         var hgt = new float[n * n];
         var rng = new System.Random((int)kind * 97 + 13);

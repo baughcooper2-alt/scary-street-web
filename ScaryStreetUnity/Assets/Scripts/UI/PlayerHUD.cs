@@ -188,7 +188,7 @@ public class PlayerHUD : MonoBehaviour
     // Red at the edges, clear in the middle (UIArt.Vignette is black, which can't be tinted).
     static Sprite RedVignette()
     {
-        if (redVignette) return redVignette;
+        if (UIArt.Alive(redVignette)) return redVignette;
         const int n = 128; var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
         for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
         {

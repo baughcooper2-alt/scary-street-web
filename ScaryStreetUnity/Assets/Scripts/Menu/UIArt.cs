@@ -34,7 +34,7 @@ public static class UIArt
     // Caution tape: mustard and ink diagonal stripes (tile it).
     public static Sprite StripeSprite()
     {
-        if (stripe) return stripe;
+        if (Alive(stripe)) return stripe;
         const int n = 32; var tex = NewTex(n, n); tex.wrapMode = TextureWrapMode.Repeat;
         for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             tex.SetPixel(x, y, ((x + y) / 8) % 2 == 0 ? Theme.Mustard : Theme.Ink);
@@ -53,7 +53,7 @@ public static class UIArt
     // Slanted tag shape (parallelogram with soft edges), 9-sliced.
     public static Sprite TagSprite()
     {
-        if (tag) return tag;
+        if (Alive(tag)) return tag;
         const int w = 64, h = 32; const float slant = 8f; var tex = NewTex(w, h);
         for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
         {
@@ -78,7 +78,7 @@ public static class UIArt
     // Faint film grain for full-screen menus.
     public static Image Grain(Transform parent, float alpha = 0.05f)
     {
-        if (!grain)
+        if (!Alive(grain))
         {
             const int n = 128; var tex = NewTex(n, n); tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Point;
             var r = new System.Random(3);
@@ -99,9 +99,13 @@ public static class UIArt
         return g;
     }
 
+    // Sprites made at runtime are destroyed when Play stops, but with domain reload off the static caches keep
+    // pointing at them (they'd draw as white squares next time), so every cache checks this before reusing.
+    public static bool Alive(Sprite s) => s && s.texture;
+
     static readonly Dictionary<int, Sprite> rounded = new Dictionary<int, Sprite>();
     static readonly Dictionary<Icon, Sprite> icons = new Dictionary<Icon, Sprite>();
-    static Sprite vertical, burst, vignette;
+    static Sprite vertical, horizontal, burst, vignette;
     static Font display;
 
     // Impact on Mac and Windows (Arial Black / Helvetica as fallbacks) for titles.
@@ -110,7 +114,7 @@ public static class UIArt
     // White rounded rectangle for Image.type = Sliced (tint it with Image.color).
     public static Sprite Rounded(int radius = 18)
     {
-        if (rounded.TryGetValue(radius, out var s)) return s;
+        if (rounded.TryGetValue(radius, out var s) && Alive(s)) return s;
         int size = radius * 2 + 4;
         var tex = NewTex(size, size);
         var px = new Color[size * size];
@@ -130,17 +134,27 @@ public static class UIArt
     // Top-to-bottom white→transparent, for shading panels (tint with Image.color).
     public static Sprite VerticalFade()
     {
-        if (vertical) return vertical;
+        if (Alive(vertical)) return vertical;
         var tex = NewTex(4, 64);
         for (int y = 0; y < 64; y++) for (int x = 0; x < 4; x++) tex.SetPixel(x, y, new Color(1, 1, 1, y / 63f));
         tex.Apply();
         return vertical = Sprite.Create(tex, new Rect(0, 0, 4, 64), new Vector2(0.5f, 0.5f));
     }
 
+    // Solid on the left, fading out to the right (starts fading at `hold` of the width).
+    public static Sprite HorizontalFade()
+    {
+        if (Alive(horizontal)) return horizontal;
+        var tex = NewTex(128, 4);
+        for (int x = 0; x < 128; x++) for (int y = 0; y < 4; y++) tex.SetPixel(x, y, new Color(1, 1, 1, 1f - Mathf.SmoothStep(0.45f, 1f, x / 127f)));
+        tex.Apply();
+        return horizontal = Sprite.Create(tex, new Rect(0, 0, 128, 4), new Vector2(0.5f, 0.5f));
+    }
+
     // Dark around the edges, clear in the middle.
     public static Sprite Vignette()
     {
-        if (vignette) return vignette;
+        if (Alive(vignette)) return vignette;
         const int n = 128; var tex = NewTex(n, n);
         for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
         {
@@ -154,7 +168,7 @@ public static class UIArt
     // Rays for behind "LEVEL UP!".
     public static Sprite Burst()
     {
-        if (burst) return burst;
+        if (Alive(burst)) return burst;
         const int n = 256; var tex = NewTex(n, n);
         for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
         {
@@ -232,7 +246,7 @@ public static class UIArt
 
     public static Sprite Get(Icon icon)
     {
-        if (icons.TryGetValue(icon, out var s)) return s;
+        if (icons.TryGetValue(icon, out var s) && Alive(s)) return s;
         const int n = 96;
         var tex = NewTex(n, n);
         var px = new Color[n * n];

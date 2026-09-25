@@ -21,8 +21,11 @@ public class GameFlow : MonoBehaviour
     public static bool FreeRoam { get; private set; }
 
     [Header("Title")]
-    public string titleTop = "BOOGIE DOWN";
-    public string titleMain = "SCARY STREET";
+    public string titleIntro = "BOOGYING DOWN ON";
+    [Tooltip("Big red word, then the crossed-out one, then the last word in the intro's style.")]
+    public string titleWord = "SCARY";
+    public string titleStruck = "MAPLE";
+    public string titleEnd = "STREET";
     public string tagline = "Survive the waves. Beat the bosses. Master the fade.";
 
     [Header("Characters")]

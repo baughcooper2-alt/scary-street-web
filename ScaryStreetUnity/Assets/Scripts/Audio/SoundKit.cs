@@ -63,7 +63,7 @@ public static class SoundKit
         // swap sources so the old track fades out while the new one fades in
         (musicA, musicB) = (musicB, musicA);
         if (track == MusicTrack.None) { musicA.Stop(); return; }
-        if (!music.TryGetValue(track, out var clip)) music[track] = clip = track == MusicTrack.Menu ? MakeMusic(88, false) : MakeMusic(112, true);
+        if (!music.TryGetValue(track, out var clip) || !clip) music[track] = clip = track == MusicTrack.Menu ? MakeMusic(88, false) : MakeMusic(112, true);
         musicA.clip = clip;
         musicA.volume = 0;
         musicA.Play();
@@ -96,7 +96,7 @@ public static class SoundKit
 
     static AudioClip Clip(Sfx s)
     {
-        if (clips.TryGetValue(s, out var c)) return c;
+        if (clips.TryGetValue(s, out var c) && c) return c;
         float[] b = s switch
         {
             Sfx.Punch => Mix(Sweep(0.14f, 170, 55, 0.9f), Noise(0.05f, 0.35f, 0.4f)),

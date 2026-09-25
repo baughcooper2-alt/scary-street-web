@@ -87,6 +87,7 @@ McDonald's L1: 30 HP, speed ~2.9–3.5, starts a punch at 1.1 m, 0.62 s windup, 
 ## Known issues / notes
 
 - Fixed: the Main Camera had a duplicate `FirstPersonController` + `CharacterController`, which made the view slowly sink. `Tools > Scary Street > Set Up Player` removes them, and `FirstPersonController` now disables any copy found on a child camera.
+- Enter Play Mode Options are on with **domain reload off** (`EditorSettings` `m_EnterPlayModeOptions: 3`), so statics survive between Play sessions while runtime-created sprites/textures/clips don't. Any static cache must check that the cached object is still alive before reusing it (`UIArt.Alive(sprite)`, `&& clip`), or the second Play shows white squares / silence.
 - NavMesh must be baked (NavMeshSurface on the world root, geometry = Physics Colliders). Closed door meshes block paths.
 - The select screen lists Mordecai and Rigby (Regular Show) as DLC, as DESIGN.md does; they're licensed characters, so rename them or make parody versions before release.
 - Licensed names/brands: see the note at the end of DESIGN.md; use lookalike names/colors before any public release.
