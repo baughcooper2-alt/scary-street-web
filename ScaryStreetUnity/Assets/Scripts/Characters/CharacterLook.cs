@@ -10,6 +10,8 @@ public class CharacterLook : ScriptableObject
 
     public string displayName = "Someone";
     [Range(1.4f, 2.1f)] public float height = 1.8f;
+    [Tooltip("Use the web build's smooth, rigged human body (with fitted clothes and real hair) instead of the stylized one.")]
+    public bool realisticBody;
 
     [Header("Body")]
     public Color skin = Hex("#e4b996");
@@ -68,7 +70,7 @@ public class CharacterLook : ScriptableObject
         switch (id)
         {
             case "worker":
-                displayName = "McDonald's Worker"; height = 1.76f;
+                displayName = "McDonald's Worker"; height = 1.76f; realisticBody = false;
                 skin = Hex("#e4b996"); shirt = Hex("#c8201e"); longSleeves = false;
                 pants = Hex("#1c1c1f"); shorts = false; shoes = Hex("#141414");
                 hair = Hex("#2a1d14"); brows = Hex("#241810"); hairStyle = HairStyle.Visor; wearsCap = false;
@@ -79,7 +81,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "cooper":                                                  // from Cooper's photo: faded gray oversized tee with a
-                displayName = "Cooper"; height = 1.86f;                    // basketball hoop graphic, black shorts, white wristband
+                displayName = "Cooper"; height = 1.86f; realisticBody = true;                    // basketball hoop graphic, black shorts, white wristband
                 skin = Hex("#e6bea2"); eyes = Hex("#3f3129"); shirt = Hex("#5f5a55"); longSleeves = false;
                 oversizedShirt = true; shirtGraphic = ShirtGraphic.BasketballHoop;
                 pants = Hex("#1b1b1d"); shorts = true; socks = Hex("#f4f4f4"); shoes = Hex("#e8e8e8");
@@ -89,7 +91,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "mystery":                                                 // select-screen silhouette for characters not built yet
-                displayName = "???"; height = 1.8f;
+                displayName = "???"; height = 1.8f; realisticBody = false;
                 skin = eyes = brows = shirt = pants = socks = shoes = hair = Hex("#0c0a0b");
                 longSleeves = true; oversizedShirt = false; shirtGraphic = ShirtGraphic.None; shorts = false; wristband = false;
                 hairStyle = HairStyle.Swoop; wearsCap = false; workerUniform = false;
@@ -97,7 +99,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "jack":                                                    // web build's JACK: khaki tee, light-blue shorts, curly brown hair
-                displayName = "Jack"; height = 1.84f;
+                displayName = "Jack"; height = 1.84f; realisticBody = false;
                 skin = Hex("#e8c19c"); eyes = Hex("#4a3322"); shirt = Hex("#c8b48a"); longSleeves = false;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#9cc8e0"); shorts = true; socks = Hex("#f4f4f4"); shoes = Hex("#f2f2f2");
@@ -106,7 +108,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "courier":                                                 // web build's DoorDash driver: red shirt and cap
-                displayName = "DoorDash Driver"; height = 1.8f;
+                displayName = "DoorDash Driver"; height = 1.8f; realisticBody = false;
                 skin = Hex("#8d5a3b"); eyes = Hex("#2a1c14"); shirt = Hex("#b3261e"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#2b2b2e"); shorts = false; shoes = Hex("#1a1a1a");
@@ -115,7 +117,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "nathan":                                                  // from Nathan's photo: all black, dark brown cap over curls
-                displayName = "Nathan"; height = 1.8f;
+                displayName = "Nathan"; height = 1.8f; realisticBody = true;
                 skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#1c1919"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#1d1713"); shorts = false; shoes = Hex("#1b1b1d");

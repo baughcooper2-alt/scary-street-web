@@ -34,9 +34,16 @@ public class BlockyCharacter : MonoBehaviour
     void Tint(List<Renderer> parts, Color c)
     {
         if (parts.Count == 0 || !parts[0]) return;
-        var m = new Material(parts[0].sharedMaterial) { color = c };
+        var original = parts[0].sharedMaterial;                           // slot 0 is always the skin / hair material
+        var m = new Material(original) { color = c };
         tintMats.Add(m);
-        foreach (var r in parts) if (r) r.sharedMaterial = m;
+        foreach (var r in parts)
+        {
+            if (!r) continue;
+            var list = r.sharedMaterials;                                  // bodies have several materials: swap only the skin
+            for (int i = 0; i < list.Length; i++) if (list[i] == original) list[i] = m;
+            r.sharedMaterials = list;
+        }
     }
 
     void OnDestroy() { foreach (var m in tintMats) Destroy(m); }
@@ -45,6 +52,7 @@ public class BlockyCharacter : MonoBehaviour
 
     public static BlockyCharacter Build(CharacterLook look, Transform parent, MaterialSource mat)
     {
+        if (HumanBody.CanBuild(look)) return HumanBody.Build(look, parent, mat);   // realistic body (Cooper, Nathan)
         var root = new GameObject("Model").transform;
         root.SetParent(parent, false);
         root.localScale = Vector3.one * (look.height / 1.8f);

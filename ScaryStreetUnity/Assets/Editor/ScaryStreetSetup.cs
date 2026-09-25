@@ -346,7 +346,15 @@ public static class ScaryStreetSetup
             AssetDatabase.CreateAsset(saved, path);
             return saved;
         };
-        try { return BlockyCharacter.Build(look, parent, AssetMaterials(look.name)); }
+        try
+        {
+            var built = BlockyCharacter.Build(look, parent, AssetMaterials(look.name));
+            // realistic bodies put the knit texture on their clothing materials: save that too
+            foreach (var r in built.GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.sharedMaterials) if (m && AssetDatabase.Contains(m)) EditorUtility.SetDirty(m);
+            AssetDatabase.SaveAssets();
+            return built;
+        }
         finally { MeshKit.Persist = null; }
     }
 
