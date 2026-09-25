@@ -109,6 +109,7 @@ public static class UIKit
         cb.disabledColor = new Color(0.1f, 0.1f, 0.1f, 0.5f);
         cb.fadeDuration = 0.08f;
         b.colors = cb;
+        b.onClick.AddListener(() => SoundKit.Play(Sfx.Click, 0.35f, 0f));
         if (onClick != null) b.onClick.AddListener(() => onClick());
         var t = Label(rt, label, size, Color.white, align, FontStyle.Bold);
         Fill(t.rectTransform, 0);

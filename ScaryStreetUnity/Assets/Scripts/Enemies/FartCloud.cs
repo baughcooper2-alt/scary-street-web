@@ -8,8 +8,9 @@ public class FartCloud : MonoBehaviour
     Material mat;
     static readonly Color Green = new Color(0.56f, 0.75f, 0.23f, 0.45f);
 
-    public static void Spawn(Vector3 pos, float life, float damagePerSecond, float maxRadius = 1.6f)
+    public static void Spawn(Vector3 pos, float life, float damagePerSecond, float maxRadius = 1.6f, bool quiet = false)
     {
+        if (!quiet) SoundKit.PlayAt(Sfx.Fart, pos + Vector3.up * 0.6f, 0.8f, 0.15f);
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         Destroy(go.GetComponent<Collider>());
         go.name = "FartCloud";

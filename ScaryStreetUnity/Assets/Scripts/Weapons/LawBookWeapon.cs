@@ -81,6 +81,7 @@ public class LawBookWeapon : MagazineWeapon
         swingT = 0;
         UseAmmo();
         if (BodyAnim) BodyAnim.Punch(0.35f, 0.35f);
+        SoundKit.Play(Sfx.Whoosh, 0.55f);
 
         Vector3 eye = Eye, fwd = cam.forward; fwd.y = 0; fwd.Normalize();
         float reach = range + (L3 ? 0.6f : 0f), shove = knockback * (L3 ? 1.5f : 1f);
@@ -90,6 +91,7 @@ public class LawBookWeapon : MagazineWeapon
             if (to.sqrMagnitude > 0.01f && Vector3.Dot(to.normalized, fwd) < 0.35f) continue;   // only in front of you
             if (!ClearLine(eye, h.transform.position + Vector3.up * 1.2f)) continue;             // not through walls
             h.TakeDamage(PlayerStats.MeleeDamage(damage * LevelDamage), shove);
+            SoundKit.PlayAt(Sfx.Punch, h.transform.position + Vector3.up, 0.9f);
         }
     }
 
@@ -99,6 +101,7 @@ public class LawBookWeapon : MagazineWeapon
         UseAmmo(Mathf.Min(slamPages, ammo));
         cooldown = swingCooldown * 1.5f;
         inventory.Toast("OBJECTION!", 1.4f);
+        SoundKit.Play(Sfx.Slam, 0.9f); SoundKit.Play(Sfx.Objection, 0.7f, 0f);
         if (arms) arms.Kick(1.8f);
         if (BodyAnim) BodyAnim.Punch(0.5f, 0.6f);
         float radius = slamRadius + (L3 ? 0.5f : 0f);

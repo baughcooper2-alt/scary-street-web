@@ -36,7 +36,7 @@ public class FoodShot : MonoBehaviour
         Vector3 step = velocity * dt;
         if (Physics.Raycast(transform.position, step.normalized, out var hit, step.magnitude + 0.05f, ~0, QueryTriggerInteraction.Ignore)
             && (!owner || hit.transform.root != owner.transform.root) && !hit.collider.GetComponentInParent<FirstPersonController>())
-        { Destroy(gameObject); return; }                              // splat on the wall / floor
+        { SoundKit.PlayAt(Sfx.Splat, transform.position, 0.6f); Destroy(gameObject); return; }   // splat on the wall / floor
         transform.position += step;
         transform.Rotate(540f * dt, 360f * dt, 0, Space.Self);
 
@@ -47,6 +47,7 @@ public class FoodShot : MonoBehaviour
             if (d.y < 0 || d.y > 1.9f || new Vector2(d.x, d.z).magnitude > 0.5f) continue;
             var h = p.GetComponent<Health>();
             if (h && !h.IsDead) h.TakeDamage(damage);
+            SoundKit.PlayAt(Sfx.Splat, transform.position, 0.8f);
             Destroy(gameObject);
             return;
         }

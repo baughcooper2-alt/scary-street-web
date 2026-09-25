@@ -81,6 +81,11 @@ public class TitleScreen : MonoBehaviour
         UIKit.Place((RectTransform)vol.transform, 380, y + 18, 320, 30);
 
         y += 90;
+        Row(card, "Music", y);
+        var mus = UIKit.Slider(card, 0f, 1f, SoundKit.MusicVolume, v => { SoundKit.MusicVolume = v; PlayerPrefs.Save(); });
+        UIKit.Place((RectTransform)mus.transform, 380, y + 18, 320, 30);
+
+        y += 90;
         Row(card, "Fullscreen", y);
         var full = UIKit.Toggle(card, Screen.fullScreen, v => Screen.fullScreen = v);
         UIKit.Place((RectTransform)full.transform, 380, y + 14, 40, 40);

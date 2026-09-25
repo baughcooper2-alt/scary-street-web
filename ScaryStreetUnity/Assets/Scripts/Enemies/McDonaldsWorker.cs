@@ -184,6 +184,7 @@ public class McDonaldsWorker : MonoBehaviour
             thrown = true;
             Vector3 hand = transform.position + Vector3.up * 1.5f + transform.forward * 0.3f;
             FoodShot.Throw(hand, player.position + Vector3.up * 1.1f, throwDamage, gameObject);
+            SoundKit.PlayAt(Sfx.Throw, hand, 0.7f);
         }
         if (throwT >= 0.55f) { throwT = -1f; throwCd = Random.Range(2.4f, 3.4f); }
     }
@@ -274,6 +275,7 @@ public class McDonaldsWorker : MonoBehaviour
     void OnDamaged(float amount)
     {
         if (health.IsDead) return;
+        SoundKit.PlayAt(Sfx.Hit, transform.position + Vector3.up, 0.8f);
         // flinch: cancel the punch, get shoved away from the player
         attackT = -1f;
         if (body) body.Flinch();
@@ -293,6 +295,7 @@ public class McDonaldsWorker : MonoBehaviour
 
     void OnDied()
     {
+        SoundKit.PlayAt(Sfx.EnemyDown, transform.position + Vector3.up, 0.6f);
         if (agent.isOnNavMesh) agent.isStopped = true;
         agent.enabled = false;
         GetComponent<Collider>().enabled = false;

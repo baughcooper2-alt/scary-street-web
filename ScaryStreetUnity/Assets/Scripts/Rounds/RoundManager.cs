@@ -126,6 +126,8 @@ public class RoundManager : MonoBehaviour
         spawnT = firstSpawnDelay;
         KillsThisRound = 0;
         Show(Current.name, Current.subtitle);
+        SoundKit.Play(Sfx.RoundStart, 0.6f, 0f);
+        SoundKit.PlayMusic(MusicTrack.Fight);
         RoundStarted?.Invoke(RoundNumber);
     }
 
@@ -183,6 +185,7 @@ public class RoundManager : MonoBehaviour
         Pickup.VacuumAll();                                                        // collect whatever's still on the floor
         if (healBetweenRounds && playerHealth) playerHealth.Heal(playerHealth.maxHealth);
         Show($"{Current.name} cleared!", $"{KillsThisRound} knocked out");
+        SoundKit.Play(Sfx.RoundClear, 0.6f, 0f);
         RoundEnded?.Invoke(RoundNumber);
     }
 
@@ -194,6 +197,7 @@ public class RoundManager : MonoBehaviour
         {
             boss = JackBoss.Spawn(spot).Health;
             Show("BOSS: Jack", "Bad jokes, worse farts");
+            SoundKit.Play(Sfx.Boss, 0.8f, 0f);
         }
         else
         {

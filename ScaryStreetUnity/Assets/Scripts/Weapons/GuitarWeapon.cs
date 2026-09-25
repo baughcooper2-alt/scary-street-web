@@ -53,6 +53,7 @@ public class GuitarWeapon : MagazineWeapon
         strumT = 0;
         UseAmmo();
         if (BodyAnim) BodyAnim.Punch(0.3f, 0.3f);
+        SoundKit.Play(Sfx.Strum, 0.7f, 0f);
 
         Vector3 dir = cam.forward, from = Eye + dir * 0.6f + Vector3.down * 0.25f;
         int notes = level >= 3 ? 3 : 2;

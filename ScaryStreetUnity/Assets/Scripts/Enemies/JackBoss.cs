@@ -70,7 +70,7 @@ public class JackBoss : MonoBehaviour
         Health = GetComponent<Health>();
         Health.ResetHealth(maxHealth);
         Health.Died += OnDied;
-        Health.Damaged += _ => { if (anim) anim.Flinch(); };
+        Health.Damaged += _ => { if (anim) anim.Flinch(); SoundKit.PlayAt(Sfx.Hit, transform.position + Vector3.up, 0.9f); };
         agent.speed = speed;
 
         var body = BlockyCharacter.Build(CharacterLook.Preset("jack"), transform, BlockyCharacter.RuntimeMaterials());
@@ -106,7 +106,7 @@ public class JackBoss : MonoBehaviour
             dashT -= dt;
             agent.Move(dashDir * dashSpeed * dt);                     // Move stays on the NavMesh
             transform.rotation = Quaternion.LookRotation(dashDir);
-            if ((trailT -= dt) <= 0) { trailT = 0.22f; FartCloud.Spawn(transform.position, 3.5f, fartDamagePerSecond); }
+            if ((trailT -= dt) <= 0) { trailT = 0.22f; FartCloud.Spawn(transform.position, 3.5f, fartDamagePerSecond, quiet: true); }
             if (dashT <= 0) agent.isStopped = false;
             return;
         }
@@ -116,6 +116,7 @@ public class JackBoss : MonoBehaviour
             dashDir = to.normalized;
             agent.isStopped = true; agent.velocity = Vector3.zero;
             Announce("CROP DUST", "Get out of the way!");
+            SoundKit.PlayAt(Sfx.BigFart, transform.position + Vector3.up, 1f);
             return;
         }
 
@@ -126,6 +127,7 @@ public class JackBoss : MonoBehaviour
             JokeBubble.Spawn(transform.position + Vector3.up * 2.2f, target.position + Vector3.up * 1.4f,
                              Jokes[Random.Range(0, Jokes.Length)], jokeDamage, jokeStun, jokeSlow);
             if (anim) anim.Punch(0.4f, 0.5f);                          // arm up as he delivers the line
+            SoundKit.PlayAt(Sfx.Blah, transform.position + Vector3.up * 1.7f, 0.8f);
         }
         if (fartT <= 0) { fartT = fartEvery; FartCloud.Spawn(transform.position - transform.forward * 0.4f, 6f, fartDamagePerSecond); }
 
@@ -156,6 +158,7 @@ public class JackBoss : MonoBehaviour
 
     void OnDied()
     {
+        SoundKit.PlayAt(Sfx.EnemyDown, transform.position + Vector3.up, 1f);
         if (agent.isOnNavMesh) agent.isStopped = true;
         agent.enabled = false;
         GetComponent<Collider>().enabled = false;

@@ -120,6 +120,7 @@ public class DoorDashShop : MonoBehaviour
         if (it.sold || it.blocked?.Invoke() != null || !wallet || !wallet.SpendCash(it.price)) return;
         it.sold = true;
         it.buy();
+        SoundKit.Play(Sfx.Buy, 0.6f, 0f);
         Refresh();
     }
 

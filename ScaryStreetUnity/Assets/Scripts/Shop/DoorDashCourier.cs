@@ -78,7 +78,13 @@ public class DoorDashCourier : MonoBehaviour, IInteractable
         switch (State)
         {
             case Phase.Walking:
-                if (Arrived(porch, dt)) { State = Phase.Waiting; if (agent.isOnNavMesh) agent.isStopped = true; }
+                if (Arrived(porch, dt))
+                {
+                    State = Phase.Waiting;
+                    if (agent.isOnNavMesh) agent.isStopped = true;
+                    SoundKit.PlayAt(Sfx.Knock, transform.position + Vector3.up, 1f, 0f);   // knock knock
+                    SoundKit.Play(Sfx.Doorbell, 0.5f, 0f);
+                }
                 break;
             case Phase.Waiting:
             case Phase.Shopping:

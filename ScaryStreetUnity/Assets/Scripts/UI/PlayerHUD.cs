@@ -11,14 +11,18 @@ public class PlayerHUD : MonoBehaviour
     Health health;
     PlayerProgress progress;
     PlayerUpgrades upgrades;
-    float hurtFlash, levelFlash, cashFlash;
+    float hurtFlash, levelFlash, cashFlash, lastHurtSound;
     Texture2D white;
     GUIStyle bigStyle, cashStyle;
 
     void Awake()
     {
         health = GetComponent<Health>();
-        health.Damaged += _ => hurtFlash = 1f;
+        health.Damaged += _ =>
+        {
+            hurtFlash = 1f;
+            if (Time.time - lastHurtSound > 0.45f) { lastHurtSound = Time.time; SoundKit.Play(Sfx.Hurt, 0.5f); }   // fart clouds hurt every frame; don't spam
+        };
         health.Died += OnDied;
         progress = GetComponent<PlayerProgress>();
         upgrades = GetComponent<PlayerUpgrades>();

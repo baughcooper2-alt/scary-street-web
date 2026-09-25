@@ -43,7 +43,7 @@ public class Door : MonoBehaviour, IInteractable
 
     public void Toggle(Vector3 from)
     {
-        if (IsOpen) { target = 0f; openedByEnemy = false; }
+        if (IsOpen) { target = 0f; openedByEnemy = false; SoundKit.PlayAt(Sfx.DoorClose, middle, 0.8f); }
         else OpenAwayFrom(from);
     }
 
@@ -59,6 +59,7 @@ public class Door : MonoBehaviour, IInteractable
             if (d > bestDist) { bestDist = d; best = s; }
         }
         target = best * openAngle;
+        SoundKit.PlayAt(Sfx.DoorOpen, middle, 0.7f, 0.15f);
     }
 
     void Update()
@@ -84,6 +85,6 @@ public class Door : MonoBehaviour, IInteractable
     void TickEnemyClose(float dt)
     {
         if (!openedByEnemy) return;
-        if ((enemyT -= dt) <= 0) { target = 0f; openedByEnemy = false; }
+        if ((enemyT -= dt) <= 0) { target = 0f; openedByEnemy = false; SoundKit.PlayAt(Sfx.DoorClose, middle, 0.6f); }
     }
 }

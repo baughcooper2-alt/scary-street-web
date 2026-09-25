@@ -30,7 +30,7 @@ public class CartWeapon : Weapon
     }
 
     float lung, holdFull, fireCd, blinkCd, ringT = -1f, oil = 100f, glow;
-    bool blinkReady, warned;
+    bool blinkReady, warned, wasInhaling;
     Material ledMat;
 
     public override void Init(WeaponInventory inv)
@@ -73,6 +73,8 @@ public class CartWeapon : Weapon
 
         // hit it
         bool inhaling = input.secondaryHeld && !input.primaryHeld;
+        if (inhaling && !wasInhaling && lung < maxPuffs) SoundKit.Play(Sfx.Inhale, 0.45f);
+        wasInhaling = inhaling;
         if (inhaling)
         {
             if (lung < maxPuffs) { lung = Mathf.Min(maxPuffs, lung + inhaleRate * dt); holdFull = 0; }
@@ -94,6 +96,7 @@ public class CartWeapon : Weapon
             if (blinkReady)
             {
                 Shoot(SmokeShot.Kind.Blast);
+                SoundKit.Play(Sfx.Blinker, 0.9f);
                 blinkReady = false; lung = 0; blinkCd = blinkerCooldown; fireCd = 0.6f;
                 inventory.haze = 0.9f;
                 inventory.Toast("BLINKER", 1f);
@@ -102,6 +105,7 @@ public class CartWeapon : Weapon
             else if (lung >= 1f)
             {
                 Shoot(SmokeShot.Kind.Puff);
+                SoundKit.Play(Sfx.Puff, 0.6f);
                 if (Tier >= 2) ringT = ringDelay;
                 lung -= 1f; fireCd = fireCooldown;
                 oil = Mathf.Max(1f, oil - 0.4f);
@@ -112,7 +116,7 @@ public class CartWeapon : Weapon
         }
         if (!input.primaryHeld) warned = false;
 
-        if (ringT >= 0 && (ringT -= dt) < 0) Shoot(SmokeShot.Kind.Ring);
+        if (ringT >= 0 && (ringT -= dt) < 0) { Shoot(SmokeShot.Kind.Ring); SoundKit.Play(Sfx.Ring, 0.45f); }
     }
 
     void Shoot(SmokeShot.Kind kind)

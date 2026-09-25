@@ -50,6 +50,7 @@ public class LevelUpScreen : MonoBehaviour
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
 
         UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.6f)).rectTransform);
+        SoundKit.Play(Sfx.LevelUp, 0.7f, 0f);
         s.NextPage();
     }
 

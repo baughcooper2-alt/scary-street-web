@@ -17,6 +17,7 @@ public class Pickup : MonoBehaviour
     static Transform player;
     static PlayerProgress progress;
     static Material cashMat, xpMat;
+    static float lastSound;
 
     Transform visual;
     Vector3 velocity;
@@ -109,6 +110,7 @@ public class Pickup : MonoBehaviour
             if (kind == Kind.Cash) progress.AddCash(amount);
             else progress.AddXp(amount);
         }
+        if (Time.time - lastSound > 0.06f) { lastSound = Time.time; SoundKit.Play(kind == Kind.Cash ? Sfx.Cash : Sfx.Xp, kind == Kind.Cash ? 0.5f : 0.3f, 0.1f); }
         Destroy(gameObject);
     }
 

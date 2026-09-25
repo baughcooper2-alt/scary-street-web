@@ -65,6 +65,7 @@ public class MusicNote : MonoBehaviour
             var h = overlap[i].GetComponentInParent<Health>();
             if (!h || h.IsDead || h.gameObject == owner) continue;
             h.TakeDamage(damage);
+            SoundKit.PlayAt(Sfx.Ding, transform.position, 0.5f, 0.2f);
             Destroy(gameObject);
             return;
         }

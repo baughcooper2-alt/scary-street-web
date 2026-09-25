@@ -62,6 +62,7 @@ public class JokeBubble : MonoBehaviour
                 p.slowedUntil = Time.time + stun + slow;
                 var inv = p.GetComponent<WeaponInventory>();
                 if (inv) inv.Toast("Cringe… that joke stunned you", 1.4f);
+                SoundKit.Play(Sfx.WahWah, 0.6f, 0f);
             }
             Destroy(gameObject);
             return;

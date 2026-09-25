@@ -47,6 +47,7 @@ public class PlayerPunch : MonoBehaviour
         if (!pressed || cooldownT > 0) return;
         cooldownT = cooldown;
         Punched?.Invoke();
+        SoundKit.Play(Sfx.Whoosh, 0.45f);
 
         // from the eyes (not the camera, which may be behind us in third person) along the aim.
         // SphereCast skips colliders it starts inside, so our own CharacterController is ignored.
@@ -54,7 +55,7 @@ public class PlayerPunch : MonoBehaviour
         if (Physics.SphereCast(eye, radius, cam.forward, out var hit, range, ~0, QueryTriggerInteraction.Ignore))
         {
             var target = hit.collider.GetComponentInParent<Health>();
-            if (target && target != self) target.TakeDamage(PlayerStats.MeleeDamage(damage));   // Strength, Shooter, crits
+            if (target && target != self) { target.TakeDamage(PlayerStats.MeleeDamage(damage)); SoundKit.PlayAt(Sfx.Punch, hit.point); }   // Strength, Shooter, crits
         }
     }
 }

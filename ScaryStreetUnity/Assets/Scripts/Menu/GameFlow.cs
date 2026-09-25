@@ -66,6 +66,7 @@ public class GameFlow : MonoBehaviour
         if (player) player.SetActive(false);
         MakeMenuCamera();
         ShowTitle();
+        SoundKit.PlayMusic(MusicTrack.Menu);
     }
 
     public CharacterLook LookFor(string displayName) => playableLooks.Find(l => l && l.displayName == displayName);
