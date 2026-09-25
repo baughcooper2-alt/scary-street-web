@@ -79611,6 +79611,8 @@ GameObject:
   - component: {fileID: 1225541002}
   - component: {fileID: 1225541004}
   - component: {fileID: 1225541003}
+  - component: {fileID: 1225541005}
+  - component: {fileID: 1225541006}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -79724,6 +79726,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Health
   maxHealth: 25
   invulnerableTime: 0
+  damageReduction: 0
 --- !u!114 &1225541001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -79783,7 +79786,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponInventory
   capacity: 5
   startWithCart: 1
+  startWithCharacterWeapon: 1
   smokeMaterial: {fileID: 2100000, guid: ea8691bc2d8ae4796a39ea389025a070, type: 2}
+--- !u!114 &1225541005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1225540994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9507600270954b2cbca1ffc77252455, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerUpgrades
+  baseSlots: 5
+--- !u!114 &1225541006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1225540994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e6569bfa350f46808177fb8a5f40dfe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerStats
 --- !u!1 &1226243096 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7839886608159721629, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -99654,7 +99683,7 @@ MonoBehaviour:
   rounds:
   - name: Round 1
     subtitle: McDonald's workers are coming in the front door and the back gate
-    duration: 120
+    duration: 20
     plannedEnemies: McDonald's L1
     enemies:
     - prefab: {fileID: 8454760125896133725, guid: 3c8c2e5331415471b9ed209b28202a48, type: 3}
@@ -99772,7 +99801,7 @@ MonoBehaviour:
     maxAlive: 18
     maxPackSize: 5
     bossAfter: Andique
-  startAtRound: 3
+  startAtRound: 1
   healBetweenRounds: 1
   minSpawnDistance: 10
   maxSpawnDistance: 40
@@ -99780,6 +99809,7 @@ MonoBehaviour:
   bannerTime: 3
   clearedTime: 3
   bossNoticeTime: 3
+  shopToRoundDelay: 2.5
 --- !u!4 &1580777022
 Transform:
   m_ObjectHideFlags: 0
