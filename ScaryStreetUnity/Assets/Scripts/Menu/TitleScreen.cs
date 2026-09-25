@@ -98,12 +98,13 @@ public class TitleScreen : MonoBehaviour
     {
         { "Move",                     "W A S D",             "Left stick" },
         { "Look",                     "Mouse",               "Right stick" },
-        { "Jump",                     "Space",               "A" },
-        { "Crouch",                   "C  or  Left Shift",   "B" },
-        { "Punch",                    "Left click",          "Right trigger" },
+        { "Jump / Crouch",            "Space / C or Shift",  "A / B" },
+        { "Punch · blow smoke",       "Left click",          "Right trigger" },
+        { "Hit the cart",             "Right click or E",    "Left trigger" },
+        { "Weapon slots",             "1–5 · mouse wheel",   "LB / RB" },
+        { "Open / close door",        "F",                   "X" },
         { "Switch camera view",       "V",                   "Y" },
         { "Next round (after shop)",  "Enter",               "Start" },
-        { "Free the mouse",           "Esc",                 "" },
         { "After game over",          "R restart · M menu",  "" },
     };
 
@@ -114,7 +115,7 @@ public class TitleScreen : MonoBehaviour
         Header(card, "CONTROLLER", 540, 130);
         for (int i = 0; i < ControlRows.GetLength(0); i++)
         {
-            float y = 180 + i * 50;
+            float y = 175 + i * 50;
             var a = UIKit.Label(card, ControlRows[i, 0], 24, Color.white);
             UIKit.Place(a.rectTransform, 50, y, 250, 44);
             var k = UIKit.Label(card, ControlRows[i, 1], 24, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);

@@ -13,6 +13,8 @@ public class PlayerPunch : MonoBehaviour
     public float range = 2f;
     public float radius = 0.3f;
     public float cooldown = 0.45f;
+    [Tooltip("WeaponInventory turns this off while a weapon is in your hands (empty slot = fists).")]
+    public bool allowInput = true;
 
     public event Action Punched;          // for first-person arms / sounds
 
@@ -32,7 +34,7 @@ public class PlayerPunch : MonoBehaviour
     void Update()
     {
         cooldownT -= Time.deltaTime;
-        if (self && self.IsDead) return;
+        if (!allowInput || (self && self.IsDead)) return;
         if (Cursor.lockState != CursorLockMode.Locked) return;   // first click just grabs the mouse
 
         bool pressed;
