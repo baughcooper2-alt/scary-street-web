@@ -95,7 +95,7 @@
   - stage4: extras and cleanup.
     - Cooper's stylized DummyHair is fitted with its bust as reference; Nathan gets the MakeHuman curls, squashed, under a built cap (band tilted on the forehead, quad brim).
     - Also: Cooper's left wristband, and sneakers made from the feet puffed out.
-    - Body faces under the clothes are deleted (so nothing pokes through), except near garment edges.
+    - Body faces under the clothes are deleted (so nothing pokes through), except near garment edges. Skin that stays under the cloth near those edges (within 3.5 cm along its normal, neck included) is sunk 6 mm so it can't flicker through.
 
   Render checks go through `render_util.shoot` (Workbench), and `walk_pose` is the deformation test. Blender's Python has numpy but no scipy.
 - `CharacterAnimator` (rewritten): walk→run blend, backwards / sideways, turn-in-place steps, jump / crouch from `FirstPersonController.IsGrounded/IsCrouching`, head follows `fpc.Pitch` or `lookAt`, blinking (`Lid` children), talking (`Mouth` child), glances. Hold poses via `anim.hold` (Guitar / Book / Cart / Tray) and `anim.inhaling`; actions `Punch / Swing / Slam / Throw / Strum / Talk / Squat / Wave / Flinch`. Weapons set their hold via `Weapon.HoldPose`. All joint angles are smoothed.
@@ -135,6 +135,8 @@ Conventions: plain MonoBehaviours, public tunable fields with `[Header]`s, short
 McDonald's L1: 30 HP, speed ~2.9–3.5, starts a punch at 1.1 m, 0.62 s windup, hit lands at 55% if still within 1.45 m and on the same floor, 5 damage, 1.8 s cooldown.
 
 ## Known issues / notes
+
+- Render quality lives on the **PC** quality level's URP asset (`Assets/Settings/PC_RPAsset`); GraphicsSettings' default pipeline slot is empty. It's set to 4× MSAA with shadow bias 1 / normal 1, and the player camera adds SMAA at runtime (`ThirdPersonView`). Without anti-aliasing, the hair, curls and cloth edges shimmer.
 
 - Fixed: the Main Camera had a duplicate `FirstPersonController` + `CharacterController`, which made the view slowly sink. `Tools > Scary Street > Set Up Player` removes them, and `FirstPersonController` now disables any copy found on a child camera.
 - Enter Play Mode Options are on with **domain reload off** (`EditorSettings` `m_EnterPlayModeOptions: 3`), so statics survive between Play sessions while runtime-created sprites/textures/clips don't. Any static cache must check that the cached object is still alive before reusing it (`UIArt.Alive(sprite)`, `&& clip`), or the second Play shows white squares / silence.

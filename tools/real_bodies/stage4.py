@@ -181,6 +181,19 @@ for i,(v,n) in enumerate(zip(bco,nor)):
     p=mathutils.Vector(v); d=mathutils.Vector(n)
     hit=any(t.ray_cast(p+d*0.001, d, 0.2)[0] is not None or (t.find_nearest(p,0.05)[0] is not None) for t in cover)
     if hit and kb.find(v)[2]>0.06: hidden[i]=True
+# skin kept near the clothing edges sits just under the cloth and flickers through when moving: sink it 6 mm
+headonly=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Facial','Jaw','Eye','Tongue','Teeth')))
+sink=np.zeros(len(bco))
+for i,(v,n) in enumerate(zip(bco,nor)):
+    if hidden[i] or headonly[i]>0.3: continue
+    p=mathutils.Vector(v); d=mathutils.Vector(n)
+    if any(t.ray_cast(p+d*0.001, d, 0.035)[0] is not None for t in cover): sink[i]=1
+sink=smooth(sink[:,None].repeat(3,1),adjacency(body),np.ones(len(bco)),iters=2)[:,0].clip(0,1)
+dsp=-nor*0.006*sink[:,None]
+for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []):
+    kc=np.array([q.co[:] for q in k.data]); k.data.foreach_set('co',(kc+dsp).reshape(-1))
+set_co(body,bco+dsp); bco=bco+dsp
+print('sunk skin verts',int((sink>0.5).sum()))
 bm=bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table()
 bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(hidden[v.index] for v in f.verts)], context='FACES_ONLY')
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
