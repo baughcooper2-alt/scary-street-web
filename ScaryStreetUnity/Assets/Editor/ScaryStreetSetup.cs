@@ -65,28 +65,48 @@ public static class ScaryStreetSetup
 
     // ---------- NavMesh ----------
 
-    // Select the world root (scary-street-world) first. Sizes the Humanoid agent to the workers
-    // so they fit through doorways, then adds a NavMeshSurface built from the MeshColliders and bakes it.
-    [MenuItem("Tools/Scary Street/Bake NavMesh On Selection")]
+    // Bakes the NavMesh on the world model (scary-street-world), whatever is selected. Sizes the Humanoid
+    // agent to the workers so they fit through doorways, builds from the MeshColliders, and removes any
+    // NavMeshSurface that ended up on another object (plus its baked file) so only the house bake is used.
+    [MenuItem("Tools/Scary Street/Bake NavMesh")]
     static void BakeNavMesh()
     {
+        var root = FindWorld();
+        if (!root) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
         SetHumanoidAgentSize(radius: 0.3f, height: 1.8f, climb: 0.4f);
 
-        var root = Selection.activeGameObject;
+        int removed = 0;
+        foreach (var stray in Object.FindObjectsByType<NavMeshSurface>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (stray.gameObject == root) continue;
+            string asset = stray.navMeshData ? AssetDatabase.GetAssetPath(stray.navMeshData) : null;
+            Undo.DestroyObjectImmediate(stray);
+            if (!string.IsNullOrEmpty(asset)) AssetDatabase.DeleteAsset(asset);
+            removed++;
+        }
+
         var surface = root.GetComponent<NavMeshSurface>();
         if (!surface) surface = Undo.AddComponent<NavMeshSurface>(root);
         Undo.RecordObject(surface, "Bake NavMesh");
         surface.agentTypeID = 0;                                           // Humanoid
-        surface.collectObjects = CollectObjects.Children;                  // just the world, not the player
+        surface.collectObjects = CollectObjects.Children;                  // just the world, not the player or the Doors copies
         surface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.PhysicsColliders;
 
         NavMeshAssetManager.instance.StartBakingSurfaces(new Object[] { surface });
         EditorSceneManager.MarkSceneDirty(root.scene);
-        Debug.Log("Scary Street: baking NavMesh (progress in the bottom-right). Save the scene when it finishes.");
+        Selection.activeGameObject = root;
+        Debug.Log("Scary Street: baking the NavMesh on scary-street-world (progress in the bottom-right)." +
+                  (removed > 0 ? $" Removed {removed} stray NavMesh Surface(s)." : "") + " Save the scene when it finishes.");
     }
 
-    [MenuItem("Tools/Scary Street/Bake NavMesh On Selection", true)]
-    static bool ValidateBake() => Selection.activeGameObject && !EditorUtility.IsPersistent(Selection.activeGameObject);
+    static GameObject FindWorld()
+    {
+        var world = GameObject.Find("scary-street-world");
+        if (world) return world;
+        foreach (var s in Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None))
+            if (!s.GetComponentInChildren<Door>()) return s.gameObject;           // an earlier bake on the (renamed) world
+        return null;
+    }
 
     static void SetHumanoidAgentSize(float radius, float height, float climb)
     {
@@ -361,9 +381,8 @@ public static class ScaryStreetSetup
     [MenuItem("Tools/Scary Street/Set Up Doors")]
     static void SetUpDoors()
     {
-        var world = GameObject.Find("scary-street-world");
-        if (!world && Selection.activeGameObject) world = Selection.activeGameObject;
-        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Select the scary-street-world object in the Hierarchy first.", "OK"); return; }
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
 
         // undo a previous run: show the originals again and drop the old copies
         var old = GameObject.Find("Doors");
@@ -404,11 +423,12 @@ public static class ScaryStreetSetup
         }
 
         EditorSceneManager.MarkSceneDirty(root.scene);
-        Selection.activeGameObject = root;
-        EditorUtility.DisplayDialog("Scary Street",
+        bool bake = EditorUtility.DisplayDialog("Scary Street",
             $"Set up {made} of {WebDoors.Length} doors." + (missing.Count > 0 ? $"\nNot found: {string.Join(", ", missing)}" : "") +
-            "\n\nNow rebake the NavMesh so enemies can path through the doorways: select scary-street-world, then " +
-            "Tools > Scary Street > Bake NavMesh On Selection.", "OK");
+            "\n\nThe NavMesh needs rebaking so enemies can path through the doorways. Bake it now?",
+            "Bake now", "Later");
+        if (bake) BakeNavMesh();
+        else Selection.activeGameObject = world;
     }
 
     static int CountDoorMatches(MeshRenderer[] renderers, float sx)
