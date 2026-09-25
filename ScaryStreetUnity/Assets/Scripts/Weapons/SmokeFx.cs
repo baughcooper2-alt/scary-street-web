@@ -10,7 +10,8 @@ public static class SmokeFx
 
     // ---------- look ----------
 
-    // 256×256: four 128 px blobs, each with its own fractal noise, soft wobbly edges and a light top-left.
+    // 256×256: four 128 px blobs, each with its own fractal noise, a fairly crisp wobbly edge with a darker rim
+    // (so each clump reads as an outlined shape, not a blur) and a light top-left.
     public static Texture2D MakeSheet()
     {
         const int cell = 128, n = cell * 2;
@@ -26,11 +27,13 @@ public static class SmokeFx
                 float dx = u - 0.5f, dy = v - 0.5f;
                 float r = Mathf.Sqrt(dx * dx + dy * dy) * 2f;                      // 0 centre, 1 at the cell edge
                 float f = Fbm(u * 3.2f + ox, v * 3.2f + oy);
-                float shape = 1f - Mathf.SmoothStep(0.25f, 1f, r + (f - 0.5f) * 0.55f);
-                shape *= 1f - Mathf.SmoothStep(0.82f, 1f, r);                        // never touch the cell border
-                float density = shape * Mathf.Lerp(0.45f, 1f, Fbm(u * 7f + oy, v * 7f + ox));
-                float light = Mathf.Lerp(0.8f, 1f, Mathf.Clamp01(0.5f + (dy - dx) * 1.2f)) * Mathf.Lerp(0.92f, 1f, f);
-                px[(cy + y) * n + cx + x] = new Color(light, light, light, Mathf.Clamp01(density * 1.25f));
+                float edge = r + (f - 0.5f) * 0.45f;
+                float shape = 1f - Mathf.SmoothStep(0.5f, 0.86f, edge);
+                shape *= 1f - Mathf.SmoothStep(0.84f, 1f, r);                        // never touch the cell border
+                float density = shape * Mathf.Lerp(0.6f, 1f, Fbm(u * 7f + oy, v * 7f + ox));
+                float rim = Mathf.SmoothStep(0.38f, 0.8f, edge);                      // darker band just inside the edge
+                float light = Mathf.Lerp(0.78f, 1f, Mathf.Clamp01(0.5f + (dy - dx) * 1.2f)) * Mathf.Lerp(0.9f, 1f, f) * Mathf.Lerp(1f, 0.5f, rim);
+                px[(cy + y) * n + cx + x] = new Color(light, light, light, Mathf.Clamp01(density * 1.4f));
             }
         }
         tex.SetPixels(px);
@@ -101,7 +104,7 @@ public static class SmokeFx
             case SmokeShot.Kind.Ring:
             {
                 // the ring: wisps on a circle that travel with it and spread out; plus a faint trail left behind
-                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.7f, 0.7f, 0.72f, 0.75f),
+                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.66f, 0.66f, 0.68f, 0.88f),
                                 size: (0.08f, 0.14f), life: (1.1f, 1.3f), speed: (0f, 0.05f), grow: 2.4f, max: 160);
                 Burst(ring, 130);
                 var sh = ring.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.15f; sh.radiusThickness = 0f;
@@ -132,6 +135,7 @@ public static class SmokeFx
                 Noise(ps, 0.6f, 0.4f);
                 Fade(ps, 0.06f, 0.5f);
                 var main = ps.main; main.gravityModifier = -0.03f;
+                Head(ps, mat, new Color(0.5f, 0.54f, 0.5f, 0.85f), (0.8f, 1.1f), 45f);
                 ps.gameObject.SetActive(true);
                 return ps;
             }
@@ -147,10 +151,23 @@ public static class SmokeFx
                 Noise(ps, 0.35f, 0.6f);
                 Fade(ps, 0.08f, 0.45f);
                 var main = ps.main; main.gravityModifier = -0.02f;
+                Head(ps, mat, new Color(0.52f, 0.52f, 0.54f, 0.85f), (0.3f, 0.42f), 70f);
                 ps.gameObject.SetActive(true);
                 return ps;
             }
         }
+    }
+
+    // The dense core that rides on the hitbox, so you can see exactly where the shot is.
+    static void Head(ParticleSystem parent, Material mat, Color color, (float, float) size, float rate)
+    {
+        var head = Make(parent.transform, "Head", parent.transform.rotation, mat, local: false, color: color,
+                        size: size, life: (0.18f, 0.32f), speed: (0f, 0.2f), grow: 1.7f, max: 60);
+        var main = head.main; main.loop = true;
+        var em = head.emission; em.rateOverTime = rate;
+        var sh = head.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = size.Item1 * 0.25f;
+        Fade(head, 0.1f, 0.4f);
+        head.gameObject.SetActive(true);
     }
 
     // Stop emitting and let what's in the air finish on its own (the SmokeShot is about to be destroyed).
@@ -177,7 +194,7 @@ public static class SmokeFx
         main.startSpeed = new ParticleSystem.MinMaxCurve(speed.Item1, speed.Item2);
         main.startSize = new ParticleSystem.MinMaxCurve(size.Item1, size.Item2);
         main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-        main.startColor = color;
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(color.r * 0.72f, color.g * 0.72f, color.b * 0.72f, color.a), color);   // two greys so clumps stand apart
         main.maxParticles = max;
         main.stopAction = ParticleSystemStopAction.Destroy;
         main.scalingMode = ParticleSystemScalingMode.Local;

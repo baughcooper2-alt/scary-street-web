@@ -15,9 +15,10 @@ public class CharacterAnimator : MonoBehaviour
     public enum Hold { None, Guitar, Book, Cart, Tray, Phone }
     enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave }
 
-    [Tooltip("Meters covered per full stride (left + right step) when walking; running strides are longer.")]
+    [Tooltip("Scales every stride (1 = the natural length for this speed).")]
     public float strideLength = 1.3f;
-    public float walkSpeed = 3f, runSpeed = 5.5f;
+    [Tooltip("Speed (m/s) where the walk turns into a jog, and where it's a full run.")]
+    public float jogFrom = 2.2f, runAt = 4.6f;
     [Tooltip("Head turns toward this (the target an enemy is chasing, for example).")]
     public Transform lookAt;
     [System.NonSerialized] public Hold hold;
@@ -79,20 +80,50 @@ public class CharacterAnimator : MonoBehaviour
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
     public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing) actT = -1f; }
 
-    // One leg's angles at gait phase p (radians): hip swing, knee bend, ankle (+ = toes down).
-    static void Gait(float p, float swing, float kneeSwing, float kneeLoad, float amt, out float hip, out float knee, out float ankle)
+    // Gait curves: (cycle position, degrees) pairs; 0 = this foot's heel strike. From human gait data, simplified.
+    // Hip is degrees forward of vertical; knee is bend. Walking: knee gives on landing, starts bending before the toes
+    // leave (pre-swing), peaks early in the swing and straightens just before landing. Running: bent the whole time,
+    // big tuck in the swing, thigh driven high and forward; the foot leaves at ~35% (flight after that).
+    static readonly float[] WalkHip  = { 0f, 25f,  0.15f, 20f,  0.52f, -20f,  0.62f, -13f,  0.87f, 29f };
+    static readonly float[] RunHip   = { 0f, 30f,  0.18f,  6f,  0.38f, -26f,  0.5f,  -16f,  0.85f, 48f };
+    static readonly float[] WalkKnee = { 0f,  5f,  0.12f, 18f,  0.4f,    5f,  0.58f,  38f,  0.72f, 62f,  0.88f, 20f };
+    static readonly float[] RunKnee  = { 0f, 20f,  0.14f, 40f,  0.32f,  20f,  0.45f,  48f,  0.66f, 108f, 0.86f, 42f };
+
+    // Smooth looping curve through the keys (Catmull-Rom tangents).
+    static float Loop(float[] k, float g)
     {
-        p = Mathf.Repeat(p, Mathf.PI * 2f);
-        float sn = Mathf.Sin(p), cs = Mathf.Cos(p);
-        hip = -swing * (sn + 0.12f * Mathf.Sin(2f * p));                          // a touch more extension behind than flexion in front
-        float fromSwingMid = Mathf.DeltaAngle(0f, (p + 0.2f) * Mathf.Rad2Deg) * Mathf.Deg2Rad;   // swing peak just before 0
-        float swingBump = Mathf.Pow(Mathf.Max(0f, Mathf.Cos(fromSwingMid / 1.35f * Mathf.PI / 2f)), 1.5f);
-        float load = Bump(p, Mathf.PI * 0.5f + 0.45f, 0.5f);                      // knee gives a little after heel strike
-        knee = kneeSwing * swingBump + kneeLoad * load;
-        // keep the planted foot flat (cancel hip + knee), then heel-first landing and toe push-off
-        float planted = Mathf.Clamp01(-cs * 3f);
-        ankle = -(hip + knee) * planted * 0.85f - 10f * amt * Bump(p, Mathf.PI * 0.5f, 0.35f) + 22f * amt * Bump(p, Mathf.PI * 1.5f + 0.3f, 0.4f) - 6f * amt * swingBump;
+        int n = k.Length / 2;
+        float X(int i) => k[2 * (((i % n) + n) % n)] + Mathf.Floor(i / (float)n);
+        float Y(int i) => k[2 * (((i % n) + n) % n) + 1];
+        int j = -1;
+        while (j < n - 1 && X(j + 1) <= g) j++;
+        float x0 = X(j), x1 = X(j + 1), h = x1 - x0, t = (g - x0) / h;
+        float m0 = (Y(j + 1) - Y(j - 1)) / (X(j + 1) - X(j - 1)), m1 = (Y(j + 2) - Y(j)) / (X(j + 2) - X(j));
+        float t2 = t * t, t3 = t2 * t;
+        return (2 * t3 - 3 * t2 + 1) * Y(j) + (t3 - 2 * t2 + t) * h * m0 + (-2 * t3 + 3 * t2) * Y(j + 1) + (t3 - t2) * h * m1;
     }
+
+    static float Near(float g, float centre, float width)
+    {
+        float d = Mathf.Repeat(g - centre + 0.5f, 1f) - 0.5f;
+        return Mathf.Exp(-(d / width) * (d / width) * 2f);
+    }
+
+    // One leg at gait phase p (radians; this foot lands at p = π/2): hip (−X forward), knee bend, ankle (+ = toes down).
+    // hipScale stretches the hip curve to the stride so the planted foot doesn't slide; amt fades it all in from standing.
+    static void Gait(float p, float run, float amt, float hipScale, out float hip, out float knee, out float ankle)
+    {
+        float g = Mathf.Repeat((p - Mathf.PI * 0.5f) / (Mathf.PI * 2f), 1f);
+        hip = -Mathf.Lerp(Loop(WalkHip, g), Loop(RunHip, g), run) * hipScale;
+        knee = Mathf.Max(0f, Mathf.Lerp(Loop(WalkKnee, g), Loop(RunKnee, g), run)) * amt;
+        // foot flat while planted (cancel the hip + knee), heel first on landing, toes push off, toes up to clear in the swing
+        float toeOff = StanceEnd(run);
+        float planted = Mathf.SmoothStep(0, 1, g / 0.07f) * (1f - Mathf.SmoothStep(0, 1, (g - (toeOff - 0.15f)) / 0.13f));
+        ankle = -(hip + knee) * planted * 0.9f - 12f * amt * Near(g, 0f, 0.05f) + 24f * amt * Near(g, toeOff - 0.03f, 0.07f)
+                - 8f * amt * Near(g, toeOff + 0.16f, 0.12f);
+    }
+
+    static float StanceEnd(float run) => Mathf.Lerp(0.6f, 0.36f, run);
 
     static float Bump(float p, float centre, float width)
     {
@@ -138,8 +169,8 @@ public class CharacterAnimator : MonoBehaviour
         float fwd = speed > 0.05f ? local.z / speed : 1f, side = speed > 0.05f ? local.x / speed : 0f;
         float yawRate = Mathf.DeltaAngle(lastYaw, transform.eulerAngles.y) / dt; lastYaw = transform.eulerAngles.y;
 
-        move = Mathf.MoveTowards(move, Mathf.Clamp01(speed / walkSpeed), dt * 5f);
-        run = Mathf.MoveTowards(run, Mathf.Clamp01((speed - walkSpeed) / (runSpeed - walkSpeed)), dt * 3f);
+        move = Mathf.MoveTowards(move, Mathf.Clamp01(speed / jogFrom), dt * 5f);
+        run = Mathf.MoveTowards(run, Mathf.SmoothStep(0, 1, (speed - jogFrom) / (runAt - jogFrom)), dt * 3f);
         bool inAir = fpc ? !fpc.IsGrounded && Mathf.Abs(vy) > 0.5f : Mathf.Abs(vy) > 2.5f;
         air = Mathf.MoveTowards(air, inAir ? 1f : 0f, dt * 6f);
         crouch = Mathf.MoveTowards(crouch, fpc && fpc.IsCrouching ? 1f : 0f, dt * 5f);
@@ -147,9 +178,10 @@ public class CharacterAnimator : MonoBehaviour
         talkT -= dt; squatT -= dt;
         float squat = Mathf.Clamp01(squatT * 4f) * Mathf.Clamp01(1f - (squatT - 0.8f) * 4f);
 
-        // stepping: stride grows with speed so feet don't slide; backwards runs the cycle in reverse;
-        // little steps when turning on the spot
-        float stride = Mathf.Clamp(0.8f + 0.3f * speed, 1.0f, 2.6f) * strideLength / 1.3f * strideScale;
+        // stepping: a natural cadence (about 120 steps a minute walking, 175 running) sets the stride for the speed;
+        // backwards runs the cycle in reverse; little steps when turning on the spot
+        float cadence = Mathf.Lerp(1.0f, 1.45f, run);                            // full strides (left + right) per second
+        float stride = Mathf.Clamp(speed / cadence, 1.0f, 3.6f) * strideLength / 1.3f * strideScale;
         float stepSpeed = speed + (speed < 0.3f ? Mathf.Abs(yawRate) * 0.006f : 0f);
         phase = Mathf.Repeat(phase + stepSpeed / stride * Mathf.PI * 2f * dt * (fwd < -0.3f ? -1f : 1f), Mathf.PI * 2f);
         float stepAmt = Mathf.Max(move, speed < 0.3f ? Mathf.Clamp01(Mathf.Abs(yawRate) / 200f) * 0.35f : 0f);
@@ -159,11 +191,14 @@ public class CharacterAnimator : MonoBehaviour
         // hip: forward-most at π/2 (heel strike), back-most at 3π/2 (toe off); the swing is the half where cos > 0.
         // knee: small give as the foot lands, big bend mid-swing. ankle: keeps the foot flat while it's planted,
         // heel first on landing, rolls onto the toes as it pushes off.
-        float legSwing = Mathf.Lerp(26f, 44f, run) * stepAmt * (1f - 0.6f * Mathf.Abs(side));
-        float kneeSwing = Mathf.Lerp(46f, 95f, run) * stepAmt, kneeLoad = Mathf.Lerp(12f, 25f, run) * stepAmt;
+        // hip range that covers the ground the body moves over while the foot is down (legs ~0.9 m), vs the curve's own
+        float travel = Mathf.Max(speed, 1f) / cadence * StanceEnd(run);
+        float needRange = Mathf.Clamp(2f * Mathf.Asin(Mathf.Min(0.95f, travel / 1.8f)) * Mathf.Rad2Deg, 24f, 64f);
+        float curveRange = Mathf.Lerp(45f, 56f, run);
+        float hipScale = stepAmt * (1f - 0.6f * Mathf.Abs(side)) * Mathf.Lerp(1f, needRange / curveRange, move);
         float spread = side * 10f * stepAmt;                                     // sidestep: legs open and close
-        Gait(phase, legSwing, kneeSwing, kneeLoad, stepAmt, out float hipL, out float kneeL, out float ankL);
-        Gait(phase + Mathf.PI, legSwing, kneeSwing, kneeLoad, stepAmt, out float hipR, out float kneeR, out float ankR);
+        Gait(phase, run, stepAmt, hipScale, out float hipL, out float kneeL, out float ankL);
+        Gait(phase + Mathf.PI, run, stepAmt, hipScale, out float hipR, out float kneeR, out float ankR);
         Vector3 tLgL = new Vector3(hipL, 0, -Mathf.Abs(s) * spread), tLgR = new Vector3(hipR, 0, Mathf.Abs(s) * spread);
         Vector3 tKnL = new Vector3(2f + kneeL, 0, 0), tKnR = new Vector3(2f + kneeR, 0, 0);
         Vector3 tAnL = new Vector3(ankL, 0, 0), tAnR = new Vector3(ankR, 0, 0);
@@ -176,7 +211,8 @@ public class CharacterAnimator : MonoBehaviour
         // ---------- pelvis: bob twice per stride (lowest as each heel lands), shift over the planted leg,
         // turn with the forward leg and dip on the swinging side ----------
         float bobAmp = Mathf.Lerp(0.028f, 0.055f, run) * move;
-        float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * phase)) - bobAmp;
+        // walking is lowest just after each heel lands; running is lowest mid-stance and highest in the flight
+        float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * (phase - run * 0.4f * Mathf.PI))) - bobAmp;
         float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
         float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
         b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);

@@ -366,16 +366,12 @@ public static class ScaryStreetSetup
     {
         EnsureFolder("Assets", "Weapons");
         const string texPath = "Assets/Weapons/SmokeSheet.png", path = "Assets/Weapons/SmokeParticles.mat";
+        System.IO.File.WriteAllBytes(texPath, SmokeFx.MakeSheet().EncodeToPNG());   // always regenerate: the look gets tuned
+        AssetDatabase.ImportAsset(texPath);
+        var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+        imp.alphaIsTransparency = true; imp.wrapMode = TextureWrapMode.Clamp; imp.mipmapEnabled = true;
+        imp.SaveAndReimport();
         var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
-        if (!tex)
-        {
-            System.IO.File.WriteAllBytes(texPath, SmokeFx.MakeSheet().EncodeToPNG());
-            AssetDatabase.ImportAsset(texPath);
-            var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
-            imp.alphaIsTransparency = true; imp.wrapMode = TextureWrapMode.Clamp; imp.mipmapEnabled = true;
-            imp.SaveAndReimport();
-            tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
-        }
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (!m)
         {
