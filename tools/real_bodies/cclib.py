@@ -40,7 +40,7 @@ def bake_pose_as_rest(arm, meshes):
             sel(m); bpy.ops.object.modifier_apply(modifier=mod.name)
             m.shape_key_add(name='Basis')
             for n in names:
-                k=m.shape_key_add(name=n); co=np.array(base+deltas[n])
+                k=m.shape_key_add(name=n, from_mix=False); k.value=0; co=np.array(base+deltas[n])
                 k.data.foreach_set('co',co.reshape(-1))
         else:
             sel(m); bpy.ops.object.modifier_apply(modifier=mod.name)
@@ -256,3 +256,56 @@ def panel_weights(garment, body, armpit_z=1.40):
     bpy.ops.object.vertex_group_normalize_all(group_select_mode='ALL', lock_active=False)
     bpy.ops.object.mode_set(mode='OBJECT')
     return sleeve, seam
+
+def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
+    """Per-character face: Nathan narrow and long with a stronger nose and slimmer cheeks; Cooper broader."""
+    co=mesh_co(body); d=np.zeros_like(co)
+    def ss(a,b,x): t=np.clip((x-a)/(b-a),0,1); return t*t*(3-2*t)
+    x,y,z=co[:,0],co[:,1],co[:,2]
+    front=ss(cy+0.02,cy-0.05,y)
+    lower=ss(eyeZ-0.005,eyeZ-0.03,z)*ss(chinZ-0.02,chinZ+0.005,z)
+    def blob(c,r):
+        dist=np.linalg.norm(co-np.array(c),axis=1); return np.clip(1-dist/r,0,1)**2
+    if who=='nathan':
+        d[:,0]+= -x*0.08*lower*front                                            # narrower cheeks and jaw
+        d[:,2]+= -0.007*ss(mouthZ-0.01,chinZ,z)*front*(np.abs(x)<0.05)*ss(chinZ-0.02,chinZ,z)   # longer chin
+        nose=blob((0,-0.105,mouthZ+0.035),0.026); d[:,1]-=0.0045*nose; d[:,2]-=0.0015*nose       # longer, stronger nose
+        bridge=blob((0,-0.092,eyeZ-0.005),0.016); d[:,1]-=0.0022*bridge
+        for sx in (1,-1):
+            ch=blob((0.045*sx,-0.072,mouthZ+0.02),0.026); d[:,0]-=0.0028*sx*ch; d[:,1]+=0.0012*ch   # hollower cheeks
+    else:
+        d[:,0]+= x*0.035*lower*front                                            # broader jaw
+        for sx in (1,-1):
+            ch=blob((0.045*sx,-0.072,mouthZ+0.02),0.026); d[:,1]-=0.0015*ch      # fuller cheeks
+    kb=body.data.shape_keys.key_blocks if body.data.shape_keys else []
+    for k in kb:
+        a=np.array([v.co[:] for v in k.data]); k.data.foreach_set('co',(a+d).reshape(-1))
+    set_co(body,co+d)
+    print('  face shaped',who,'max move',round(float(np.linalg.norm(d,axis=1).max()),4))
+
+def coils(points, normals, seed=3, forehead=None):
+    """Little 3D curls: a helix tube hanging from each scalp point (for curly hair that reads from a distance)."""
+    import bmesh, random
+    rnd=random.Random(seed); bm=bmesh.new()
+    for i,(p,n) in enumerate(zip(points,normals)):
+        n=mathutils.Vector(n).normalized(); down=mathutils.Vector((0,0,-1))
+        a=(down-n*down.dot(n)); a=a.normalized() if a.length>1e-4 else down
+        short=forehead is not None and forehead[i]
+        a=(a+n*rnd.uniform(0.25,0.55)+mathutils.Vector((rnd.uniform(-.3,.3),rnd.uniform(-.3,.3),0))).normalized()
+        L=rnd.uniform(0.012,0.02) if short else rnd.uniform(0.02,0.036)
+        R=rnd.uniform(0.0055,0.0085); tube=rnd.uniform(0.0022,0.003); pitch=rnd.uniform(0.007,0.01)
+        u=a.orthogonal().normalized(); v=a.cross(u)
+        start=mathutils.Vector(p)+n*0.003; ph=rnd.uniform(0,6.28)
+        steps=max(6,int(L/pitch*7)); rings=[]
+        for s in range(steps+1):
+            t=s/steps; ang=ph+t*L/pitch*6.283
+            c=start+a*(t*L)+(u*math.cos(ang)+v*math.sin(ang))*R*(0.6+0.4*t)
+            tang=(a*(L/steps)+(u*-math.sin(ang)+v*math.cos(ang))*R*(6.283*L/pitch/steps)).normalized()
+            q1=tang.orthogonal().normalized(); q2=tang.cross(q1)
+            ring=[bm.verts.new(c+(q1*math.cos(k*6.283/5)+q2*math.sin(k*6.283/5))*tube*(1-0.5*t)) for k in range(5)]
+            rings.append(ring)
+        for s in range(steps):
+            for k in range(5):
+                bm.faces.new((rings[s][k],rings[s][(k+1)%5],rings[s+1][(k+1)%5],rings[s+1][k]))
+    me=bpy.data.meshes.new('Curls'); bm.to_mesh(me); bm.free()
+    o=bpy.data.objects.new('Curls',me); bpy.context.scene.collection.objects.link(o); return o

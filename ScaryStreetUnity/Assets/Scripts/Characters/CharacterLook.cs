@@ -127,7 +127,7 @@ public class CharacterLook : ScriptableObject
                 skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#1c1919"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#1d1713"); shorts = false; shoes = Hex("#1b1b1d");
-                hair = Hex("#2e2119"); brows = Hex("#261a13"); hairStyle = HairStyle.Curly; wearsCap = true; cap = Hex("#3f3530"); hairAsset = "nathan_curls";
+                hair = Hex("#0c0b0b"); brows = Hex("#141010"); hairStyle = HairStyle.Curly; wearsCap = true; cap = Hex("#3f3530"); hairAsset = "nathan_curls";
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
         }

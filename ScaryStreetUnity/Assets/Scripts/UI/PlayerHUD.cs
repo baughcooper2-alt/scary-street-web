@@ -19,6 +19,7 @@ public class PlayerHUD : MonoBehaviour
     PlayerStats stats;
     WeaponInventory weapons;
     PlayerInteract interact;
+    ThirdPersonView view;
     Camera cam;
     float hurtFlash, levelFlash, cashFlash, lastHurtSound, hpShown = 1f;
     bool downed;
@@ -305,7 +306,8 @@ public class PlayerHUD : MonoBehaviour
         bool flash = levelFlash > 0 && !LevelUpScreen.IsOpen && progress;
         levelUpText.text = flash ? $"LEVEL {progress.Level}!" : "";
         levelUpText.color = new Color(UIArt.Theme.Teal.r, UIArt.Theme.Teal.g, UIArt.Theme.Teal.b, Mathf.Clamp01(levelFlash));
-        crosshair.SetActive(!dead);
+        if (!view) view = GetComponent<ThirdPersonView>();
+        crosshair.SetActive(!dead && !(view && view.IsFrontView));   // nothing to aim at while you look at yourself
 
         // round info
         var rm = RoundManager.Instance;

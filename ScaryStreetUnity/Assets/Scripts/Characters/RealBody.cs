@@ -124,8 +124,10 @@ public static class RealBody
         b.legL = B("L_Thigh"); b.kneeL = B("L_Calf"); b.ankleL = B("L_Foot");
         b.legR = B("R_Thigh"); b.kneeR = B("R_Calf"); b.ankleR = B("R_Foot");
 
+        string model = ModelName(look);
         foreach (var part in d.parts)
         {
+            if (part.name.StartsWith("FP_")) continue;                               // first-person arms: see FirstPersonArm
             if (part.name == "Cap" && !look.wearsCap) continue;
             if (part.name == "Wristband" && !look.wristband) continue;
             var go = new GameObject(part.name);
@@ -136,7 +138,7 @@ public static class RealBody
             smr.rootBone = b.hips;
             smr.localBounds = new Bounds(new Vector3(0, -0.1f, 0), new Vector3(1.4f, 2.2f, 1f));   // around the hips
             var mats = new Material[part.mats.Length];
-            for (int m = 0; m < mats.Length; m++) mats[m] = Dress(part.mats[m], look, mat);
+            for (int m = 0; m < mats.Length; m++) mats[m] = Dress(part.mats[m], look, mat, model);
             smr.sharedMaterials = mats;
             if (part.name == "CC_Base_Body") b.skinParts.Add(smr);
             if (part.name == "Hair") b.hairParts.Add(smr);
@@ -144,24 +146,47 @@ public static class RealBody
         return b;
     }
 
+    // This character's own forearm and fist for the first-person view (posed in Blender with the fingers curled,
+    // centred on the fist, forward = +Z). side: 1 = right, -1 = left. Null if the character has none.
+    public static Transform FirstPersonArm(CharacterLook look, int side, Transform parent, BlockyCharacter.MaterialSource mat)
+    {
+        string model = ModelName(look);
+        var d = Load(model);
+        var part = d?.parts.Find(p => p.name == (side > 0 ? "FP_R" : "FP_L"));
+        if (part == null) return null;
+        var go = new GameObject(part.name);
+        go.transform.SetParent(parent, false);
+        go.transform.localScale = Vector3.one * (look.height / d.height);
+        go.AddComponent<MeshFilter>().sharedMesh = part.mesh;
+        var mr = go.AddComponent<MeshRenderer>();
+        var mats = new Material[part.mats.Length];
+        for (int m = 0; m < mats.Length; m++) mats[m] = Dress(part.mats[m], look, mat, model);
+        mr.sharedMaterials = mats;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return go.transform;
+    }
+
     // Material for one slot: the skin / eye textures from the base body tinted toward the look, the fabric normal map
     // on the clothes, and flat look colours for hair, cap, shoes and the wristband.
-    static Material Dress(string slot, CharacterLook L, BlockyCharacter.MaterialSource mat)
+    static Material Dress(string slot, CharacterLook L, BlockyCharacter.MaterialSource mat, string model)
     {
+        // a character can have its own face texture (eyebrows): Skin_Head_<Model>_D
+        string face = Resources.Load<Texture2D>($"RealBody/Tex/Skin_Head_{model}_D") ? $"Skin_Head_{model}" : "Skin_Head";
         Color skinTint = Color.Lerp(Color.white, Div(L.skin, new Color(0.76f, 0.55f, 0.45f)), 0.5f);   // texture average → the look
         switch (slot)
         {
-            case "Std_Skin_Head": return Textured(mat("Real_SkinHead", skinTint), "Skin_Head", 0.35f);
+            case "Std_Skin_Head": return Textured(mat("Real_SkinHead_" + model, skinTint), face, 0.35f, "Skin_Head");
             case "Std_Skin_Body": return Textured(mat("Real_SkinBody", skinTint), "Skin_Body", 0.32f);
             case "Std_Skin_Arm":  return Textured(mat("Real_SkinArm", skinTint), "Skin_Arm", 0.32f);
             case "Std_Skin_Leg":  return Textured(mat("Real_SkinLeg", skinTint), "Skin_Leg", 0.32f);
             case "Std_Nails":     return Textured(mat("Real_Nails", skinTint), "Nails", 0.5f);
             case "Ga_Eye":        return Textured(mat("Real_Eye", Color.white), "Eye_Brown", 0.9f);
             case "Ga_Teeth":      return Textured(mat("Real_Teeth", Color.white), "Teeth", 0.6f);
-            case "Shirt":         return TwoSided(Textured(mat("Real_Shirt", L.shirt), null, 0.08f, "Fabric"));   // the outfit's own fabric normals
-            case "Pants":         return TwoSided(Textured(mat("Real_Pants", L.pants), null, 0.1f, "Fabric"));
+            case "Shirt":         return TwoSided(Textured(mat("Real_Shirt", L.shirt), null, 0.08f, "Fabric", 0.8f));   // the outfit's own fabric normals
+            case "Pants":         return TwoSided(Textured(mat("Real_Pants", L.pants), null, 0.1f, "Fabric", 0.8f));
             case "Shoes":         return TwoSided(Smooth(mat("Real_Shoes", L.shoes), 0.35f));
             case "Hair":          return HairMat(mat("Real_Hair", L.hair), L);
+            case "Curls":         return TwoSided(Smooth(mat("Real_Curls", L.hair), 0.3f));
             case "Cap":           return TwoSided(Smooth(mat("Real_Cap", L.cap), 0.2f));
             case "Wristband":     return Smooth(mat("Real_Wristband", L.wristbandColor), 0.15f);
             default:              return mat("Real_" + slot, Color.gray);
@@ -173,14 +198,14 @@ public static class RealBody
     static Material Smooth(Material m, float s) { m.SetFloat("_Smoothness", s); return m; }
     static Material TwoSided(Material m) { m.SetFloat("_Cull", 0f); return m; }             // cloth is a single sheet
 
-    static Material Textured(Material m, string tex, float smoothness, string normal = null)
+    static Material Textured(Material m, string tex, float smoothness, string normal = null, float bump = 1f)
     {
         var d = tex != null ? Resources.Load<Texture2D>("RealBody/Tex/" + tex + "_D") : null;
         var n = Resources.Load<Texture2D>("RealBody/Tex/" + (normal ?? tex) + "_N");
         if (d) { m.mainTexture = d; m.SetTexture("_BaseMap", d); }
         if (n)
         {
-            m.SetTexture("_BumpMap", n); m.EnableKeyword("_NORMALMAP"); m.SetFloat("_BumpScale", normal != null ? 0.8f : 1f);
+            m.SetTexture("_BumpMap", n); m.EnableKeyword("_NORMALMAP"); m.SetFloat("_BumpScale", bump);
         }
         m.SetFloat("_Smoothness", smoothness);
         return m;

@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// Your own forearms and fists at the bottom of the screen, colored from your CharacterLook
-// (sleeves + skin). They bob while you walk, and the right one jabs when PlayerPunch fires.
+// Your own forearms and fists at the bottom of the screen: the character's real forearm and fist when it has a
+// RealBody (sleeve / wristband included), otherwise simple shapes coloured from the CharacterLook (sleeves + skin). They bob while you walk, and the right one jabs when PlayerPunch fires.
 // Weapons use RightHand to hold things, `raise` to bring the right hand up to the mouth, and Kick() for recoil.
 // Put this on the Main Camera (child of the Player).
 [RequireComponent(typeof(Camera))]
@@ -57,6 +57,7 @@ public class FirstPersonArms : MonoBehaviour
     {
         var arm = new GameObject(name).transform;
         arm.SetParent(transform, false);
+        if (RealBody.FirstPersonArm(look, side, arm, mats)) return arm;             // the character's own hand (Cooper, Nathan)
         // forearm runs from the fist back toward the elbow (below and behind the view)
         Part(PrimitiveType.Capsule, arm, new Vector3(0.03f * side, -0.07f, -0.2f), new Vector3(0.085f, 0.17f, 0.085f),
              Quaternion.Euler(70f, -8f * side, 0), mats("Sleeve", look.longSleeves ? look.shirt : look.skin));

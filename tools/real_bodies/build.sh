@@ -6,7 +6,8 @@
 #   WORK/obj_0.obj                                       sweatshirt (only split up, not used)
 #   WORK/DummyHair.obj                                   Cooper's stylized hair (+ its bust)
 #   WORK/curly.obj                                       copy of Assets/Resources/Hair/curly.obj.bytes
-# Textures (Resources/RealBody/Tex) were converted from Unity/unity.fbm by hand with Pillow; see CLAUDE.md.
+# Textures (Resources/RealBody/Tex) were converted from Unity/unity.fbm by hand with Pillow (see CLAUDE.md), including
+# Skin_Head_<Name>_D (per-character eyebrows, using the brow UV box stage4 writes to brows_<who>.json).
 set -e
 WORK=${1:?usage: build.sh WORK_DIR}
 B=/Applications/Blender.app/Contents/MacOS/Blender
@@ -19,6 +20,7 @@ $B -b -P stage2.py -- $WORK          # arms down (our rest pose), slimmer build
 $B -b -P garments_prep.py -- $WORK   # garments to metres, decimate, split by material
 for who in cooper nathan; do
   $B -b -P stage3.py -- $WORK $who urban    # fit + skin the clothes, cut Cooper's sleeves
-  $B -b -P stage4.py -- $WORK $who          # hair, cap, wristband, shoes, hide covered skin
+  $B -b -P stage4.py -- $WORK $who          # face shape, hair (+ Nathan's 3D curls), cap, wristband, shoes, hide covered skin
+  $B -b -P stage5.py -- $WORK $who          # first-person arms: fist pose, cut forearm + hand, centre on the fist
   $B -b -P export_ssrb.py -- $WORK $who $OUT/${(C)who}.bytes
 done

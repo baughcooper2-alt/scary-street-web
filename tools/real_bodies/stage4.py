@@ -6,7 +6,24 @@ bpy.ops.wm.open_mainfile(filepath=W+f'/stage3_{who}_urban.blend')
 O=bpy.data.objects; arm=O['Rig']; body=O['CC_Base_Body']; top=O['Top']; pants=O['Pants']
 for pb in arm.pose.bones: pb.matrix_basis=mathutils.Matrix.Identity(4)
 bpy.context.view_layer.update()
+# ---- face: tell Cooper and Nathan apart ----
+_e=mesh_co(O['CC_Game_Eye']); _t=mesh_co(O['CC_Game_Teeth'])
+eyeZ=float(_e[:,2].mean()); mouthZ=float(_t[:,2].mean())
 Bw,bn=weights(body); bco=mesh_co(body)
+_front=bco[(np.abs(bco[:,0])<0.015)&(bco[:,1]<-0.02)&(Bw[:,bn.index('CC_Base_Head')]>0.5)]
+chinZ=float(_front[:,2].min())
+shape_face(body, who, _e, eyeZ, mouthZ, chinZ, 0.009)
+bco=mesh_co(body)
+# brow area in the head texture (for the per-character eyebrows)
+import json
+uvl=body.data.uv_layers.active.data; uvs=[]
+for poly in body.data.polygons:
+    if body.data.materials[poly.material_index].name!='Std_Skin_Head': continue
+    for li in poly.loop_indices:
+        v=bco[body.data.loops[li].vertex_index]
+        if eyeZ+0.012<v[2]<eyeZ+0.036 and 0.008<abs(v[0])<0.058 and v[1]<-0.05: uvs.append(tuple(uvl[li].uv))
+uvs=np.array(uvs); json.dump({'min':uvs.min(0).tolist(),'max':uvs.max(0).tolist()},open(W+f'/brows_{who}.json','w'))
+print('brow uv box',uvs.min(0).round(3),uvs.max(0).round(3))
 headw=Bw[:,bn.index('CC_Base_Head')]
 hv=bco[(headw>0.9)&(bco[:,2]>1.6)]
 ctop=hv[:,2].max()
@@ -41,7 +58,7 @@ else:
     ext=h.max(0)-h.min(0); sx=cw*1.28/ext[0]; sy=cd*1.27/ext[1]
     ctr=(h.max(0)+h.min(0))/2
     h=np.column_stack([(h[:,0]-ctr[0])*sx+cc[0], (h[:,1]-ctr[1])*sy+cc[1]+0.004, (h[:,2]-h[:,2].max())*sx+ctop+0.012])
-    cut=ctop-0.10; low=h[:,2]<cut; h[low,2]=cut+(h[low,2]-cut)*0.3            # long strands pulled up into short curls
+    cut=ctop-0.10; low=h[:,2]<cut; h[low,2]=cut+(h[low,2]-cut)*0.42            # long strands pulled up into short curls
     set_co(hair,h)
     # the mesh was mirrored: flip the winding back
     sel(hair); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.flip_normals(); bpy.ops.object.mode_set(mode='OBJECT')
@@ -82,7 +99,7 @@ else:
     # curls only show below the cap
     hc=mesh_co(hair)
     under=np.array([z>rimz(y)+0.004 for y,z in zip(hc[:,1],hc[:,2])])
-    face=(hc[:,1]<cc[1]-cd*0.18)&(hc[:,2]<rimF+0.01)                     # nothing hanging in front of the face
+    face=(hc[:,1]<-0.028)&(hc[:,2]<eyeZ+0.034)                         # curls over the forehead, none over the eyes
     delete_verts(hair, under|face)
 if who=='cooper':                                                            # white wristband on the left wrist
     wrist=arm.data.bones['CC_Base_L_Hand'].head_local; fore=arm.data.bones['CC_Base_L_Forearm'].head_local
@@ -98,6 +115,23 @@ if who=='cooper':                                                            # w
     g=band.vertex_groups.new(name='CC_Base_L_ForearmTwist02'); g.add(list(range(len(band.data.vertices))),1.0,'REPLACE')
     band.parent=arm; md=band.modifiers.new('Armature','ARMATURE'); md.object=arm
     material(band,'Wristband',(0.95,0.95,0.95,1))
+if who=='nathan':                                                            # extra 3D curls on the sides, back and forehead
+    hw_=Bw[:,bn.index('CC_Base_Head')]
+    nrm=np.empty(len(bco)*3); body.data.vertices.foreach_get('normal',nrm); nrm=nrm.reshape(-1,3)
+    cand=[]
+    for i,(v,nv) in enumerate(zip(bco,nrm)):
+        if hw_[i]<0.6: continue
+        side=v[1]>-0.045 and eyeZ-0.012<v[2]<rimz(v[1])-0.002
+        fore=v[1]<-0.05 and abs(v[0])<0.062 and eyeZ+0.042<v[2]<rimF-0.002
+        if (side and not (abs(v[0])<0.03 and v[1]<0)) or fore: cand.append((i,fore))
+    import random; rnd=random.Random(11); rnd.shuffle(cand)
+    picked=[]
+    for i,fore in cand:
+        if all(np.linalg.norm(bco[i]-bco[j])>(0.009 if fore else 0.011) for j,_ in picked): picked.append((i,fore))
+        if len(picked)>=150: break
+    cu=coils([bco[i] for i,_ in picked],[nrm[i] for i,_ in picked],forehead=[f for _,f in picked])
+    material(cu,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(cu); sel(cu); bpy.ops.object.shade_smooth()
+    print('curls',len(picked),'verts',len(cu.data.vertices))
 hair.name='Hair'; material(hair,'Hair',(0.45,0.3,0.18,1) if who=='cooper' else (0.07,0.05,0.04,1)); rigid_to_head(hair)
 sel(hair); bpy.ops.object.shade_smooth()
 
@@ -155,14 +189,16 @@ print('hidden skin verts',int(hidden.sum()),'body verts now',len(body.data.verti
 bpy.ops.wm.save_as_mainfile(filepath=W+f'/stage4_{who}.blend')
 
 material(body,'SkinPrev',(0.85,0.68,0.58,1))
+for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []): k.value=0
 parts=[body,top,pants,shoes,hair]+([O['Cap']] if who=='nathan' else [])
 parts=[p for p in parts if p]
-headparts=[hair]+([O['Cap']] if who=='nathan' else [])
+headparts=[hair]+([O['Cap'],O['Curls']] if who=='nathan' else [])
+parts+= [O['Curls']] if who=='nathan' else []
 shoot(parts, W+f'/s4_{who}_f.png', azim=0, elev=3)
 shoot(parts, W+f'/s4_{who}_34.png', azim=35, elev=8)
 for i,az in enumerate((0,60,150)):
     # head close-ups: frame the head only, but render the body too
     sc=bpy.context.scene
-    shoot(headparts+[body,O['CC_Game_Eye']], W+f'/s4_{who}_head{i}.png', azim=az, elev=5)
+    shoot(headparts+[body,O['CC_Game_Eye'],top], W+f'/s4_{who}_head{i}.png', azim=az, elev=5, frame=headparts)
 walk_pose(arm); bpy.context.view_layer.update()
 shoot(parts, W+f'/s4_{who}_walk.png', azim=60, elev=5)

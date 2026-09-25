@@ -11,11 +11,11 @@ def bounds(objs):
     pts=[o.matrix_world@mathutils.Vector(c) for o in objs for c in o.bound_box]
     mn=mathutils.Vector([min(p[i] for p in pts) for i in range(3)]); mx=mathutils.Vector([max(p[i] for p in pts) for i in range(3)])
     return mn,mx
-def shoot(objs, path, azim=20, elev=8, res=(700,700), color_type='MATERIAL'):
+def shoot(objs, path, azim=20, elev=8, res=(700,700), color_type='MATERIAL', frame=None):
     sc=bpy.context.scene; setup_render(res); sc.display.shading.color_type=color_type
     for o in sc.objects:
         if o.type=='MESH': o.hide_render = o not in objs
-    mn,mx=bounds(objs); c=(mn+mx)/2; size=max((mx-mn).length,0.01)
+    mn,mx=bounds(frame or objs); c=(mn+mx)/2; size=max((mx-mn).length,0.01)
     cam=bpy.data.objects.get('ShotCam')
     if not cam:
         cam=bpy.data.objects.new('ShotCam',bpy.data.cameras.new('ShotCam')); sc.collection.objects.link(cam)

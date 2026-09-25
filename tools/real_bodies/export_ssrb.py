@@ -6,7 +6,7 @@
 import bpy, sys, struct, numpy as np
 W=sys.argv[-3]; who=sys.argv[-2]; out=sys.argv[-1]; sys.path.append(W)
 from cclib import *
-bpy.ops.wm.open_mainfile(filepath=W+f'/stage4_{who}.blend')
+bpy.ops.wm.open_mainfile(filepath=W+f'/stage5_{who}.blend')
 O=bpy.data.objects; arm=O['Rig']
 for pb in arm.pose.bones: pb.matrix_basis=mathutils.Matrix.Identity(4)
 bpy.context.view_layer.update()
@@ -25,7 +25,7 @@ body=O['CC_Base_Body']; f.write(struct.pack('<f', float(mesh_co(body)[:,2].max()
 f.write(struct.pack('<i',len(order)))
 for b in order:
     S(b.name); f.write(struct.pack('<i', bidx[b.parent.name] if b.parent else -1)); f.write(struct.pack('<3f',*U(b.head_local)))
-names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','Cap','Wristband']
+names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','Curls','Cap','Wristband','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, unskinned)
 parts=[O[n] for n in names if n in O]
 f.write(struct.pack('<i',len(parts)))
 for o in parts:
