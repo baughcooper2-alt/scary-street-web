@@ -11,7 +11,7 @@ public static class RealBody
 {
     class Bone { public string name; public int parent; public Vector3 head; }
     class Part { public string name; public string[] mats; public Mesh mesh; }
-    class Data { public float height; public Bone[] bones; public List<Part> parts = new List<Part>(); }
+    class Data { public float height; public int size; public Bone[] bones; public List<Part> parts = new List<Part>(); }
 
     static readonly Dictionary<string, Data> cache = new Dictionary<string, Data>();
 
@@ -19,23 +19,20 @@ public static class RealBody
 
     public static bool CanBuild(CharacterLook look) => look && Load(ModelName(look)) != null;
 
+    // Cached per character, but re-read whenever the .bytes file changes (domain reload is off, so statics outlive
+    // Play sessions) and never shared with editor prefab builds, whose meshes are saved assets.
     static Data Load(string name)
     {
         if (string.IsNullOrEmpty(name)) return null;
-        if (cache.TryGetValue(name, out var d)) return d != null && d.parts.TrueForAll(p => p.mesh) ? d : Reload(name);
-        return Reload(name);
-    }
-
-    static Data Reload(string name)
-    {
         var asset = Resources.Load<TextAsset>("RealBody/" + name);
-        Data d = null;
-        if (asset)
-        {
-            try { d = Read(asset.bytes, name); }
-            catch (System.Exception e) { Debug.LogWarning($"RealBody {name}: couldn't read ({e.Message})"); d = null; }
-        }
-        cache[name] = d;
+        if (!asset) return null;
+        var bytes = asset.bytes;
+        bool editorBuild = MeshKit.Persist != null;
+        if (!editorBuild && cache.TryGetValue(name, out var d) && d != null && d.size == bytes.Length && d.parts.TrueForAll(p => p.mesh)) return d;
+        try { d = Read(bytes, name); }
+        catch (System.Exception e) { Debug.LogWarning($"RealBody {name}: couldn't read ({e.Message})"); return null; }
+        if (d != null) d.size = bytes.Length;
+        if (!editorBuild) cache[name] = d;
         return d;
     }
 
@@ -67,7 +64,7 @@ public static class RealBody
                         boneIndex0 = r.ReadInt32(), weight0 = r.ReadSingle(), boneIndex1 = r.ReadInt32(), weight1 = r.ReadSingle(),
                         boneIndex2 = r.ReadInt32(), weight2 = r.ReadSingle(), boneIndex3 = r.ReadInt32(), weight3 = r.ReadSingle(),
                     };
-                var mesh = new Mesh { name = $"Real_{name}_{part.name}", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                var mesh = new Mesh { name = $"Real_{name}_{part.name}_{bytes.Length}", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };   // size in the name: new data, new saved mesh
                 mesh.vertices = pos; mesh.normals = nor; mesh.uv = uv; mesh.boneWeights = bw; mesh.bindposes = bind;
                 int subs = r.ReadInt32();
                 mesh.subMeshCount = subs;
