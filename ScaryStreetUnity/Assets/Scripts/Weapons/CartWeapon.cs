@@ -83,7 +83,8 @@ public class CartWeapon : Weapon
             else if (Tier >= 3 && blinkCd <= 0 && !blinkReady && (holdFull += dt) >= blinkerHold)
             {
                 blinkReady = true;
-                inventory.Toast("Blinker loaded: left click to let it out", 1.6f);
+                inventory.Toast($"Blinker loaded: {Key("left click", GamepadInfo.RT)} to let it out", 1.6f);
+                Rumble(0.2f, 0.5f, 0.15f);
             }
             inventory.haze = Mathf.Min(0.55f, inventory.haze + dt * 0.12f);
         }
@@ -105,6 +106,7 @@ public class CartWeapon : Weapon
                 inventory.haze = 0.9f;
                 inventory.Toast("BLINKER", 1f);
                 if (arms) arms.Kick(1.6f);
+                Rumble(0.9f, 1f, 0.45f);
             }
             else if (lung >= 1f)
             {
@@ -115,8 +117,9 @@ public class CartWeapon : Weapon
                 oil = Mathf.Max(1f, oil - 0.4f);
                 inventory.haze = Mathf.Min(inventory.haze + 0.08f, 0.5f);
                 if (arms) arms.Kick();
+                Rumble(0.1f, 0.3f, 0.08f);
             }
-            else if (!warned) { warned = true; inventory.Toast("Out of smoke: hold right click (or E) to hit the cart", 1.6f); }
+            else if (!warned) { warned = true; inventory.Toast($"Out of smoke: hold {Key("right click (or E)", GamepadInfo.LT)} to hit the cart", 1.6f); }
         }
         if (!input.primaryHeld) warned = false;
 
@@ -148,8 +151,8 @@ public class CartWeapon : Weapon
         get
         {
             string lvl = Tier == 1 ? "Lv 1 · O-rings at Lv 2" : Tier == 2 ? "Lv 2 O-rings · Blinker at Lv 3"
-                       : blinkReady ? "Blinker loaded: left click" : blinkCd > 0 ? $"Blinker in {blinkCd:0.0}s" : "Blinker: keep holding when full";
-            return $"Hold right click (E) to hit it · Left click to blow · {lvl}";
+                       : blinkReady ? $"Blinker loaded: {Key("left click", GamepadInfo.RT)}" : blinkCd > 0 ? $"Blinker in {blinkCd:0.0}s" : "Blinker: keep holding when full";
+            return $"Hold {Key("right click (E)", GamepadInfo.LT)} to hit it · {Key("Left click", GamepadInfo.RT)} to blow · {lvl}";
         }
     }
 

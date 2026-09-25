@@ -93,6 +93,7 @@ public class LawBookWeapon : MagazineWeapon
             if (!ClearLine(eye, h.transform.position + Vector3.up * 1.2f)) continue;             // not through walls
             h.TakeDamage(PlayerStats.MeleeDamage(damage * LevelDamage, inventory.gameObject), shove + PlayerUpgrades.KnockbackFor(inventory.gameObject));
             SoundKit.PlayAt(Sfx.Punch, h.transform.position + Vector3.up, 0.9f);
+            Rumble(0.3f, 0.5f, 0.1f);
         }
     }
 
@@ -104,6 +105,7 @@ public class LawBookWeapon : MagazineWeapon
         inventory.Toast("OBJECTION!", 1.4f);
         SoundKit.Play(Sfx.Slam, 0.9f); SoundKit.Play(Sfx.Objection, 0.7f, 0f);
         if (arms) arms.Kick(1.8f);
+        Rumble(1f, 0.8f, 0.4f);
         if (BodyAnim) BodyAnim.Slam(0.5f);
         float radius = slamRadius + (L3 ? 0.5f : 0f);
         foreach (var h in Nearby(inventory.transform.position, radius))
@@ -174,7 +176,7 @@ public class LawBookWeapon : MagazineWeapon
         {
             if (Reloading) return "Reading up on the law…";
             if (charging && charge >= 1f) return "Charged: let go for OBJECTION!";
-            return "Left click to swing · keep holding to charge the OBJECTION slam · R to reload";
+            return $"{Key("Left click", GamepadInfo.RT)} to swing · keep holding to charge the OBJECTION slam · {Key("R", "d-pad ↓")} to reload";
         }
     }
 

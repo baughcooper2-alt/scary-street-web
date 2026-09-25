@@ -45,6 +45,10 @@ public abstract class Weapon : MonoBehaviour
     public virtual string SlotStatus => "";
     public virtual string Hint => "";
 
+    // The owner's device decides the button names in hints ("Left click" vs "RT"), and gets the rumble.
+    protected string Key(string keyboard, string gamepad) => inventory ? PlayerControls.For(inventory.gameObject).Prompt(keyboard, gamepad) : keyboard;
+    protected void Rumble(float low, float high, float seconds) { if (inventory) PlayerControls.For(inventory.gameObject).Rumble(low, high, seconds); }
+
     // ---------- levels (level-up picks) ----------
 
     public virtual bool CanLevelUp => true;

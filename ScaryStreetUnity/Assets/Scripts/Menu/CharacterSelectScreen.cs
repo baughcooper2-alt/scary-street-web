@@ -420,5 +420,6 @@ public class CharacterSelectScreen : MonoBehaviour
         if (back && picking == 1) { picking = 0; titleText.text = "CHOOSE YOUR FIGHTER"; p2Preview.enabled = false; OnMode(1); }   // back to P1's pick
         else if (back) flow.ShowTitle();
         else if (confirm) Fight();
+        else UIKit.KeepSelected(tiles[cursor].button);
     }
 }

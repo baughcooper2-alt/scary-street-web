@@ -10,6 +10,9 @@ using UnityEngine.InputSystem;
 // and levels, heal, god mode, open every door. Added by GameFlow when a free-roam run starts.
 public class SandboxMenu : MonoBehaviour
 {
+    public static bool IsOpen => current && current.panel && current.panel.activeSelf;
+    static SandboxMenu current;
+
     GameObject panel;
     Text status;
     bool god;
@@ -18,6 +21,7 @@ public class SandboxMenu : MonoBehaviour
 
     void Start()
     {
+        current = this;
         var p = Players.Nearest(Vector3.zero, out _);
         player = p ? p.gameObject : GameObject.FindWithTag("Player");
         fpc = player ? player.GetComponent<FirstPersonController>() : null;
@@ -108,14 +112,20 @@ public class SandboxMenu : MonoBehaviour
 
     void Update()
     {
-        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen) return;
-        bool toggle;
+        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen || PauseMenu.IsPaused) return;
+        bool toggle, back = false;
 #if ENABLE_INPUT_SYSTEM
         toggle = (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame) ||
                  (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame);
+        back = (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) ||
+               (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame);
 #else
         toggle = Input.GetKeyDown(KeyCode.Tab);
 #endif
         if (toggle) { if (panel.activeSelf) Close(); else Open(); }
+        else if (panel.activeSelf && back) Close();                   // Esc / B closes it too (PauseMenu waits while it's open)
+        if (panel.activeSelf) UIKit.KeepSelected(panel.GetComponentInChildren<Button>());
     }
+
+    void OnDestroy() { if (current == this) current = null; }
 }

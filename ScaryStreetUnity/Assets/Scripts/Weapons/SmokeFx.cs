@@ -144,16 +144,17 @@ public static class SmokeFx
             default:
             {
                 // a puff: a burst that plumes out of your mouth, and a trail that thins behind it
-                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(1f, 1f, 1f, 0.95f),
-                              size: (0.22f, 0.4f), life: (1.3f, 2.2f), speed: (2f, 6.5f), grow: 4f, max: 200);
-                Burst(ps, 16);
-                var em = ps.emission; em.rateOverDistance = 18f;
+                // short and airy, so the O-ring that follows it shows through
+                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(1f, 1f, 1f, 0.7f),
+                              size: (0.16f, 0.3f), life: (0.7f, 1.2f), speed: (1f, 3f), grow: 3f, max: 90);
+                Burst(ps, 7);
+                var em = ps.emission; em.rateOverDistance = 6f;
                 var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.04f;
-                Drag(ps, 1.8f);
+                Drag(ps, 3f);
                 Noise(ps, 0.35f, 0.6f);
                 Fade(ps, 0.08f, 0.45f);
                 var main = ps.main; main.gravityModifier = -0.02f;
-                Head(ps, mat, new Color(1f, 1f, 1f, 1f), (0.3f, 0.42f), 70f);
+                Head(ps, mat, new Color(1f, 1f, 1f, 0.8f), (0.22f, 0.3f), 28f);
                 ps.gameObject.SetActive(true);
                 return ps;
             }
