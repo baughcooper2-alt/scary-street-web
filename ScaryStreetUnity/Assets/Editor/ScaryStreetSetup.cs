@@ -386,6 +386,24 @@ public static class ScaryStreetSetup
         return m;
     }
 
+    // ---------- Fridge (refills the 6-pack) ----------
+
+    [MenuItem("Tools/Scary Street/Add Fridge")]
+    static void AddFridge()
+    {
+        // where you're looking in the Scene view, dropped onto the floor below
+        var view = SceneView.lastActiveSceneView;
+        Vector3 at = view ? view.pivot : Vector3.zero;
+        if (Physics.Raycast(at + Vector3.up * 1.5f, Vector3.down, out var hit, 10f)) at = hit.point;
+        var go = new GameObject("Fridge", typeof(BoxCollider), typeof(Fridge));
+        go.transform.position = at;
+        if (view) { var f = view.camera.transform.forward; f.y = 0; if (f.sqrMagnitude > 0.01f) go.transform.rotation = Quaternion.LookRotation(-f.normalized); }
+        Undo.RegisterCreatedObjectUndo(go, "Add Fridge");
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        EditorUtility.DisplayDialog("Scary Street", "Fridge added where the Scene view is looking, facing the camera. Move it into the kitchen (W to move, E to rotate), then save the scene. Its look is built when you press Play.", "OK");
+    }
+
     // ---------- Mirrors ----------
 
     // The web build's mirrors (three.js coordinates): centre x, y, z, width, height; all face +X in the web build.

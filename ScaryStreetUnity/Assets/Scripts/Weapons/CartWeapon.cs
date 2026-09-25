@@ -7,6 +7,7 @@ using UnityEngine;
 //                                                                              1 s, then click for a huge blast (5 s cooldown)
 public class CartWeapon : Weapon
 {
+    public override UIArt.Icon Icon => UIArt.Icon.Cart;
     [Header("Smoke")]
     public int maxPuffs = 6;
     public float inhaleRate = 5f;        // puffs per second while holding

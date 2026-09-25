@@ -173,7 +173,7 @@ public class LevelUpScreen : MonoBehaviour
         PlayerStats.Stat.Luck => UIArt.Icon.Clover, PlayerStats.Stat.Defense => UIArt.Icon.Shield, _ => UIArt.Icon.Star,
     };
 
-    static UIArt.Icon WeaponIcon(Weapon w) => w is LawBookWeapon ? UIArt.Icon.Book : w is GuitarWeapon ? UIArt.Icon.Guitar : w is CartWeapon ? UIArt.Icon.Cart : UIArt.Icon.Fist;
+    static UIArt.Icon WeaponIcon(Weapon w) => w ? w.Icon : UIArt.Icon.Fist;
 
     void Take(Choice c)
     {

@@ -66,7 +66,16 @@ public class PlayerStats : MonoBehaviour
     }
 
     // Final damage for a hit, including crits and the Shooter upgrade.
-    public float Melee(float baseDamage) => Roll(baseDamage * (1f + StrengthPerPoint * Get(Stat.Strength)));
+    public float Melee(float baseDamage) => Roll(baseDamage * (1f + StrengthPerPoint * Get(Stat.Strength) + DrinkBoost));
+
+    // Beer from the 6-pack: extra melee damage for a while (stacks up to +60%).
+    [System.NonSerialized] public float drinkBoost, drinkUntil;
+    public float DrinkBoost => Time.time < drinkUntil ? drinkBoost : 0f;
+    public void Drink(float boost, float seconds)
+    {
+        drinkBoost = Mathf.Min(0.6f, DrinkBoost + boost);
+        drinkUntil = Time.time + seconds;
+    }
     public float Ranged(float baseDamage) => Roll(baseDamage * (1f + PrecisionPerPoint * Get(Stat.Precision)));
 
     float Roll(float dmg)

@@ -5,6 +5,7 @@ using UnityEngine;
 // 0.5 s between strums, 8 strums then 1.3 s "tuning the strings". Hold left click to keep strumming.
 public class GuitarWeapon : MagazineWeapon
 {
+    public override UIArt.Icon Icon => UIArt.Icon.Guitar;
     public float noteDamage = 12f;
     public float noteSpeed = 8f;
     public float noteLife = 2.4f;

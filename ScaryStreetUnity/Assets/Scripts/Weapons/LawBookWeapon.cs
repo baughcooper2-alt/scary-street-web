@@ -8,6 +8,7 @@ using UnityEngine;
 // Click to swing. Keep holding after a swing to charge; let go once it's charged to slam everyone around you.
 public class LawBookWeapon : MagazineWeapon
 {
+    public override UIArt.Icon Icon => UIArt.Icon.Book;
     [Header("Swing")]
     public float damage = 16f;
     public float range = 1.7f;

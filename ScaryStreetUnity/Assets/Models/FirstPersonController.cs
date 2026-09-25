@@ -76,6 +76,7 @@ public class FirstPersonController : MonoBehaviour
 
     // Set by attacks like Jack's jokes: stunned = can't move or jump; slowed = half speed.
     [System.NonSerialized] public float stunnedUntil, slowedUntil;
+    [System.NonSerialized] public float dizzy;                    // 0..1: the camera sways (beer); wears off on its own
 
     void Start()
     {
@@ -101,7 +102,9 @@ public class FirstPersonController : MonoBehaviour
         // look
         transform.Rotate(0f, look.x, 0f);
         pitch = Mathf.Clamp(pitch - look.y, -maxLookAngle, maxLookAngle);
-        cam.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        dizzy = Mathf.MoveTowards(dizzy, 0f, Time.deltaTime * 0.04f);
+        float sway = dizzy > 0 ? Mathf.Sin(Time.time * 1.1f) * 3.5f * dizzy : 0f, roll = dizzy > 0 ? Mathf.Sin(Time.time * 0.8f + 1f) * 7f * dizzy : 0f;
+        cam.localRotation = Quaternion.Euler(pitch + sway, 0f, roll);
 
         // crouch (smoothly shrink the capsule and lower the eyes)
         if (crouchPressed) crouching = !crouching;

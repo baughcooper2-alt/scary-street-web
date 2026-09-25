@@ -7,6 +7,7 @@ public enum Sfx
     Punch, Hit, Whoosh, Puff, Inhale, Ring, Blinker, Strum, Ding, Slam, Objection,
     DoorOpen, DoorClose, Xp, Cash, LevelUp, Hurt, EnemyDown, Knock, Doorbell,
     Throw, Splat, Blah, WahWah, Fart, BigFart, RoundStart, RoundClear, Boss, Click, Buy,
+    Card, Chip, Glass, Gulp, Crunch,
 }
 
 public enum MusicTrack { None, Menu, Fight }
@@ -74,7 +75,7 @@ public static class SoundKit
     {
         if (host) return;
         host = new GameObject("SoundKit");
-        UnityEngine.Object.DontDestroyOnLoad(host);
+        if (Application.isPlaying) UnityEngine.Object.DontDestroyOnLoad(host);   // (edit-mode tools can play sounds too)
         flat = host.AddComponent<AudioSource>();
         flat.playOnAwake = false;
         musicA = host.AddComponent<AudioSource>(); musicA.loop = true; musicA.playOnAwake = false;
@@ -129,6 +130,11 @@ public static class SoundKit
             Sfx.RoundClear => Arp(new[] { 523f, 659f, 784f, 659f, 1047f }, 0.1f, 0.45f, square: true),
             Sfx.Boss => Mix(Sweep(1.2f, 70, 40, 0.8f, square: true), Delay(Arp(new[] { 233f, 220f, 208f }, 0.3f, 0.35f, square: true), 0.1f)),
             Sfx.Click => Tone(0.04f, 1500, 0.25f, 60f, false),
+            Sfx.Card => Mix(Noise(0.06f, 0.35f, 0.9f), Tone(0.03f, 2400, 0.12f, 60f, false)),
+            Sfx.Chip => Mix(Tone(0.12f, 2600, 0.35f, 30f, true), Delay(Tone(0.1f, 3100, 0.25f, 35f, true), 0.05f)),
+            Sfx.Glass => Mix(Noise(0.35f, 0.6f, 0.95f), Arp(new[] { 2800f, 3500f, 2200f }, 0.03f, 0.3f)),
+            Sfx.Gulp => Mix(Sweep(0.12f, 300, 160, 0.5f), Delay(Sweep(0.12f, 280, 150, 0.45f), 0.22f)),
+            Sfx.Crunch => Mix(Noise(0.12f, 0.5f, 0.7f), Delay(Noise(0.08f, 0.35f, 0.6f), 0.07f)),
             Sfx.Buy => Mix(Arp(new[] { 1319f, 1760f, 2637f }, 0.06f, 0.4f), Noise(0.1f, 0.12f, 0.9f)),
             _ => Tone(0.1f, 440, 0.3f, 20f, false),
         };

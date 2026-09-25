@@ -94,6 +94,28 @@ public class DoorDashShop : MonoBehaviour
                                 blocked = () => health.Fraction >= 1f ? "Already at full health" : null, buy = () => health.Heal(health.maxHealth) });
         }
 
+        if (weapons)
+        {
+            // new weapons: buy one if there's a free slot; restock the ones that run out
+            void Offer<T>(string name, string desc, float price) where T : Weapon
+            {
+                if (weapons.Get<T>()) return;
+                list.Add(new Item { category = "Weapon", name = name, desc = desc, price = Cost(price),
+                                    blocked = () => weapons.FreeSlots == 0 ? "Weapon slots full (a Backpack adds one)" : weapons.Get<T>() ? "You already have one" : null,
+                                    buy = () => weapons.Add<T>() });
+            }
+            Offer<DeckOfCardsWeapon>("Deck of Cards", "Flick 64 cards, or fan 5 at once. Gone when it's empty", 40);
+            Offer<PokerChipsWeapon>("Poker Chips", "Bouncing chips; levels go white, red, blue, green, black", 50);
+            Offer<CrutchWeapon>("Crutch", "Long-reach swing and poke with a big shove", 45);
+            Offer<GoldfishWeapon>("Box of Goldfish", "Cracker spray, or lob the box and they stop to snack", 35);
+            Offer<SixPackWeapon>("6-Pack", "Bash, throw, or drink for strength (and dizziness)", 45);
+            var deck = weapons.Get<DeckOfCardsWeapon>();
+            if (deck) list.Add(new Item { category = "Weapon", name = "New deck", desc = "A fresh 64 cards", price = Cost(20), buy = () => deck.NewDeck() });
+            var pack = weapons.Get<SixPackWeapon>();
+            if (pack && pack.Bottles < SixPackWeapon.PackSize)
+                list.Add(new Item { category = "Weapon", name = "Another 6-pack", desc = "Six cold ones", price = Cost(20), buy = () => pack.Refill() });
+        }
+
         var cart = weapons ? weapons.GetComponentInChildren<CartWeapon>() : null;
         if (cart && cart.Tier < 3)
             list.Add(new Item { category = "Weapon", name = "Cart upgrade", desc = cart.Tier == 1 ? "Unlock O-rings now" : "Unlock the Blinker now",
@@ -205,7 +227,10 @@ public class DoorDashShop : MonoBehaviour
     static UIArt.Icon ItemIcon(Item it)
     {
         if (it.category == "Food") return UIArt.Icon.Burger;
-        if (it.category == "Weapon") return UIArt.Icon.Cart;
+        if (it.category == "Weapon")
+            return it.name.Contains("Card") || it.name.Contains("deck") ? UIArt.Icon.Cards : it.name.Contains("Chip") ? UIArt.Icon.Chip
+                 : it.name.Contains("Crutch") ? UIArt.Icon.Crutch : it.name.Contains("Goldfish") ? UIArt.Icon.Fish
+                 : it.name.Contains("6-") ? UIArt.Icon.Bottle : UIArt.Icon.Cart;
         foreach (var d in PlayerUpgrades.All)
             if (it.name.StartsWith(d.name))
                 return d.id switch

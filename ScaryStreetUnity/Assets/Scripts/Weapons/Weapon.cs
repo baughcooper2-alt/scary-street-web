@@ -42,6 +42,7 @@ public abstract class Weapon : MonoBehaviour
     public abstract void Tick(WeaponInput input);
 
     // Short text under the slot (ammo, charge...) and a hint line while it's equipped.
+    public virtual UIArt.Icon Icon => UIArt.Icon.Fist;               // slot card, level-up card, shop tile
     public virtual string SlotStatus => "";
     public virtual string Hint => "";
 
@@ -63,6 +64,8 @@ public abstract class Weapon : MonoBehaviour
 
     protected bool ThirdPerson => tpv && tpv.IsThirdPerson;
     protected CharacterAnimator BodyAnim => inventory.GetComponentInChildren<CharacterAnimator>();
+
+    public void DestroyModels() { if (fpModel) Destroy(fpModel.gameObject); if (tpModel) Destroy(tpModel.gameObject); }
 
     // Build the model under `parent`; `firstPerson` models shouldn't cast shadows.
     protected virtual Transform BuildFirstPersonModel() => null;

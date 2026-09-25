@@ -235,8 +235,7 @@ public class PlayerHUD : MonoBehaviour
 
     static readonly Color paperAlpha = new Color(0.95f, 0.92f, 0.87f, 0.9f);
 
-    static UIArt.Icon IconFor(Weapon w) =>
-        w is CartWeapon ? UIArt.Icon.Cart : w is LawBookWeapon ? UIArt.Icon.Book : w is GuitarWeapon ? UIArt.Icon.Guitar : UIArt.Icon.Fist;
+    static UIArt.Icon IconFor(Weapon w) => w ? w.Icon : UIArt.Icon.Fist;
 
     static string RunLine()
     {

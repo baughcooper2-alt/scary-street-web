@@ -113,6 +113,10 @@ public class PlayerControls : MonoBehaviour
             if (kb.digit3Key.wasPressedThisFrame) return 2;
             if (kb.digit4Key.wasPressedThisFrame) return 3;
             if (kb.digit5Key.wasPressedThisFrame) return 4;
+            if (kb.digit6Key.wasPressedThisFrame) return 5;
+            if (kb.digit7Key.wasPressedThisFrame) return 6;
+            if (kb.digit8Key.wasPressedThisFrame) return 7;
+            if (kb.digit9Key.wasPressedThisFrame) return 8;
             return -1;
         }
     }
@@ -143,7 +147,7 @@ public class PlayerControls : MonoBehaviour
     public bool RestartPressed => Input.GetKeyDown(KeyCode.R);
     public bool MenuPressed => Input.GetKeyDown(KeyCode.M);
     public bool RelockPressed => Input.GetMouseButtonDown(0);
-    public int SlotPressed { get { for (int i = 0; i < 5; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) return i; return -1; } }
+    public int SlotPressed { get { for (int i = 0; i < 9; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) return i; return -1; } }
     public int SlotCycle { get { float w = Input.mouseScrollDelta.y; return w > 0.1f ? -1 : w < -0.1f ? 1 : 0; } }
 #endif
 }

@@ -60,6 +60,7 @@ public class SandboxMenu : MonoBehaviour
         Row("SPAWN JACK", () => { if (rounds) rounds.SpawnJack(); }, "CLEAR ENEMIES", () => { if (rounds) rounds.ClearEnemies(); Say("Cleared"); });
         Row("CALL DOORDASH", () => { if (rounds) rounds.CallDoorDash(); Close(); }, "OPEN ALL DOORS", OpenDoors);
         Row("+$100", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddCash(100); Say("+$100"); }, "+1 LEVEL", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddXp(pr.XpToNext - pr.Xp); Close(); });
+        Row("GIVE WEAPONS", GiveWeapons, "FILL AMMO", () => { var inv = Get<WeaponInventory>(); if (inv) { var d = inv.Get<DeckOfCardsWeapon>(); if (d) d.NewDeck(); var p = inv.Get<SixPackWeapon>(); if (p) p.Refill(); } Say("Restocked"); });
         Row("HEAL", () => { var h = Get<Health>(); if (h) { if (h.IsDead) h.ResetHealth(h.maxHealth); else h.Heal(h.maxHealth); } Say("Healed"); }, "GOD MODE", ToggleGod);
 
         status = UIKit.Label(rt, "", 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -69,6 +70,15 @@ public class SandboxMenu : MonoBehaviour
     }
 
     T Get<T>() where T : Component => player ? player.GetComponent<T>() : null;
+
+    // every weapon, adding slots as needed (for trying them out)
+    void GiveWeapons()
+    {
+        var inv = Get<WeaponInventory>(); if (!inv) return;
+        void Give<T>() where T : Weapon { if (inv.Get<T>()) return; if (inv.FreeSlots == 0) inv.AddSlot(); inv.Add<T>(); }
+        Give<DeckOfCardsWeapon>(); Give<PokerChipsWeapon>(); Give<CrutchWeapon>(); Give<GoldfishWeapon>(); Give<SixPackWeapon>();
+        Say("All weapons: 1-9 or the scroll wheel to switch");
+    }
 
     void Spawn(int level, int count)
     {

@@ -48,6 +48,9 @@ public class WeaponInventory : MonoBehaviour
             var entry = look ? CharacterRoster.Find(look.displayName) : null;
             if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.LawBook) Add<LawBookWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Guitar) Add<GuitarWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Crutch) Add<CrutchWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Goldfish) Add<GoldfishWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.SixPack) Add<SixPackWeapon>();
         }
         Select(0);
     }
@@ -65,6 +68,21 @@ public class WeaponInventory : MonoBehaviour
     }
 
     public void AddSlot() { capacity++; slots.Add(null); }   // Backpack upgrade
+
+    public T Get<T>() where T : Weapon { foreach (var w in slots) if (w is T t) return t; return null; }
+    public int FreeSlots { get { int n = 0; foreach (var w in slots) if (!w) n++; return n; } }
+
+    // Take a weapon out of its slot (a used-up deck of cards).
+    public void Remove(Weapon w)
+    {
+        int i = slots.IndexOf(w);
+        if (i < 0) return;
+        if (w.Equipped) w.Unequip();
+        w.DestroyModels();
+        slots[i] = null;
+        Destroy(w);
+        if (i == Selected) Select(i);
+    }
 
     public void Select(int index)
     {
