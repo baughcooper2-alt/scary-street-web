@@ -287,6 +287,7 @@ public class RoundManager : MonoBehaviour
 
     static bool ContinuePressed()
     {
+        if (PauseMenu.InputBlocked) return false;
 #if ENABLE_INPUT_SYSTEM
         var kb = Keyboard.current; var pad = Gamepad.current;
         return (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) ||

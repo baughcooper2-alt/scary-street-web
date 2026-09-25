@@ -42,6 +42,16 @@ public static class UIKit
 #endif
     }
 
+    // With a controller something has to stay selected or the stick can't move around the menu
+    // (clicking empty space with the mouse clears the selection). Call from a screen's Update.
+    public static void KeepSelected(Selectable fallback)
+    {
+        var es = EventSystem.current;
+        if (!es || !fallback || !GamepadInfo.UsingGamepad) return;
+        var current = es.currentSelectedGameObject;
+        if (!current || !current.activeInHierarchy) es.SetSelectedGameObject(fallback.gameObject);
+    }
+
     // ---------- layout ----------
 
     public static RectTransform Node(string name, Transform parent)

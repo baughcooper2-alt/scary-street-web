@@ -25,6 +25,7 @@ public class LevelUpScreen : MonoBehaviour
     Transform root;
     GameObject page;
     float prevTimeScale;
+    Button firstCard;
     bool prevFpc;
     CursorLockMode prevLock;
     bool prevCursorVisible;
@@ -124,6 +125,7 @@ public class LevelUpScreen : MonoBehaviour
             if (!first) first = b;
         }
         if (EventSystem.current && first) EventSystem.current.SetSelectedGameObject(first.gameObject);
+        firstCard = first;
     }
 
     void RollChoices()
@@ -192,6 +194,7 @@ public class LevelUpScreen : MonoBehaviour
 
     void Update()
     {
+        UIKit.KeepSelected(firstCard);                               // controller: stick + A picks a card
         int pick = -1;
 #if ENABLE_INPUT_SYSTEM
         var kb = Keyboard.current;

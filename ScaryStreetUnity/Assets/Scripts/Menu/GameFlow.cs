@@ -136,15 +136,14 @@ public class GameFlow : MonoBehaviour
         }
     }
 
-    // Put the chosen character on a player: first-person arms, third-person body, mouse sensitivity.
+    // Put the chosen character on a player: first-person arms, third-person body, look settings.
     static void Dress(GameObject p, CharacterLook look, int index)
     {
         var arms = p.GetComponentInChildren<FirstPersonArms>(true);
         if (arms) arms.look = look;
         var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
-        var fpc = p.GetComponent<FirstPersonController>();
-        if (fpc && index == 0) fpc.mouseSensitivity = PlayerPrefs.GetFloat(SensitivityKey, fpc.mouseSensitivity);
+        GameSettings.ApplyTo(p.GetComponent<FirstPersonController>(), index);
     }
 
     static void SetUpInput(GameObject p, int index, int count)

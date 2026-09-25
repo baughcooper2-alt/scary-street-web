@@ -6,12 +6,13 @@ using UnityEngine.InputSystem;
 #endif
 
 // Title screen over the menu camera's view of the house: title, Start / Settings / Controls.
-// Settings and Controls open as cards on the right; Esc (or B) goes back.
+// Settings and Controls open as cards on the right; Esc (or B) goes back. Works with mouse, keys or a controller.
 public class TitleScreen : MonoBehaviour
 {
     GameFlow flow;
     GameObject main, settings, controls;
     Button startButton, settingsBack, controlsBack;
+    Selectable settingsFirst;
 
     public static TitleScreen Create(GameFlow flow)
     {
@@ -78,7 +79,7 @@ public class TitleScreen : MonoBehaviour
         UIKit.Place(tag.rectTransform, 112, 584, 560, 70);
 
         startButton = MenuButton(main.transform, "START", 656, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 748, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 748, () => Open(settings, settingsFirst), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
         var controlsButton = MenuButton(main.transform, "CONTROLS", 840, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
 
         UIArt.Stripe(mt, 112, 990, 120, 8);
@@ -101,7 +102,7 @@ public class TitleScreen : MonoBehaviour
         return rt;
     }
 
-    Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay, Color color)
+    public static Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay, Color color)
     {
         var b = UIArt.Button(parent, label, 40, onClick, color, icon, TextAnchor.MiddleLeft);
         var rt = UIKit.Place((RectTransform)b.transform, 110, y, 460, 76);
@@ -115,67 +116,44 @@ public class TitleScreen : MonoBehaviour
     GameObject BuildSettings(Transform root)
     {
         var card = Card(root, "SETTINGS");
-        var fpcSensitivity = 0.12f;
-        float y = 150;
-
-        Row(card, "Mouse sensitivity", y);
-        var sens = UIKit.Slider(card, 0.02f, 0.4f, PlayerPrefs.GetFloat(GameFlow.SensitivityKey, fpcSensitivity),
-            v => { PlayerPrefs.SetFloat(GameFlow.SensitivityKey, v); PlayerPrefs.Save(); });
-        UIKit.Place((RectTransform)sens.transform, 380, y + 18, 320, 30);
-
-        y += 90;
-        Row(card, "Volume", y);
-        var vol = UIKit.Slider(card, 0f, 1f, PlayerPrefs.GetFloat(GameFlow.VolumeKey, 1f),
-            v => { AudioListener.volume = v; PlayerPrefs.SetFloat(GameFlow.VolumeKey, v); PlayerPrefs.Save(); });
-        UIKit.Place((RectTransform)vol.transform, 380, y + 18, 320, 30);
-
-        y += 90;
-        Row(card, "Music", y);
-        var mus = UIKit.Slider(card, 0f, 1f, SoundKit.MusicVolume, v => { SoundKit.MusicVolume = v; PlayerPrefs.Save(); });
-        UIKit.Place((RectTransform)mus.transform, 380, y + 18, 320, 30);
-
-        y += 90;
-        Row(card, "Fullscreen", y);
-        var full = UIKit.Toggle(card, Screen.fullScreen, v => Screen.fullScreen = v);
-        UIKit.Place((RectTransform)full.transform, 380, y + 14, 40, 40);
-
-        var note = UIKit.Label(card, "More options (graphics, key rebinding) are coming later.", 20, UIArt.Theme.Muted, TextAnchor.UpperLeft);
-        UIKit.Place(note.rectTransform, 50, y + 100, 660, 60);
-
+        settingsFirst = GameSettings.BuildRows(card, 140, 76);
         settingsBack = BackButton(card, () => Close(settings));
         return card.gameObject;
     }
 
     // ---------- Controls ----------
 
-    static readonly string[,] ControlRows =
+    // Controller names follow the pad that's plugged in (Xbox letters or PlayStation names).
+    static string[,] ControlRows() => new string[,]
     {
         { "Move",                     "W A S D",             "Left stick" },
         { "Look",                     "Mouse",               "Right stick" },
-        { "Jump / Crouch",            "Space / C or Shift",  "A / B" },
-        { "Punch · blow smoke",       "Left click",          "Right trigger" },
-        { "Hit the cart",             "Right click or E",    "Left trigger" },
-        { "Weapon slots · reload",    "1–5, wheel · R",      "LB / RB · d-pad ↓" },
-        { "Doors · DoorDash driver",  "F",                   "X" },
-        { "Switch camera view",       "V",                   "Y" },
-        { "Next round (after shop)",  "Enter",               "Start" },
-        { "After game over",          "R restart · M menu",  "" },
+        { "Jump / Crouch",            "Space / C or Shift",  $"{GamepadInfo.A} / {GamepadInfo.B}" },
+        { "Punch · blow smoke",       "Left click",          GamepadInfo.RT },
+        { "Hit the cart",             "Right click or E",    GamepadInfo.LT },
+        { "Weapon slots · reload",    "1–5, wheel · R",      $"{GamepadInfo.LB} / {GamepadInfo.RB} · d-pad ↓" },
+        { "Doors · DoorDash driver",  "F",                   GamepadInfo.X },
+        { "Switch camera view",       "V",                   GamepadInfo.Y },
+        { "Pause",                    "Esc",                 GamepadInfo.StartButton },
+        { "Next round (after shop)",  "Enter",               GamepadInfo.StartButton },
+        { "Game over: restart / menu","R / M",               $"{GamepadInfo.StartButton} / {GamepadInfo.SelectButton}" },
     };
 
     GameObject BuildControls(Transform root)
     {
         var card = Card(root, "CONTROLS");
+        var rows = ControlRows();
         Header(card, "KEYBOARD & MOUSE", 300, 130);
         Header(card, "CONTROLLER", 540, 130);
-        for (int i = 0; i < ControlRows.GetLength(0); i++)
+        for (int i = 0; i < rows.GetLength(0); i++)
         {
-            float y = 175 + i * 50;
-            if (i % 2 == 0) UIKit.Place(UIArt.RoundPanel(card, "Zebra", new Color(1, 1, 1, 0.035f), 8).rectTransform, 36, y, 688, 46);
-            var a = UIKit.Label(card, ControlRows[i, 0], 24, UIArt.Theme.Paper);
+            float y = 170 + i * 46;
+            if (i % 2 == 0) UIKit.Place(UIArt.RoundPanel(card, "Zebra", new Color(1, 1, 1, 0.035f), 8).rectTransform, 36, y, 688, 44);
+            var a = UIKit.Label(card, rows[i, 0], 22, UIArt.Theme.Paper);
             UIKit.Place(a.rectTransform, 50, y, 250, 44);
-            var k = UIKit.Label(card, ControlRows[i, 1], 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var k = UIKit.Label(card, rows[i, 1], 20, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
             UIKit.Place(k.rectTransform, 300, y, 240, 44);
-            var g = UIKit.Label(card, ControlRows[i, 2], 22, UIArt.Theme.Teal, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var g = UIKit.Label(card, rows[i, 2], 20, UIArt.Theme.Teal, TextAnchor.MiddleLeft, FontStyle.Bold);
             UIKit.Place(g.rectTransform, 540, y, 200, 44);
         }
         controlsBack = BackButton(card, () => Close(controls));
@@ -184,7 +162,8 @@ public class TitleScreen : MonoBehaviour
 
     // ---------- shared bits ----------
 
-    RectTransform Card(Transform root, string title)
+    // Also used by the PauseMenu's settings card.
+    public static RectTransform Card(Transform root, string title)
     {
         var img = UIArt.RoundPanel(root, title, UIArt.Theme.Ink2, 18);
         var card = UIKit.Place(img.rectTransform, 1080, 150, 760, 780);
@@ -200,26 +179,20 @@ public class TitleScreen : MonoBehaviour
         return card;
     }
 
-    static void Row(RectTransform card, string label, float y)
-    {
-        var l = UIKit.Label(card, label.ToUpper(), 26, UIArt.Theme.Paper, TextAnchor.MiddleLeft, FontStyle.Bold);
-        UIKit.Place(l.rectTransform, 50, y, 320, 64);
-    }
-
     static void Header(RectTransform card, string label, float x, float y)
     {
         var l = UIKit.Label(card, label, 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);
         UIKit.Place(l.rectTransform, x, y, 240, 36);
     }
 
-    Button BackButton(RectTransform card, System.Action onClick)
+    public static Button BackButton(RectTransform card, System.Action onClick)
     {
         var b = UIArt.Button(card, "BACK", 32, onClick, UIArt.Theme.Ink3);
         UIKit.Place((RectTransform)b.transform, 50, 690, 220, 64);
         return b;
     }
 
-    void Open(GameObject panel, Button focus)
+    void Open(GameObject panel, Selectable focus)
     {
         settings.SetActive(panel == settings);
         controls.SetActive(panel == controls);
@@ -246,8 +219,11 @@ public class TitleScreen : MonoBehaviour
 #else
         back = Input.GetKeyDown(KeyCode.Escape);
 #endif
-        if (!back) return;
-        if (settings.activeSelf) Close(settings);
-        else if (controls.activeSelf) Close(controls);
+        if (back)
+        {
+            if (settings.activeSelf) Close(settings);
+            else if (controls.activeSelf) Close(controls);
+        }
+        UIKit.KeepSelected(settings.activeSelf ? settingsFirst : controls.activeSelf ? controlsBack : startButton);
     }
 }

@@ -9,7 +9,8 @@ using UnityEngine.UI;
 //   top           round + timer tags, workers / knockouts, boss bar, DoorDash status, announcements
 //   centre        crosshair, interact prompt, weapon messages, level-up flash
 //   overlays      hurt vignette, smoke haze, downed / game-over card
-// Also handles going down (controls off) and R / M after a game over.
+// Also handles going down (controls off) and R / M (Start / Select) after a game over, and rumbles the
+// controller when you get hit. Button names follow the player's device (PlayerControls.Prompt).
 [RequireComponent(typeof(Health))]
 public class PlayerHUD : MonoBehaviour
 {
@@ -27,7 +28,8 @@ public class PlayerHUD : MonoBehaviour
     Canvas canvas;
     RectTransform area, slotBar;
     Image hpFill, hpGhost, xpFill, hurt, haze, bossFill;
-    Text hpText, levelText, cashText, extrasText, roundText, timerText, countText, bannerText, subText,
+    PlayerControls controls;
+    Text promptKey, hpText, levelText, cashText, extrasText, roundText, timerText, countText, bannerText, subText,
          promptText, toastText, hintText, downText, bossText, levelUpText, statusText;
     GameObject bossRoot, promptRoot, toastRoot, downRoot, roundRoot, crosshair;
     CanvasGroup bannerGroup;
@@ -40,7 +42,12 @@ public class PlayerHUD : MonoBehaviour
         health.Damaged += _ =>
         {
             hurtFlash = 1f;
-            if (Time.time - lastHurtSound > 0.45f) { lastHurtSound = Time.time; SoundKit.Play(Sfx.Hurt, 0.5f); }   // fart clouds hurt every frame; don't spam
+            if (Time.time - lastHurtSound > 0.45f)                // fart clouds hurt every frame; don't spam
+            {
+                lastHurtSound = Time.time;
+                SoundKit.Play(Sfx.Hurt, 0.5f);
+                PlayerControls.For(gameObject).Rumble(0.45f, 0.7f, 0.18f);
+            }
         };
         health.Died += OnDied;
         progress = GetComponent<PlayerProgress>();
@@ -72,6 +79,7 @@ public class PlayerHUD : MonoBehaviour
         var fpc = GetComponent<FirstPersonController>();
         if (fpc) fpc.enabled = false;
         downed = true;
+        PlayerControls.For(gameObject).Rumble(0.9f, 0.6f, 0.6f);
         if (!Players.AnyAlive) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
     }
 
@@ -144,7 +152,7 @@ public class PlayerHUD : MonoBehaviour
             UIKit.Place(UIArt.Print(UIKit.Panel(crosshair.transform, "Tick", new Color(1, 1, 1, 0.9f)), 1f).rectTransform, x, y, w, h);
         promptRoot = Layer(mid, "Prompt");
         var pr = (RectTransform)promptRoot.transform;
-        UIArt.Tag(pr, "F", paper, UIArt.Theme.Ink, 170, 280, 46, 40, 26);
+        promptKey = UIArt.Tag(pr, "F", paper, UIArt.Theme.Ink, 130, 280, 86, 40, 26);
         promptText = UIKit.Label(pr, "", 24, paper, TextAnchor.MiddleLeft); promptText.font = UIArt.Display;
         UIKit.Place(UIArt.Print(promptText, 2f).rectTransform, 226, 280, 440, 40);
         toastRoot = Layer(mid, "Toast");
@@ -251,6 +259,7 @@ public class PlayerHUD : MonoBehaviour
     void LateUpdate()
     {
         if (!area) return;
+        if (!controls) controls = PlayerControls.For(gameObject);
         // fit this player's camera rect (split-screen halves)
         var r = cam ? cam.rect : new Rect(0, 0, 1, 1);
         area.anchorMin = r.min; area.anchorMax = r.max; area.offsetMin = area.offsetMax = Vector2.zero;
@@ -293,13 +302,13 @@ public class PlayerHUD : MonoBehaviour
             s.rt.anchoredPosition = new Vector2(p.x, Mathf.MoveTowards(p.y, sel ? -32f : -44f, Time.unscaledDeltaTime * 160f));
         }
         string hint = weapons && weapons.Current ? weapons.Current.Hint : "";
-        hintText.text = hint.Length > 0 ? hint : "Left click to punch";
+        hintText.text = hint.Length > 0 ? hint : $"{controls.Prompt("Left click", GamepadInfo.RT)} to punch";
         slotBar.gameObject.SetActive(!dead);
 
         // prompt, toast, level up, crosshair
         string prompt = interact ? interact.Prompt : null;
         promptRoot.SetActive(!string.IsNullOrEmpty(prompt) && !dead);
-        if (promptRoot.activeSelf) promptText.text = prompt.ToUpper();
+        if (promptRoot.activeSelf) { promptText.text = prompt.ToUpper(); promptKey.text = controls.Prompt("F", GamepadInfo.X); }
         string toast = weapons ? weapons.ToastText : null;
         toastRoot.SetActive(!string.IsNullOrEmpty(toast) && !dead);
         if (toastRoot.activeSelf) toastText.text = toast.ToUpper();
@@ -317,7 +326,7 @@ public class PlayerHUD : MonoBehaviour
         {
             bool free = rm.IsFreeRoam, fighting = rm.CurrentState == RoundManager.State.Fighting;
             roundText.text = free ? "FREE ROAM" : rm.Current.name.ToUpper();
-            timerText.text = free ? "TAB · MENU"
+            timerText.text = free ? controls.Prompt("TAB", GamepadInfo.SelectButton.ToUpper()) + " · MENU"
                            : fighting ? $"{Mathf.FloorToInt(rm.TimeLeft / 60)}:{Mathf.FloorToInt(rm.TimeLeft % 60):00}"
                            : rm.CurrentState == RoundManager.State.Boss ? "BOSS"
                            : rm.CurrentState == RoundManager.State.Shop ? "SHOP" : "0:00";
@@ -334,8 +343,8 @@ public class PlayerHUD : MonoBehaviour
         {
             var courier = DoorDashCourier.Current;
             line = rm.WaitingForNextRound ? $"{rm.NextRoundName} incoming…"
-                 : courier && courier.State == DoorDashCourier.Phase.Waiting ? "Your DoorDash is on the porch: walk up and press F   ·   Enter (or Start) to skip"
-                 : "Your DoorDash is on the way to the front porch   ·   Enter (or Start) to skip";
+                 : courier && courier.State == DoorDashCourier.Phase.Waiting ? $"Your DoorDash is on the porch: walk up and press {controls.Prompt("F", GamepadInfo.X)}   ·   {controls.Prompt("Enter", GamepadInfo.StartButton)} to skip"
+                 : $"Your DoorDash is on the way to the front porch   ·   {controls.Prompt("Enter", GamepadInfo.StartButton)} to skip";
         }
         statusText.text = line;
         string banner = rm ? rm.Banner : null;
@@ -347,6 +356,6 @@ public class PlayerHUD : MonoBehaviour
         if (dead)
             downText.text = Players.AnyAlive ? "YOU'RE DOWN\n<size=24>You'll be back up when the round ends</size>"
                           : Players.All.Count > 1 ? "EVERYBODY GOT FRIED\n<size=24>R / Start to restart   ·   M / Select for the main menu</size>"
-                          : "YOU GOT FRIED\n<size=24>R to restart   ·   M for the main menu</size>";
+                          : $"YOU GOT FRIED\n<size=24>{controls.Prompt("R", GamepadInfo.StartButton)} to restart   ·   {controls.Prompt("M", GamepadInfo.SelectButton)} for the main menu</size>";
     }
 }

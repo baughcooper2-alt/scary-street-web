@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 // One player's input. Solo: keyboard + mouse + any controller (like before).
 // Co-op: player 1 keeps keyboard + mouse, player 2 gets one specific controller (GameFlow assigns it).
 // Every player script reads input through this instead of the devices, so players don't steal each other's buttons.
+// Everything reads as "nothing pressed" while the PauseMenu is up. Also: per-player button prompts and rumble.
 // Added automatically (PlayerControls.For) if the Player doesn't have one.
 public class PlayerControls : MonoBehaviour
 {
@@ -17,10 +18,12 @@ public class PlayerControls : MonoBehaviour
 
 #if ENABLE_INPUT_SYSTEM
     [System.NonSerialized] public Gamepad pad;                  // a specific controller (co-op)
-    Gamepad Pad => pad ?? (useAnyGamepad ? Gamepad.current : null);
-    Keyboard Kb => useKeyboardMouse ? Keyboard.current : null;
-    Mouse Ms => useKeyboardMouse ? Mouse.current : null;
+    Gamepad MyPad => pad ?? (useAnyGamepad ? Gamepad.current : null);
+    Gamepad Pad => PauseMenu.InputBlocked ? null : MyPad;
+    Keyboard Kb => useKeyboardMouse && !PauseMenu.InputBlocked ? Keyboard.current : null;
+    Mouse Ms => useKeyboardMouse && !PauseMenu.InputBlocked ? Mouse.current : null;
 #endif
+    float rumbleUntil;
 
     public static PlayerControls For(GameObject player)
     {
@@ -30,6 +33,36 @@ public class PlayerControls : MonoBehaviour
 
     // Can this player act right now? Mouse players need the cursor captured; controller-only players always can.
     public bool Active => !useKeyboardMouse || Cursor.lockState == CursorLockMode.Locked;
+
+    // Is this player on a controller? Co-op: fixed by their devices. Solo: whichever was touched last.
+    public bool UsingGamepad => !useKeyboardMouse || (useAnyGamepad && GamepadInfo.UsingGamepad);
+
+    // The on-screen hint for this player's device, e.g. Prompt("Left click", GamepadInfo.RT).
+    public string Prompt(string keyboard, string gamepad) => UsingGamepad ? gamepad : keyboard;
+
+    // low = the heavy left motor, high = the buzzy right one (0..1). Only on this player's controller,
+    // only while they're using it, and not if Vibration is off in Settings. Stops by itself.
+    public void Rumble(float low, float high, float seconds)
+    {
+#if ENABLE_INPUT_SYSTEM
+        var p = MyPad;
+        if (p == null || !UsingGamepad || !GameSettings.Vibration || PauseMenu.IsPaused) return;
+        p.SetMotorSpeeds(low, high);
+        rumbleUntil = Mathf.Max(rumbleUntil, Time.unscaledTime + seconds);
+#endif
+    }
+
+    void StopRumble()
+    {
+        rumbleUntil = 0;
+#if ENABLE_INPUT_SYSTEM
+        MyPad?.SetMotorSpeeds(0f, 0f);
+#endif
+    }
+
+    void Update() { if (rumbleUntil > 0 && (Time.unscaledTime >= rumbleUntil || PauseMenu.IsPaused)) StopRumble(); }
+    void OnDisable() { if (rumbleUntil > 0) StopRumble(); }
+    void OnApplicationFocus(bool focused) { if (!focused && rumbleUntil > 0) StopRumble(); }
 
 #if ENABLE_INPUT_SYSTEM
     public Vector2 Move
@@ -48,14 +81,12 @@ public class PlayerControls : MonoBehaviour
         }
     }
 
-    // Degrees to turn this frame.
-    public Vector2 Look(float mouseSensitivity, float stickSensitivity)
-    {
-        Vector2 l = Vector2.zero;
-        if (Ms != null && Cursor.lockState == CursorLockMode.Locked) l += Ms.delta.ReadValue() * mouseSensitivity;
-        if (Pad != null) l += Pad.rightStick.ReadValue() * stickSensitivity * Time.deltaTime;
-        return l;
-    }
+    // Degrees to turn this frame from the mouse.
+    public Vector2 MouseLook(float mouseSensitivity) =>
+        Ms != null && Cursor.lockState == CursorLockMode.Locked ? Ms.delta.ReadValue() * mouseSensitivity : Vector2.zero;
+
+    // Raw right stick (-1..1); FirstPersonController shapes it (curve, aim assist) and turns it into degrees.
+    public Vector2 LookStick => Pad != null ? Pad.rightStick.ReadValue() : Vector2.zero;
 
     public bool JumpPressed => (Kb?.spaceKey.wasPressedThisFrame ?? false) || (Pad?.buttonSouth.wasPressedThisFrame ?? false);
     public bool CrouchPressed => (Kb != null && (Kb.cKey.wasPressedThisFrame || Kb.leftShiftKey.wasPressedThisFrame)) || (Pad?.buttonEast.wasPressedThisFrame ?? false);
@@ -67,8 +98,8 @@ public class PlayerControls : MonoBehaviour
     public bool ToggleViewPressed => (Kb?.vKey.wasPressedThisFrame ?? false) || (Pad?.buttonNorth.wasPressedThisFrame ?? false);
     public bool RestartPressed => (Kb?.rKey.wasPressedThisFrame ?? false) || (Pad?.startButton.wasPressedThisFrame ?? false);
     public bool MenuPressed => (Kb?.mKey.wasPressedThisFrame ?? false) || (Pad?.selectButton.wasPressedThisFrame ?? false);
-    public bool UnlockPressed => Kb?.escapeKey.wasPressedThisFrame ?? false;
-    public bool RelockPressed => Ms?.leftButton.wasPressedThisFrame ?? false;
+    // Click, or (solo) touch the controller, to grab the mouse again after it was freed.
+    public bool RelockPressed => (Ms?.leftButton.wasPressedThisFrame ?? false) || (useAnyGamepad && Pad != null && GamepadInfo.Touched(Pad));
 
     // Weapon slot keys 1–5 (keyboard players): -1 if none this frame.
     public int SlotPressed
@@ -97,8 +128,9 @@ public class PlayerControls : MonoBehaviour
     }
 #else
     public Vector2 Move => Vector2.ClampMagnitude(new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")), 1f);
-    public Vector2 Look(float mouseSensitivity, float stickSensitivity) =>
+    public Vector2 MouseLook(float mouseSensitivity) =>
         Cursor.lockState == CursorLockMode.Locked ? new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 2f : Vector2.zero;
+    public Vector2 LookStick => Vector2.zero;
     public bool JumpPressed => Input.GetButtonDown("Jump");
     public bool CrouchPressed => Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftShift);
     public bool PrimaryPressed => Input.GetMouseButtonDown(0);
@@ -109,7 +141,6 @@ public class PlayerControls : MonoBehaviour
     public bool ToggleViewPressed => Input.GetKeyDown(KeyCode.V);
     public bool RestartPressed => Input.GetKeyDown(KeyCode.R);
     public bool MenuPressed => Input.GetKeyDown(KeyCode.M);
-    public bool UnlockPressed => Input.GetKeyDown(KeyCode.Escape);
     public bool RelockPressed => Input.GetMouseButtonDown(0);
     public int SlotPressed { get { for (int i = 0; i < 5; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) return i; return -1; } }
     public int SlotCycle { get { float w = Input.mouseScrollDelta.y; return w > 0.1f ? -1 : w < -0.1f ? 1 : 0; } }

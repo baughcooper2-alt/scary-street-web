@@ -286,6 +286,7 @@ public class DoorDashShop : MonoBehaviour
 
     void Update()
     {
+        UIKit.KeepSelected(doneButton);
         bool back;
 #if ENABLE_INPUT_SYSTEM
         back = (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) ||
