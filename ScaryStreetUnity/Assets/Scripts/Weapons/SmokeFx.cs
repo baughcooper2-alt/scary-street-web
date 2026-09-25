@@ -74,7 +74,7 @@ public static class SmokeFx
         const float near = 0.05f, far = 0.45f;
         m.SetFloat("_CameraFadingEnabled", 1f);
         m.SetFloat("_CameraNearFadeDistance", near); m.SetFloat("_CameraFarFadeDistance", far);
-        m.SetVector("_CameraFadingParams", new Vector4(1f / (far - near), -near / (far - near), 0, 0));
+        m.SetVector("_CameraFadeParams", new Vector4(near, 1f / (far - near), 0, 0));      // URP: (start, 1 / length)
         m.EnableKeyword("_FADING_ON");
         m.SetFloat("_SoftParticlesEnabled", 0f); m.DisableKeyword("_SOFTPARTICLES_ON");
         m.DisableKeyword("_EMISSION");
