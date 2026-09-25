@@ -19,7 +19,7 @@ public class SmokeShot : MonoBehaviour
     readonly HashSet<Health> hit = new HashSet<Health>();
     static readonly Collider[] overlap = new Collider[32];
 
-    public static SmokeShot Spawn(Kind kind, Vector3 pos, Vector3 dir, GameObject owner, Material template)
+    public static SmokeShot Spawn(Kind kind, Vector3 pos, Vector3 dir, GameObject owner, Material template, float damageMultiplier = 1f)
     {
         GameObject go;
         if (kind == Kind.Ring)
@@ -43,6 +43,7 @@ public class SmokeShot : MonoBehaviour
             case Kind.Ring:  s.speed = 17f; s.life = 1.1f;  s.damage = 16f; s.radius = 0.4f;  s.grow = 0.9f; s.pierce = 3;  break;
             default:         s.speed = 8f;  s.life = 1.3f;  s.damage = 60f; s.radius = 0.8f;  s.grow = 4.2f; s.pierce = 999; break;
         }
+        s.damage *= damageMultiplier;
         s.baseScale = kind == Kind.Ring ? new Vector3(0.52f, 0.52f, 0.52f) : Vector3.one * (s.radius * 1.4f);
         go.transform.localScale = s.baseScale;
         if (kind == Kind.Ring) go.transform.rotation = Quaternion.FromToRotation(Vector3.up, s.dir);   // ring faces where it's going

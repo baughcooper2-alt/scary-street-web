@@ -69,7 +69,9 @@ public class ThirdPersonView : MonoBehaviour
     void LateUpdate()
     {
         if (!IsThirdPerson || !cam) return;
-        Vector3 eye = cam.position;
+        var cc = GetComponent<CharacterController>();
+        var fpc = GetComponent<FirstPersonController>();
+        Vector3 eye = cc && fpc ? transform.position + Vector3.up * (cc.height - fpc.eyeFromTop) : cam.position;
         Vector3 offset = -cam.forward * distance + cam.right * shoulderOffset + Vector3.up * heightOffset;
         float want = offset.magnitude;
         if (Physics.SphereCast(eye, collisionRadius, offset / want, out var hit, want, ~0, QueryTriggerInteraction.Ignore))

@@ -10,6 +10,7 @@ public class PlayerHUD : MonoBehaviour
 {
     Health health;
     PlayerProgress progress;
+    PlayerUpgrades upgrades;
     float hurtFlash, levelFlash, cashFlash;
     Texture2D white;
     GUIStyle bigStyle, cashStyle;
@@ -20,6 +21,7 @@ public class PlayerHUD : MonoBehaviour
         health.Damaged += _ => hurtFlash = 1f;
         health.Died += OnDied;
         progress = GetComponent<PlayerProgress>();
+        upgrades = GetComponent<PlayerUpgrades>();
         if (progress)
         {
             progress.LevelUp += _ => levelFlash = 2.5f;
@@ -82,6 +84,7 @@ public class PlayerHUD : MonoBehaviour
             GUI.color = old;
             string picks = progress.PendingPicks > 0 ? $"   ({progress.PendingPicks} upgrade pick{(progress.PendingPicks > 1 ? "s" : "")} saved)" : "";
             GUI.Label(new Rect(x + 80, xy - 26, w + 200, 24), $"LV {progress.Level}   XP {progress.Xp} / {progress.XpToNext}{picks}");
+            if (upgrades && upgrades.Used > 0) GUI.Label(new Rect(x, xy - 54, 700, 24), upgrades.Summary());
 
             if (levelFlash > 0)
             {

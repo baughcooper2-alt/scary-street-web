@@ -36,6 +36,14 @@ public class Health : MonoBehaviour
         Current = Mathf.Min(maxHealth, Current + amount);
     }
 
+    // Raise or lower max HP (Cane's chicken); optionally heal by however much the max went up.
+    public void SetMaxHealth(float newMax, bool healDifference)
+    {
+        float gained = newMax - maxHealth;
+        maxHealth = Mathf.Max(1f, newMax);
+        Current = Mathf.Min(maxHealth, Current + (healDifference && gained > 0 ? gained : 0));
+    }
+
     public void ResetHealth(float newMax)
     {
         maxHealth = newMax;

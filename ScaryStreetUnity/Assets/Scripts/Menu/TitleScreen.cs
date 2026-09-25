@@ -102,7 +102,7 @@ public class TitleScreen : MonoBehaviour
         { "Punch · blow smoke",       "Left click",          "Right trigger" },
         { "Hit the cart",             "Right click or E",    "Left trigger" },
         { "Weapon slots",             "1–5 · mouse wheel",   "LB / RB" },
-        { "Open / close door",        "F",                   "X" },
+        { "Doors · DoorDash driver",  "F",                   "X" },
         { "Switch camera view",       "V",                   "Y" },
         { "Next round (after shop)",  "Enter",               "Start" },
         { "After game over",          "R restart · M menu",  "" },

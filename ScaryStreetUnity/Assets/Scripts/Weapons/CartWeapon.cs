@@ -16,7 +16,15 @@ public class CartWeapon : Weapon
     public float blinkerHold = 1f;
     public float blinkerCooldown = 5f;
 
-    public int Tier => progress ? Mathf.Clamp(progress.Level, 1, 3) : 1;
+    // level-ups upgrade it (web build), and the DoorDash shop can unlock the next tier early
+    public int Tier => Mathf.Clamp(Mathf.Max(progress ? progress.Level : 1, boughtTier), 1, 3);
+    int boughtTier = 1;
+
+    public void UpgradeTier()
+    {
+        boughtTier = Mathf.Min(3, Tier + 1);
+        inventory.Toast(Tier == 2 ? "Cart upgraded: O-rings now fly with every puff" : "Blinker unlocked: keep holding your hit after you're full, then puff", 3f);
+    }
 
     float lung, holdFull, fireCd, blinkCd, ringT = -1f, oil = 100f, glow;
     bool blinkReady, warned;
@@ -111,7 +119,8 @@ public class CartWeapon : Weapon
         Vector3 mouth = cam.position;
         var cc = inventory.GetComponent<CharacterController>();
         if (cc) mouth = inventory.transform.position + Vector3.up * (cc.height - 0.2f);
-        SmokeShot.Spawn(kind, mouth + cam.forward * 0.5f, cam.forward, inventory.gameObject, inventory.smokeMaterial);
+        float dmg = PlayerUpgrades.Instance ? PlayerUpgrades.Instance.DamageMultiplier : 1f;   // Shooter
+        SmokeShot.Spawn(kind, mouth + cam.forward * 0.5f, cam.forward, inventory.gameObject, inventory.smokeMaterial, dmg);
     }
 
     public override string SlotStatus

@@ -54,7 +54,8 @@ public class PlayerPunch : MonoBehaviour
         if (Physics.SphereCast(eye, radius, cam.forward, out var hit, range, ~0, QueryTriggerInteraction.Ignore))
         {
             var target = hit.collider.GetComponentInParent<Health>();
-            if (target && target != self) target.TakeDamage(damage);
+            float mult = PlayerUpgrades.Instance ? PlayerUpgrades.Instance.DamageMultiplier : 1f;   // Shooter
+            if (target && target != self) target.TakeDamage(damage * mult);
         }
     }
 }

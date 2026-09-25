@@ -57,6 +57,8 @@ public class RoundManager : MonoBehaviour
     public float bannerTime = 3f;
     public float clearedTime = 3f;
     public float bossNoticeTime = 3f;
+    [Tooltip("Seconds between closing the DoorDash bag and the next round.")]
+    public float shopToRoundDelay = 2.5f;
 
     public State CurrentState { get; private set; }
     public int RoundNumber => index + 1;
@@ -75,7 +77,7 @@ public class RoundManager : MonoBehaviour
     Transform player, cam;
     Health playerHealth;
     int index;
-    float stateT, spawnT, bannerT;
+    float stateT, spawnT, bannerT, nextRoundT = -1f;
     string banner, subBanner;
     GUIStyle bigStyle, smallStyle, hudStyle;
 
@@ -115,6 +117,7 @@ public class RoundManager : MonoBehaviour
     {
         index = i;
         CurrentState = State.Fighting;
+        nextRoundT = -1f;
         TimeLeft = Current.duration;
         spawnT = firstSpawnDelay;
         KillsThisRound = 0;
@@ -152,7 +155,12 @@ public class RoundManager : MonoBehaviour
                 break;
 
             case State.Shop:
-                if (ContinuePressed()) StartRound(index + 1);
+                if (nextRoundT >= 0) { if ((nextRoundT -= Time.deltaTime) <= 0) StartRound(index + 1); }
+                else if (ContinuePressed() && !DoorDashShop.IsOpen)          // skip the delivery
+                {
+                    DoorDashCourier.Dismiss();
+                    StartRound(index + 1);
+                }
                 break;
         }
     }
@@ -175,7 +183,18 @@ public class RoundManager : MonoBehaviour
     void GoToShop()
     {
         if (index + 1 >= rounds.Count) { CurrentState = State.Victory; Show("You survived Scary Street!", "Endless mode is coming later."); }
-        else CurrentState = State.Shop;
+        else
+        {
+            // web build: the DoorDash driver walks up to the porch; shopping, then 2.5 s later the next round
+            CurrentState = State.Shop;
+            nextRoundT = -1f;
+            DoorDashCourier.Deliver(() =>
+            {
+                nextRoundT = shopToRoundDelay;
+                Show($"{rounds[index + 1].name} incoming", rounds[index + 1].subtitle);
+            });
+            Show("Knock knock", "Your DoorDash is on the way up the front steps");
+        }
     }
 
     static bool ContinuePressed()
@@ -321,10 +340,14 @@ public class RoundManager : MonoBehaviour
             GUI.color = old;
         }
 
-        if (CurrentState == State.Shop)
+        if (CurrentState == State.Shop && nextRoundT < 0 && !DoorDashShop.IsOpen)
         {
-            GUI.Label(new Rect(0, Screen.height * 0.4f, w, 60), "DoorDash shop: coming soon", bigStyle);
-            GUI.Label(new Rect(0, Screen.height * 0.4f + 60, w, 30), $"Press Enter (or Start) for {rounds[index + 1].name}", smallStyle);
+            var c = DoorDashCourier.Current;
+            string line = !c ? "" : c.State == DoorDashCourier.Phase.Waiting
+                ? "Your DoorDash is on the front porch: go look at them and press F"
+                : "Your DoorDash is on the way to the front porch";
+            GUI.Label(new Rect(0, 74, w, 30), line, hudStyle);
+            GUI.Label(new Rect(0, 104, w, 26), $"Enter (or Start) to skip the shop and start {rounds[index + 1].name}", smallStyle);
         }
     }
 

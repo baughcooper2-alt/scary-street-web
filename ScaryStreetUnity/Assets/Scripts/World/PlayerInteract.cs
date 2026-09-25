@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-// Look at a door and press F (gamepad X) to open or close it. Shows a small prompt while you're aiming at one.
+// Look at something usable (a door, the DoorDash courier) and press F (gamepad X). Shows a prompt while you're aiming at one.
 // Put this on the Player.
 public class PlayerInteract : MonoBehaviour
 {
@@ -12,7 +12,7 @@ public class PlayerInteract : MonoBehaviour
     Transform cam;
     CharacterController body;
     Health health;
-    Door looking;
+    IInteractable looking;
     GUIStyle style;
 
     void Start()
@@ -31,7 +31,10 @@ public class PlayerInteract : MonoBehaviour
         // from the eyes (the camera may be behind us in third person); our own capsule is skipped because we start inside it
         Vector3 eye = body ? transform.position + Vector3.up * (body.height - 0.12f) : cam.position;
         if (Physics.SphereCast(eye, 0.1f, cam.forward, out var hit, reach, ~0, QueryTriggerInteraction.Ignore))
-            looking = hit.collider.GetComponentInParent<Door>();
+        {
+            looking = hit.collider.GetComponentInParent<IInteractable>();
+            if (looking != null && !looking.CanInteract) looking = null;
+        }
 
         bool pressed;
 #if ENABLE_INPUT_SYSTEM
@@ -40,13 +43,13 @@ public class PlayerInteract : MonoBehaviour
 #else
         pressed = Input.GetKeyDown(KeyCode.F);
 #endif
-        if (pressed && looking) looking.Toggle(transform.position);
+        if (pressed && looking != null) looking.Interact(gameObject);
     }
 
     void OnGUI()
     {
-        if (!looking) return;
+        if (looking == null || (looking as Object) == null) return;
         if (style == null) style = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        GUI.Label(new Rect(0, Screen.height * 0.56f, Screen.width, 30), $"F  {(looking.IsOpen ? "Close" : "Open")} {looking.doorName.ToLower()}", style);
+        GUI.Label(new Rect(0, Screen.height * 0.56f, Screen.width, 30), $"F  {looking.Prompt}", style);
     }
 }
