@@ -68,18 +68,18 @@ public class TitleScreen : MonoBehaviour
         srt.localRotation = Quaternion.Euler(0, 0, 7f);
 
         // SCARY underneath, tilted, starting just left of the struck word
-        var scary = UIKit.Label(line, flow.titleWord, UIArt.HorrorIsReal ? 150 : 140, UIArt.Theme.Blood, TextAnchor.UpperLeft);
+        var scary = UIKit.Label(line, flow.titleWord, UIArt.HorrorIsReal ? 190 : 140, UIArt.Theme.Blood, TextAnchor.UpperLeft);
         scary.font = UIArt.Horror; scary.horizontalOverflow = HorizontalWrapMode.Overflow;
-        var crt = Pivoted(UIKit.Place(UIArt.Print(scary, 8f).rectTransform, -6, 96, scary.preferredWidth + 20, 180), new Vector2(0.2f, 0.5f));
+        var crt = Pivoted(UIKit.Place(UIArt.Print(scary, 8f).rectTransform, -6, 92, scary.preferredWidth + 20, 230), new Vector2(0.2f, 0.5f));
         crt.localRotation = Quaternion.Euler(0, 0, 4f);
         UIArt.PopIn(top, 0.05f); UIArt.PopIn(struck, 0.15f); UIArt.PopIn(end, 0.22f); UIArt.PopIn(slash, 0.4f); UIArt.PopIn(scary, 0.55f);
 
         var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
-        UIKit.Place(tag.rectTransform, 112, 552, 560, 70);
+        UIKit.Place(tag.rectTransform, 112, 584, 560, 70);
 
-        startButton = MenuButton(main.transform, "START", 628, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 720, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 812, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
+        startButton = MenuButton(main.transform, "START", 656, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 748, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 840, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
 
         UIArt.Stripe(mt, 112, 990, 120, 8);
         var foot = UIKit.Label(main.transform, "EARLY PROTOTYPE  ·  MAC & WINDOWS", 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);

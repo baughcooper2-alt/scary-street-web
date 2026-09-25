@@ -361,7 +361,7 @@ public static class ScaryStreetSetup
     }
 
     // Cart smoke: SmokeFx's particle material + generated smoke sheet saved as assets, so player builds keep
-    // URP's particle shader variants (soft particles, camera fade) and don't regenerate the texture.
+    // URP's particle shader variants (transparent, camera fade) and don't regenerate the texture.
     static Material SmokeMaterial()
     {
         EnsureFolder("Assets", "Weapons");
@@ -379,9 +379,10 @@ public static class ScaryStreetSetup
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (!m)
         {
-            m = new Material(Shader.Find("Universal Render Pipeline/Particles/Simple Lit"));
+            m = new Material(Shader.Find(SmokeFx.ShaderName));
             AssetDatabase.CreateAsset(m, path);
         }
+        if (m.shader.name != SmokeFx.ShaderName) m.shader = Shader.Find(SmokeFx.ShaderName);
         SmokeFx.Setup(m);
         m.mainTexture = tex; m.SetTexture("_BaseMap", tex);
         EditorUtility.SetDirty(m);

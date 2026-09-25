@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Particle smoke for the cart: soft billowing puffs, O-rings made of wisps, and the big Blinker cloud.
 // Visual only; SmokeShot does the damage. Uses a generated 2×2 sheet of noisy smoke blobs on URP's
-// Particles/Simple Lit shader (soft particles + camera fade so clouds blown from your mouth don't pop).
+// Particles/Unlit shader, tinted grey and a little see-through.
 public static class SmokeFx
 {
     static Material shared;
@@ -45,7 +45,10 @@ public static class SmokeFx
         return sum / norm;
     }
 
-    // Transparent Simple Lit particles with soft-particle and near-camera fading, a little self-glow so it never goes black.
+    // Transparent, unlit particles (the smoke's grey comes from the particle colours, so no sky tint), with a short
+    // fade right in front of the camera so a cloud blown from your mouth doesn't white out the screen.
+    // No soft particles: they need the camera depth texture and fade everything out without it.
+    public const string ShaderName = "Universal Render Pipeline/Particles/Unlit";
     public static void Setup(Material m)
     {
         m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetFloat("_ZWrite", 0f); m.SetFloat("_Cull", 2f);
@@ -55,37 +58,28 @@ public static class SmokeFx
         m.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
         m.SetOverrideTag("RenderType", "Transparent");
         m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON"); m.DisableKeyword("_ALPHAMODULATE_ON");
         m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         m.SetColor("_BaseColor", Color.white);
-        m.SetFloat("_Smoothness", 0f);
-        m.SetFloat("_ReceiveShadows", 0f); m.EnableKeyword("_RECEIVE_SHADOWS_OFF");
 
-        const float near = 0.25f, far = 1.1f;                                  // fade clouds right in front of the camera
+        const float near = 0.05f, far = 0.45f;
         m.SetFloat("_CameraFadingEnabled", 1f);
         m.SetFloat("_CameraNearFadeDistance", near); m.SetFloat("_CameraFarFadeDistance", far);
         m.SetVector("_CameraFadingParams", new Vector4(1f / (far - near), -near / (far - near), 0, 0));
         m.EnableKeyword("_FADING_ON");
-        const float sNear = 0f, sFar = 0.6f;                                    // soften where smoke meets walls / floors
-        m.SetFloat("_SoftParticlesEnabled", 1f);
-        m.SetFloat("_SoftParticlesNearFadeDistance", sNear); m.SetFloat("_SoftParticlesFarFadeDistance", sFar);
-        m.SetVector("_SoftParticleFadeParams", new Vector4(sNear, 1f / (sFar - sNear), 0, 0));
-        m.EnableKeyword("_SOFTPARTICLES_ON");
-        m.SetColor("_EmissionColor", new Color(0.2f, 0.2f, 0.22f));
-        m.EnableKeyword("_EMISSION");
+        m.SetFloat("_SoftParticlesEnabled", 0f); m.DisableKeyword("_SOFTPARTICLES_ON");
+        m.DisableKeyword("_EMISSION");
     }
 
     // The saved material (Set Up Player makes Assets/Weapons/SmokeParticles.mat so builds keep the shader) or one made here.
     public static Material Material(Material template)
     {
         if (shared && shared.mainTexture) return shared;
-        if (template && template.shader.name.Contains("Particles")) shared = new Material(template);
-        else
-        {
-            var sh = Shader.Find("Universal Render Pipeline/Particles/Simple Lit");
-            if (!sh) sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            shared = new Material(sh) { name = "SmokeParticles (runtime)" };
-            Setup(shared);
-        }
+        var sh = Shader.Find(ShaderName);
+        if (template && template.shader.name == ShaderName) shared = new Material(template);
+        else shared = new Material(sh ? sh : template ? template.shader : Shader.Find("Sprites/Default"));
+        shared.name = "SmokeParticles (runtime)";
+        Setup(shared);                                                          // also fixes up older saved copies
         if (!shared.mainTexture)
         {
             if (!sheet) sheet = MakeSheet();                                    // runtime textures die when Play stops
@@ -107,16 +101,16 @@ public static class SmokeFx
             case SmokeShot.Kind.Ring:
             {
                 // the ring: wisps on a circle that travel with it and spread out; plus a faint trail left behind
-                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.95f, 0.95f, 0.97f, 0.62f),
-                                size: (0.07f, 0.12f), life: (1.1f, 1.3f), speed: (0f, 0.05f), grow: 2.4f, max: 140);
-                Burst(ring, 110);
+                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.7f, 0.7f, 0.72f, 0.75f),
+                                size: (0.08f, 0.14f), life: (1.1f, 1.3f), speed: (0f, 0.05f), grow: 2.4f, max: 160);
+                Burst(ring, 130);
                 var sh = ring.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.15f; sh.radiusThickness = 0f;
                 var vel = ring.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
                 vel.radial = new ParticleSystem.MinMaxCurve(0.22f, 0.32f);
                 vel.x = vel.y = vel.z = new ParticleSystem.MinMaxCurve(0f);
                 Noise(ring, 0.06f, 2.2f);
                 Fade(ring, 0.04f, 0.65f);
-                var trail = Make(ring.transform, "RingTrail", rot, mat, local: false, color: new Color(0.93f, 0.93f, 0.95f, 0.22f),
+                var trail = Make(ring.transform, "RingTrail", rot, mat, local: false, color: new Color(0.68f, 0.68f, 0.7f, 0.35f),
                                  size: (0.06f, 0.1f), life: (0.5f, 0.9f), speed: (0f, 0.1f), grow: 3f, max: 120);
                 var te = trail.emission; te.rateOverDistance = 22f;
                 var ts = trail.shape; ts.shapeType = ParticleSystemShapeType.Circle; ts.radius = 0.2f; ts.radiusThickness = 0f;
@@ -128,7 +122,7 @@ public static class SmokeFx
             case SmokeShot.Kind.Blast:
             {
                 // the Blinker: a big, thick, slightly green cloud that rolls forward and hangs in the air
-                var ps = Make(parent, "BlinkerFx", rot, mat, local: false, color: new Color(0.8f, 0.9f, 0.82f, 0.6f),
+                var ps = Make(parent, "BlinkerFx", rot, mat, local: false, color: new Color(0.6f, 0.64f, 0.6f, 0.75f),
                               size: (0.45f, 0.85f), life: (1.8f, 3f), speed: (2f, 8.5f), grow: 4.5f, max: 220);
                 var em = ps.emission;
                 em.SetBursts(new[] { new ParticleSystem.Burst(0f, 38), new ParticleSystem.Burst(0.08f, 14) });
@@ -144,10 +138,10 @@ public static class SmokeFx
             default:
             {
                 // a puff: a burst that plumes out of your mouth, and a trail that thins behind it
-                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(0.9f, 0.9f, 0.92f, 0.5f),
-                              size: (0.18f, 0.34f), life: (1.1f, 1.9f), speed: (2f, 6.5f), grow: 4f, max: 160);
-                Burst(ps, 12);
-                var em = ps.emission; em.rateOverDistance = 14f;
+                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(0.66f, 0.66f, 0.68f, 0.62f),
+                              size: (0.22f, 0.4f), life: (1.3f, 2.2f), speed: (2f, 6.5f), grow: 4f, max: 200);
+                Burst(ps, 16);
+                var em = ps.emission; em.rateOverDistance = 18f;
                 var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.04f;
                 Drag(ps, 1.8f);
                 Noise(ps, 0.35f, 0.6f);
@@ -234,7 +228,7 @@ public static class SmokeFx
         var col = ps.colorOverLifetime; col.enabled = true;
         var g = new Gradient();
         g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                  new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, inAt), new GradientAlphaKey(0.6f, holdTo), new GradientAlphaKey(0f, 1f) });
+                  new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, inAt), new GradientAlphaKey(0.8f, holdTo), new GradientAlphaKey(0f, 1f) });
         col.color = g;
     }
 }
