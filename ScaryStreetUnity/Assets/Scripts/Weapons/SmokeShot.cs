@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// A cloud of smoke from the cart: flies forward, swells and fades, and hurts every enemy it passes
-// through (once each) until it runs out of pierce. Stops and thins out when it hits a wall.
+// A cloud of smoke from the cart: flies forward, swells, and hurts every enemy it passes through (once each)
+// until it runs out of pierce. Stops when it hits a wall. The object itself is an invisible hitbox; the smoke you
+// see is SmokeFx particles riding on it, which are let go to drift and fade when the shot ends.
 // Numbers from the web build's spawnShot(): puff, O-ring and the Blinker blast.
 public class SmokeShot : MonoBehaviour
 {
@@ -12,27 +13,14 @@ public class SmokeShot : MonoBehaviour
     Vector3 dir;
     float speed, life, damage, radius, grow, age;
     int pierce;
-    Vector3 baseScale;
-    Material mat;
-    Color baseColor;
+    ParticleSystem fx;
     GameObject owner;
     readonly HashSet<Health> hit = new HashSet<Health>();
     static readonly Collider[] overlap = new Collider[32];
 
-    public static SmokeShot Spawn(Kind kind, Vector3 pos, Vector3 dir, GameObject owner, Material template)
+    public static SmokeShot Spawn(Kind kind, Vector3 pos, Vector3 dir, GameObject owner, Material template, float damageMultiplier = 1f)
     {
-        GameObject go;
-        if (kind == Kind.Ring)
-        {
-            go = new GameObject("SmokeRing", typeof(MeshFilter), typeof(MeshRenderer));
-            go.GetComponent<MeshFilter>().sharedMesh = MeshKit.Torus(0.3f);
-        }
-        else
-        {
-            go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(go.GetComponent<Collider>());
-            go.name = kind == Kind.Blast ? "Blinker" : "SmokePuff";
-        }
+        var go = new GameObject(kind == Kind.Ring ? "SmokeRing" : kind == Kind.Blast ? "Blinker" : "SmokePuff");
         go.transform.position = pos;
 
         var s = go.AddComponent<SmokeShot>();
@@ -43,15 +31,8 @@ public class SmokeShot : MonoBehaviour
             case Kind.Ring:  s.speed = 17f; s.life = 1.1f;  s.damage = 16f; s.radius = 0.4f;  s.grow = 0.9f; s.pierce = 3;  break;
             default:         s.speed = 8f;  s.life = 1.3f;  s.damage = 60f; s.radius = 0.8f;  s.grow = 4.2f; s.pierce = 999; break;
         }
-        s.baseScale = kind == Kind.Ring ? new Vector3(0.52f, 0.52f, 0.52f) : Vector3.one * (s.radius * 1.4f);
-        go.transform.localScale = s.baseScale;
-        if (kind == Kind.Ring) go.transform.rotation = Quaternion.FromToRotation(Vector3.up, s.dir);   // ring faces where it's going
-
-        s.baseColor = kind == Kind.Blast ? new Color(0.84f, 0.96f, 0.87f, 0.8f) : new Color(0.93f, 0.94f, 0.96f, 0.85f);
-        s.mat = new Material(template ? template : DefaultSmoke()) { color = s.baseColor };
-        var r = go.GetComponent<Renderer>();
-        r.sharedMaterial = s.mat;
-        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        s.damage *= damageMultiplier;
+        s.fx = SmokeFx.Attach(go.transform, kind, s.dir, template);
         return s;
     }
 
@@ -60,7 +41,7 @@ public class SmokeShot : MonoBehaviour
         float dt = Time.deltaTime;
         age += dt;
         float k = age / life;
-        if (k >= 1f) { Destroy(gameObject); return; }
+        if (k >= 1f) { Finish(); return; }
 
         // move, but stop at walls (anything solid that isn't something we can hurt)
         float step = speed * dt;
@@ -74,9 +55,6 @@ public class SmokeShot : MonoBehaviour
         speed *= 1f - 0.9f * dt;                                       // smoke slows as it spreads
 
         float swell = 1f + grow * k;
-        transform.localScale = baseScale * swell;
-        if (kind == Kind.Ring) transform.Rotate(Vector3.up, 90f * dt, Space.Self);
-        mat.color = new Color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * (1f - k));
 
         int n = Physics.OverlapSphereNonAlloc(transform.position, radius * swell, overlap, ~0, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
@@ -84,13 +62,19 @@ public class SmokeShot : MonoBehaviour
             var h = overlap[i].GetComponentInParent<Health>();
             if (!h || h.IsDead || h.gameObject == owner || !hit.Add(h)) continue;
             h.TakeDamage(damage);
-            if (--pierce < 0) { Destroy(gameObject); return; }
+            if (--pierce < 0) { Finish(); return; }
         }
     }
 
-    void OnDestroy() { if (mat) Destroy(mat); }
+    // Let the smoke keep drifting and fading after the hitbox is gone.
+    void Finish()
+    {
+        SmokeFx.Release(fx);
+        fx = null;
+        Destroy(gameObject);
+    }
 
-    // Transparent URP Lit made in code, for when no smoke material was assigned.
+    // Transparent URP Lit made in code (FartCloud uses it).
     static Material defaultSmoke;
     public static Material DefaultSmoke()
     {

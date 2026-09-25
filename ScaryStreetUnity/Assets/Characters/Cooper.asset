@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterLook
   displayName: Cooper
   height: 1.86
+  realisticBody: 1
   skin: {r: 0.9019608, g: 0.74509805, b: 0.63529414, a: 1}
   eyes: {r: 0.24705882, g: 0.19215687, b: 0.16078432, a: 1}
   brows: {r: 0.43137255, g: 0.3137255, b: 0.21960784, a: 1}

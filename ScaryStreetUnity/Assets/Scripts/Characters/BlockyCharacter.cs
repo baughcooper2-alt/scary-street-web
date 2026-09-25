@@ -16,7 +16,7 @@ public class BlockyCharacter : MonoBehaviour
     public Transform hips;
     public Transform spine, neck, head;
     public Transform shoulderL, shoulderR, elbowL, elbowR, handR;
-    public Transform legL, legR, kneeL, kneeR;
+    public Transform legL, legR, kneeL, kneeR, ankleL, ankleR;
     public List<Renderer> skinParts = new List<Renderer>(), hairParts = new List<Renderer>();
 
     public delegate Material MaterialSource(string part, Color color);
@@ -34,9 +34,16 @@ public class BlockyCharacter : MonoBehaviour
     void Tint(List<Renderer> parts, Color c)
     {
         if (parts.Count == 0 || !parts[0]) return;
-        var m = new Material(parts[0].sharedMaterial) { color = c };
+        var original = parts[0].sharedMaterial;                           // slot 0 is always the skin / hair material
+        var m = new Material(original) { color = c };
         tintMats.Add(m);
-        foreach (var r in parts) if (r) r.sharedMaterial = m;
+        foreach (var r in parts)
+        {
+            if (!r) continue;
+            var list = r.sharedMaterials;                                  // bodies have several materials: swap only the skin
+            for (int i = 0; i < list.Length; i++) if (list[i] == original) list[i] = m;
+            r.sharedMaterials = list;
+        }
     }
 
     void OnDestroy() { foreach (var m in tintMats) Destroy(m); }
@@ -45,6 +52,8 @@ public class BlockyCharacter : MonoBehaviour
 
     public static BlockyCharacter Build(CharacterLook look, Transform parent, MaterialSource mat)
     {
+        if (RealBody.CanBuild(look)) return RealBody.Build(look, parent, mat);     // Cooper, Nathan: the Blender-built bodies
+        if (HumanBody.CanBuild(look)) return HumanBody.Build(look, parent, mat);   // web build's human (workers, Jack, courier)
         var root = new GameObject("Model").transform;
         root.SetParent(parent, false);
         root.localScale = Vector3.one * (look.height / 1.8f);
@@ -73,6 +82,7 @@ public class BlockyCharacter : MonoBehaviour
             Sphere(b.hips, "Pelvis", new Vector3(0, 0.01f, 0), new Vector3(0.34f, 0.2f, 0.23f), "Pants", L.pants);
             b.legL = Leg(-1, out b.kneeL);
             b.legR = Leg(1, out b.kneeR);
+            b.ankleL = b.kneeL.Find("Ankle"); b.ankleR = b.kneeR.Find("Ankle");
 
             // torso: rounded belly + broader chest, like a real torso tapering to the waist
             b.spine = Joint("Spine", b.hips, new Vector3(0, 0.08f, 0));
@@ -316,14 +326,34 @@ public class BlockyCharacter : MonoBehaviour
         }
     }
 
+    // How shiny each kind of part is: soft skin, matte cloth, glossy eyes and lips (the default Lit 0.5 looks like plastic).
+    public static float Finish(string part)
+    {
+        switch (part)
+        {
+            case "Skin": return 0.32f;
+            case "Lips": return 0.45f;
+            case "EyeWhite": case "Eyes": case "Pupil": case "Shine": return 0.85f;
+            case "Hair": case "HairModel": return 0.3f;
+            case "Shoes": case "Sole": return 0.35f;
+            case "Cap": case "Band": case "Brim": case "Tag": return 0.25f;
+            case "Stage": return 0.2f;
+            default: return part.StartsWith("Cart") || part.StartsWith("Guitar") ? 0.45f : 0.08f;   // clothes, prints, cloth
+        }
+    }
+
     // Throwaway materials for characters built while playing (one per color).
     public static MaterialSource RuntimeMaterials()
     {
         var lit = Shader.Find("Universal Render Pipeline/Lit");
-        var cache = new Dictionary<Color, Material>();
+        var cache = new Dictionary<(string, Color), Material>();      // per part too: some parts change their material (hair, clothes)
         return (part, color) =>
         {
-            if (!cache.TryGetValue(color, out var m)) cache[color] = m = new Material(lit) { color = color };
+            if (!cache.TryGetValue((part, color), out var m))
+            {
+                cache[(part, color)] = m = new Material(lit) { color = color, name = part };
+                m.SetFloat("_Smoothness", Finish(part));
+            }
             return m;
         };
     }

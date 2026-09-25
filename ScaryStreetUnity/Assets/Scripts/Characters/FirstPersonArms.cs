@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// Your own forearms and fists at the bottom of the screen, colored from your CharacterLook
-// (sleeves + skin). They bob while you walk, and the right one jabs when PlayerPunch fires.
+// Your own forearms and fists at the bottom of the screen: the character's real forearm and fist when it has a
+// RealBody (sleeve / wristband included), otherwise simple shapes coloured from the CharacterLook (sleeves + skin). They bob while you walk, and the right one jabs when PlayerPunch fires.
 // Weapons use RightHand to hold things, `raise` to bring the right hand up to the mouth, and Kick() for recoil.
 // Put this on the Main Camera (child of the Player).
 [RequireComponent(typeof(Camera))]
@@ -21,6 +21,11 @@ public class FirstPersonArms : MonoBehaviour
 
     public Transform RightHand => rightGrip;
 
+    // Weapons can take over a hand for the frame: set the override flag, a camera-space position and a rotation.
+    // (The walking bob is still added.) Clear the flags on Unequip.
+    [System.NonSerialized] public bool overrideRight, overrideLeft;
+    [System.NonSerialized] public Vector3 rightTarget, leftTarget, rightEuler, leftEuler;
+
     Transform right, left, rightGrip;
     float kick;
     Vector3 lastPlayerPos;
@@ -36,6 +41,8 @@ public class FirstPersonArms : MonoBehaviour
         var mats = BlockyCharacter.RuntimeMaterials();
         right = BuildArm("RightArm", 1, mats);
         left = BuildArm("LeftArm", -1, mats);
+        int layer = PlayerLayers.Arms(PlayerLayers.IndexOf(this));    // only this player's camera draws them
+        PlayerLayers.Set(right.gameObject, layer); PlayerLayers.Set(left.gameObject, layer);
         rightGrip = new GameObject("Grip").transform;                 // where held items go: in the curl of the fist
         rightGrip.SetParent(right, false);
         rightGrip.localPosition = new Vector3(-0.01f, 0.035f, 0.01f);
@@ -50,6 +57,7 @@ public class FirstPersonArms : MonoBehaviour
     {
         var arm = new GameObject(name).transform;
         arm.SetParent(transform, false);
+        if (RealBody.FirstPersonArm(look, side, arm, mats)) return arm;             // the character's own hand (Cooper, Nathan)
         // forearm runs from the fist back toward the elbow (below and behind the view)
         Part(PrimitiveType.Capsule, arm, new Vector3(0.03f * side, -0.07f, -0.2f), new Vector3(0.085f, 0.17f, 0.085f),
              Quaternion.Euler(70f, -8f * side, 0), mats("Sleeve", look.longSleeves ? look.shirt : look.skin));
@@ -109,5 +117,8 @@ public class FirstPersonArms : MonoBehaviour
         right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
         right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
         left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
+        left.localRotation = Quaternion.identity;
+        if (overrideRight) { right.localPosition = rightTarget + bob + new Vector3(0, 0.01f, -0.05f) * kick; right.localRotation = Quaternion.Euler(rightEuler); }
+        if (overrideLeft) { left.localPosition = leftTarget + bob * 0.5f; left.localRotation = Quaternion.Euler(leftEuler); }
     }
 }

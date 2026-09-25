@@ -19,6 +19,7 @@ public class LootDrop : MonoBehaviour
         if (!Enabled) return;
         int gems = Random.Range(xpGems.x, xpGems.y + 1);
         for (int i = 0; i < gems; i++) Pickup.Spawn(Pickup.Kind.Xp, xpPerGem, transform.position);
-        for (int i = 0; i < cashBills; i++) Pickup.Spawn(Pickup.Kind.Cash, cashPerBill, transform.position);
+        int bills = cashBills + (Random.value < PlayerStats.BestExtraCashChance() ? 1 : 0);   // Luck
+        for (int i = 0; i < bills; i++) Pickup.Spawn(Pickup.Kind.Cash, cashPerBill, transform.position);
     }
 }

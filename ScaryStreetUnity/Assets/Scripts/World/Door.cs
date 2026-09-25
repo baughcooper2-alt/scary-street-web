@@ -6,7 +6,7 @@ using UnityEngine.AI;
 // and a door they opened swings shut again a few seconds after they've gone through.
 // It always swings away from whoever opens it, like the web build.
 // Created by Tools > Scary Street > Set Up Doors from the web build's door list.
-public class Door : MonoBehaviour
+public class Door : MonoBehaviour, IInteractable
 {
     public string doorName = "Door";
     public float openAngle = 86f;
@@ -21,6 +21,10 @@ public class Door : MonoBehaviour
     public GameObject[] replacedOriginals = new GameObject[0];
 
     public bool IsOpen => target != 0f;
+
+    public string Prompt => $"{(IsOpen ? "Close" : "Open")} {doorName.ToLower()}";
+    public bool CanInteract => true;
+    public void Interact(GameObject player) => Toggle(player.transform.position);
 
     float angle, target, checkT, enemyT;
     bool openedByEnemy;
@@ -39,7 +43,7 @@ public class Door : MonoBehaviour
 
     public void Toggle(Vector3 from)
     {
-        if (IsOpen) { target = 0f; openedByEnemy = false; }
+        if (IsOpen) { target = 0f; openedByEnemy = false; SoundKit.PlayAt(Sfx.DoorClose, middle, 0.8f); }
         else OpenAwayFrom(from);
     }
 
@@ -55,6 +59,7 @@ public class Door : MonoBehaviour
             if (d > bestDist) { bestDist = d; best = s; }
         }
         target = best * openAngle;
+        SoundKit.PlayAt(Sfx.DoorOpen, middle, 0.7f, 0.15f);
     }
 
     void Update()
@@ -80,6 +85,6 @@ public class Door : MonoBehaviour
     void TickEnemyClose(float dt)
     {
         if (!openedByEnemy) return;
-        if ((enemyT -= dt) <= 0) { target = 0f; openedByEnemy = false; }
+        if ((enemyT -= dt) <= 0) { target = 0f; openedByEnemy = false; SoundKit.PlayAt(Sfx.DoorClose, middle, 0.6f); }
     }
 }

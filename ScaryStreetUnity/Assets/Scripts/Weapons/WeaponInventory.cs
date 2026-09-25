@@ -12,6 +12,8 @@ public class WeaponInventory : MonoBehaviour
     [Min(1)] public int capacity = 5;
     [Tooltip("Puts the cart in slot 1 at the start of a run.")]
     public bool startWithCart = true;
+    [Tooltip("Adds your character's starting weapon (DESIGN.md: Cooper = Law Book, Nathan = Guitar) in the next slot.")]
+    public bool startWithCharacterWeapon = true;
     [Tooltip("Transparent material for smoke; the setup tool saves one so builds keep the shader variant.")]
     public Material smokeMaterial;
 
@@ -26,7 +28,6 @@ public class WeaponInventory : MonoBehaviour
     Health health;
     Transform weaponRoot;
     string toast; float toastT;
-    GUIStyle slotName, slotStatus, hintStyle, toastStyle;
 
     void Awake()
     {
@@ -40,6 +41,15 @@ public class WeaponInventory : MonoBehaviour
     void Start()
     {
         if (startWithCart) Add<CartWeapon>();
+        if (startWithCharacterWeapon)
+        {
+            // who you're playing: the select-screen pick, or whoever the first-person arms are dressed as
+            var arms = GetComponentInChildren<FirstPersonArms>(true);
+            var look = arms && arms.look ? arms.look : GameFlow.Chosen;   // each player's own pick (co-op)
+            var entry = look ? CharacterRoster.Find(look.displayName) : null;
+            if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.LawBook) Add<LawBookWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Guitar) Add<GuitarWeapon>();
+        }
         Select(0);
     }
 
@@ -67,6 +77,8 @@ public class WeaponInventory : MonoBehaviour
     }
 
     public void Toast(string msg, float time = 2f) { toast = msg; toastT = time; }
+    public string ToastText => toastT > 0 ? toast : null;
+    public float ToastAge => toastT;
 
     void Update()
     {
@@ -74,88 +86,27 @@ public class WeaponInventory : MonoBehaviour
         toastT -= Time.deltaTime;
         if (health && health.IsDead) { if (Current && Current.Equipped) Current.Unequip(); return; }
 
+        if (Current && !Current.Equipped) Current.Equip();            // back up after being downed
         var input = new WeaponInput();
-        bool locked = Cursor.lockState == CursorLockMode.Locked;
-#if ENABLE_INPUT_SYSTEM
-        var kb = Keyboard.current; var mouse = Mouse.current; var pad = Gamepad.current;
-        if (kb != null)
-        {
-            if (kb.digit1Key.wasPressedThisFrame) Select(0);
-            if (kb.digit2Key.wasPressedThisFrame) Select(1);
-            if (kb.digit3Key.wasPressedThisFrame) Select(2);
-            if (kb.digit4Key.wasPressedThisFrame) Select(3);
-            if (kb.digit5Key.wasPressedThisFrame) Select(4);
-            input.secondaryHeld |= kb.eKey.isPressed;
-        }
-        if (mouse != null)
-        {
-            float wheel = mouse.scroll.ReadValue().y;
-            if (wheel > 0.1f) Cycle(-1); else if (wheel < -0.1f) Cycle(1);
-            input.primaryPressed |= mouse.leftButton.wasPressedThisFrame;
-            input.primaryHeld |= mouse.leftButton.isPressed;
-            input.secondaryHeld |= mouse.rightButton.isPressed;
-        }
-        if (pad != null)
-        {
-            if (pad.rightShoulder.wasPressedThisFrame) Cycle(1);
-            if (pad.leftShoulder.wasPressedThisFrame) Cycle(-1);
-            input.primaryPressed |= pad.rightTrigger.wasPressedThisFrame;
-            input.primaryHeld |= pad.rightTrigger.isPressed;
-            input.secondaryHeld |= pad.leftTrigger.isPressed;
-        }
-#else
-        for (int i = 0; i < 5; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Select(i);
-        float wheel = Input.mouseScrollDelta.y;
-        if (wheel > 0.1f) Cycle(-1); else if (wheel < -0.1f) Cycle(1);
-        input.primaryPressed = Input.GetMouseButtonDown(0);
-        input.primaryHeld = Input.GetMouseButton(0);
-        input.secondaryHeld = Input.GetMouseButton(1) || Input.GetKey(KeyCode.E);
-#endif
+        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen) return;     // their number keys and clicks aren't for us
+        var c = PlayerControls.For(gameObject);
+        bool locked = c.Active;
+        if (c.SlotPressed >= 0) Select(c.SlotPressed);
+        if (c.SlotCycle != 0) Cycle(c.SlotCycle);
+        input.primaryPressed = c.PrimaryPressed;
+        input.primaryHeld = c.PrimaryHeld;
+        input.secondaryHeld = c.SecondaryHeld;
+        input.reloadPressed = c.ReloadPressed;
         if (!locked) input = new WeaponInput();                    // clicks that grab the mouse don't fire
         if (Current) Current.Tick(input);
     }
 
     void Cycle(int dir) => Select((Selected + dir + slots.Count) % slots.Count);
 
-    // ---------- HUD ----------
 
-    void OnGUI()
-    {
-        if (health && health.IsDead) return;
-        if (slotName == null)
-        {
-            slotName = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter, wordWrap = true };
-            slotStatus = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.LowerCenter };
-            hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
-            toastStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        }
 
-        if (haze > 0.01f) Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.86f, 0.9f, 0.86f, haze * 0.55f));
 
-        const float w = 112, h = 74, gap = 8;
-        float total = slots.Count * w + (slots.Count - 1) * gap;
-        float x0 = (Screen.width - total) / 2f, y = Screen.height - h - 18;
-        for (int i = 0; i < slots.Count; i++)
-        {
-            var r = new Rect(x0 + i * (w + gap), y, w, h);
-            bool sel = i == Selected;
-            if (sel) Fill(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(0.95f, 0.76f, 0.19f));
-            Fill(r, new Color(0.06f, 0.04f, 0.05f, sel ? 0.92f : 0.7f));
-            GUI.Label(new Rect(r.x + 6, r.y + 3, 20, 20), (i + 1).ToString());
-            var wpn = slots[i];
-            GUI.Label(new Rect(r.x + 4, r.y + 20, r.width - 8, 32), wpn ? wpn.displayName : "Fists", slotName);
-            if (wpn) GUI.Label(new Rect(r.x + 4, r.y + 40, r.width - 8, 30), wpn.SlotStatus, slotStatus);
-        }
 
-        string hint = Current ? Current.Hint : "Left click to punch";
-        GUI.Label(new Rect(0, y - 30, Screen.width, 24), hint, hintStyle);
-        if (toastT > 0) GUI.Label(new Rect(0, Screen.height * 0.7f, Screen.width, 34), toast, toastStyle);
-    }
 
-    static void Fill(Rect r, Color c)
-    {
-        var old = GUI.color; GUI.color = c;
-        GUI.DrawTexture(r, Texture2D.whiteTexture);
-        GUI.color = old;
-    }
+
 }

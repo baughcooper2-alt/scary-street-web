@@ -47,6 +47,8 @@ public static class ScaryStreetSetup
         Undo.RecordObject(inv, "Set Up Player");
         inv.smokeMaterial = SmokeMaterial();
         if (!go.GetComponent<PlayerInteract>()) Undo.AddComponent<PlayerInteract>(go);
+        if (!go.GetComponent<PlayerUpgrades>()) Undo.AddComponent<PlayerUpgrades>(go);
+        if (!go.GetComponent<PlayerStats>()) Undo.AddComponent<PlayerStats>(go);
         if (!go.GetComponent<ThirdPersonView>()) Undo.AddComponent<ThirdPersonView>(go).look = Look("Cooper", "cooper");
 
         var cam = go.GetComponentInChildren<Camera>();
@@ -59,7 +61,7 @@ public static class ScaryStreetSetup
         EditorSceneManager.MarkSceneDirty(go.scene);
         Selection.activeGameObject = go;
         EditorUtility.DisplayDialog("Scary Street",
-            $"Player set up: tag Player, Health 25, PlayerPunch, PlayerProgress, PlayerHUD, WeaponInventory (cart in slot 1), PlayerInteract (doors), FirstPersonArms + ThirdPersonView (Cooper)." +
+            $"Player set up: tag Player, Health 25, PlayerPunch, PlayerProgress, PlayerHUD, WeaponInventory (cart in slot 1), PlayerInteract (doors), PlayerUpgrades, PlayerStats (level-up picks), FirstPersonArms + ThirdPersonView (Cooper)." +
             (removed > 0 ? $"\nRemoved {removed} extra controller(s) from the camera." : ""), "OK");
     }
 
@@ -227,6 +229,8 @@ public static class ScaryStreetSetup
                 AssetDatabase.CreateAsset(m, path);
             }
             if (m.color != color) { m.color = color; EditorUtility.SetDirty(m); }
+            float finish = BlockyCharacter.Finish(part);
+            if (!Mathf.Approximately(m.GetFloat("_Smoothness"), finish)) { m.SetFloat("_Smoothness", finish); EditorUtility.SetDirty(m); }
             return m;
         };
     }
@@ -344,21 +348,166 @@ public static class ScaryStreetSetup
             AssetDatabase.CreateAsset(saved, path);
             return saved;
         };
-        try { return BlockyCharacter.Build(look, parent, AssetMaterials(look.name)); }
+        try
+        {
+            var built = BlockyCharacter.Build(look, parent, AssetMaterials(look.name));
+            // realistic bodies put the knit texture on their clothing materials: save that too
+            foreach (var r in built.GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.sharedMaterials) if (m && AssetDatabase.Contains(m)) EditorUtility.SetDirty(m);
+            AssetDatabase.SaveAssets();
+            return built;
+        }
         finally { MeshKit.Persist = null; }
     }
 
-    // Transparent smoke material saved as an asset, so player builds keep URP's transparent shader variant.
+    // Cart smoke: SmokeFx's particle material + generated smoke sheet saved as assets, so player builds keep
+    // URP's particle shader variants (transparent, camera fade) and don't regenerate the texture.
     static Material SmokeMaterial()
     {
         EnsureFolder("Assets", "Weapons");
-        const string path = "Assets/Weapons/Smoke.mat";
+        const string texPath = "Assets/Weapons/SmokeSheet.png", path = "Assets/Weapons/SmokeParticles.mat";
+        System.IO.File.WriteAllBytes(texPath, SmokeFx.MakeSheet().EncodeToPNG());   // always regenerate: the look gets tuned
+        AssetDatabase.ImportAsset(texPath);
+        var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+        imp.alphaIsTransparency = true; imp.wrapMode = TextureWrapMode.Clamp; imp.mipmapEnabled = true;
+        imp.SaveAndReimport();
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (m) return m;
-        m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.93f, 0.94f, 0.96f, 0.85f) };
-        SmokeShot.MakeTransparent(m);
-        AssetDatabase.CreateAsset(m, path);
+        if (!m)
+        {
+            m = new Material(Shader.Find(SmokeFx.ShaderName));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        if (m.shader.name != SmokeFx.ShaderName) m.shader = Shader.Find(SmokeFx.ShaderName);
+        SmokeFx.Setup(m);
+        m.mainTexture = tex; m.SetTexture("_BaseMap", tex);
+        EditorUtility.SetDirty(m);
+        AssetDatabase.SaveAssets();
         return m;
+    }
+
+    // ---------- Mirrors ----------
+
+    // The web build's mirrors (three.js coordinates): centre x, y, z, width, height; all face +X in the web build.
+    static readonly (string name, float x, float y, float z, float w, float h)[] WebMirrors =
+    {
+        ("Bathroom mirror", 0.12f, 1.5f, 8.55f, 0.6f, 0.72f),
+        ("Bedroom 1 mirror (full length)", 0.12f, 1.16f, 6.6f, 0.9f, 1.9f),
+        ("Bathroom 2 mirror", 2.13f, 1.45f, 18.45f, 0.55f, 0.72f),
+    };
+
+    // Puts real mirrors where the web build had them. Safe to run again.
+    [MenuItem("Tools/Scary Street/Set Up Mirrors")]
+    static void SetUpMirrors()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var renderers = world.GetComponentsInChildren<MeshRenderer>(true);
+        float sx = CountDoorMatches(renderers, -1f) >= CountDoorMatches(renderers, 1f) ? -1f : 1f;   // same mirroring as the doors
+
+        var old = GameObject.Find("Mirrors");
+        if (old) Undo.DestroyObjectImmediate(old);
+        var root = new GameObject("Mirrors");
+        Undo.RegisterCreatedObjectUndo(root, "Set Up Mirrors");
+        foreach (var m in WebMirrors)
+        {
+            var go = new GameObject(m.name);
+            go.transform.SetParent(root.transform, false);
+            go.transform.SetPositionAndRotation(new Vector3(m.x * sx, m.y, m.z), Quaternion.LookRotation(new Vector3(sx, 0, 0)));
+            var mirror = go.AddComponent<Mirror>();
+            mirror.size = new Vector2(m.w, m.h);
+        }
+        EditorSceneManager.MarkSceneDirty(root.scene);
+        Selection.activeGameObject = root;
+        EditorUtility.DisplayDialog("Scary Street", $"Placed {WebMirrors.Length} mirrors (bathroom, bedroom 1 full-length, bathroom 2). They show up when you press Play.", "OK");
+    }
+
+    // ---------- Graphics ----------
+
+    // Less "plastic toy", more film: tunes the scene's post-processing volume (ACES tonemapping, bloom, grading,
+    // vignette, light grain, warm white balance, no motion blur), the URP asset (4x MSAA, 4K shadows),
+    // the lighting (warm sun, sky/equator/ground ambient, light fog) and turns post-processing on for the player camera.
+    [MenuItem("Tools/Scary Street/Improve Graphics")]
+    static void ImproveGraphics()
+    {
+        var volume = Object.FindAnyObjectByType<UnityEngine.Rendering.Volume>();
+        if (volume && volume.sharedProfile)
+        {
+            var p = volume.sharedProfile;
+            Undo.RecordObject(p, "Improve Graphics");
+            T Get<T>() where T : UnityEngine.Rendering.VolumeComponent { if (!p.TryGet<T>(out var c)) { c = p.Add<T>(true); AssetDatabase.AddObjectToAsset(c, p); } c.active = true; return c; }
+            var tone = Get<UnityEngine.Rendering.Universal.Tonemapping>(); tone.mode.Override(UnityEngine.Rendering.Universal.TonemappingMode.ACES);
+            var bloom = Get<UnityEngine.Rendering.Universal.Bloom>(); bloom.intensity.Override(0.35f); bloom.threshold.Override(1.05f); bloom.scatter.Override(0.65f);
+            var grade = Get<UnityEngine.Rendering.Universal.ColorAdjustments>(); grade.postExposure.Override(0.25f); grade.contrast.Override(14f); grade.saturation.Override(-6f);
+            var wb = Get<UnityEngine.Rendering.Universal.WhiteBalance>(); wb.temperature.Override(6f); wb.tint.Override(2f);
+            var vig = Get<UnityEngine.Rendering.Universal.Vignette>(); vig.intensity.Override(0.26f); vig.smoothness.Override(0.45f);
+            var grain = Get<UnityEngine.Rendering.Universal.FilmGrain>(); grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Thin1); grain.intensity.Override(0.18f); grain.response.Override(0.8f);
+            var smh = Get<UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights>(); smh.shadows.Override(new Vector4(0.96f, 0.98f, 1.04f, -0.02f)); smh.highlights.Override(new Vector4(1.03f, 1.0f, 0.96f, 0f));
+            if (p.TryGet<UnityEngine.Rendering.Universal.MotionBlur>(out var blur)) blur.active = false;
+            EditorUtility.SetDirty(p);
+        }
+
+        var rp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+        if (rp)
+        {
+            var so = new SerializedObject(rp);
+            void Set(string prop, int v) { var sp = so.FindProperty(prop); if (sp != null) sp.intValue = v; }
+            void SetF(string prop, float v) { var sp = so.FindProperty(prop); if (sp != null) sp.floatValue = v; }
+            Set("m_MSAA", 4); Set("m_MainLightShadowmapResolution", 4096); SetF("m_ShadowDistance", 45f); Set("m_SoftShadowsSupported", 1); Set("m_SoftShadowQuality", 3);
+            so.ApplyModifiedProperties();
+        }
+
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.58f, 0.64f, 0.74f);
+        RenderSettings.ambientEquatorColor = new Color(0.48f, 0.45f, 0.42f);
+        RenderSettings.ambientGroundColor = new Color(0.22f, 0.19f, 0.17f);
+        RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogColor = new Color(0.62f, 0.64f, 0.68f); RenderSettings.fogDensity = 0.012f;
+        foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+            if (l.type == LightType.Directional)
+            {
+                Undo.RecordObject(l, "Improve Graphics");
+                l.color = new Color(1f, 0.93f, 0.82f); l.intensity = 1.35f; l.shadows = LightShadows.Soft; l.shadowStrength = 0.85f;
+            }
+        foreach (var fpc in Object.FindObjectsByType<FirstPersonController>(FindObjectsSortMode.None))
+        {
+            var cam = fpc.GetComponentInChildren<Camera>();
+            if (!cam) continue;
+            var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(cam);
+            Undo.RecordObject(data, "Improve Graphics");
+            data.renderPostProcessing = true;
+            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // 4x MSAA handles edges
+            EditorUtility.SetDirty(data);
+        }
+        EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        AssetDatabase.SaveAssets();
+        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, grain, softer/higher-res shadows, 4x MSAA, warmer light with ambient and fog. Save the scene.", "OK");
+    }
+
+    // ---------- World detail ----------
+
+    // Adds WorldDetail to the house (normal maps from its textures, fine detail layers, better finishes at runtime)
+    // and a saved material that keeps URP's normal-map / detail-map shader variants in player builds.
+    [MenuItem("Tools/Scary Street/Add World Detail")]
+    static void AddWorldDetail()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var wd = world.GetComponent<WorldDetail>() ? world.GetComponent<WorldDetail>() : Undo.AddComponent<WorldDetail>(world);
+        EnsureFolder("Assets", "World");
+        const string path = "Assets/World/DetailVariants.mat";
+        var keeper = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!keeper)
+        {
+            keeper = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            keeper.EnableKeyword("_NORMALMAP"); keeper.EnableKeyword("_DETAIL_MULX2");
+            keeper.SetTexture("_BumpMap", Texture2D.normalTexture); keeper.SetTexture("_DetailAlbedoMap", Texture2D.grayTexture);
+            AssetDatabase.CreateAsset(keeper, path);
+        }
+        Undo.RecordObject(wd, "Add World Detail");
+        wd.variantKeeper = keeper;
+        EditorSceneManager.MarkSceneDirty(world.scene);
+        EditorUtility.DisplayDialog("Scary Street", "World detail added. It kicks in when you press Play (the editor view doesn't change).", "OK");
     }
 
     // ---------- Doors ----------

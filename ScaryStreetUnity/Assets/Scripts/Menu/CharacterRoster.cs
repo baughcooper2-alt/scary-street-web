@@ -2,17 +2,23 @@
 // A character is playable when GameFlow has a CharacterLook whose displayName matches.
 public static class CharacterRoster
 {
+    public enum StartingWeapon { None, LawBook, Guitar }
+
     public class Entry
     {
         public readonly string name, startsWith;
         public readonly bool dlc;
-        public Entry(string name, string startsWith, bool dlc = false) { this.name = name; this.startsWith = startsWith; this.dlc = dlc; }
+        public readonly StartingWeapon weapon;
+        public Entry(string name, string startsWith, bool dlc = false, StartingWeapon weapon = StartingWeapon.None)
+        { this.name = name; this.startsWith = startsWith; this.dlc = dlc; this.weapon = weapon; }
     }
+
+    public static Entry Find(string name) => System.Array.Find(All, e => e.name == name);
 
     public static readonly Entry[] All =
     {
-        new Entry("Cooper", "Law Book"),
-        new Entry("Nathan", "Guitar"),
+        new Entry("Cooper", "Law Book", weapon: StartingWeapon.LawBook),
+        new Entry("Nathan", "Guitar", weapon: StartingWeapon.Guitar),
         new Entry("Isaiah", "Skateboard (no weapon)"),
         new Entry("John", "6-pack of beer"),
         new Entry("Will", "No weapon; alcohol never makes him dizzy"),
