@@ -74,7 +74,7 @@ public class LevelUpScreen : MonoBehaviour
         burst.gameObject.AddComponent<UISpin>();
 
         var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}  " : "";   // co-op: whose pick
-        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 120, UIArt.Theme.Mustard, TextAnchor.MiddleCenter);
+        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - (progress.PendingPicks - 1) * progress.pickEvery}!", 120, UIArt.Theme.Mustard, TextAnchor.MiddleCenter);
         title.font = UIArt.Display;
         UIKit.Place(UIArt.Print(title, 8f).rectTransform, 0, 100, 1920, 140);
         UIArt.PopIn(title, 0f);

@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 // The player's weapon slots (DESIGN.md: start with 5; the Backpack upgrade adds one each).
 // An empty slot means fists, so PlayerPunch only listens while an empty slot is selected.
-// Switch with 1–5, the mouse wheel, or the controller bumpers. Also draws the slot bar and the smoke haze.
+// Switch with 1–5, the mouse wheel, or the controller bumpers.
 public class WeaponInventory : MonoBehaviour
 {
     [Min(1)] public int capacity = 5;
@@ -21,7 +21,6 @@ public class WeaponInventory : MonoBehaviour
     public Weapon Current => Selected < slots.Count ? slots[Selected] : null;
     public IReadOnlyList<Weapon> Slots => slots;
 
-    [System.NonSerialized] public float haze;   // screen smoke, 0..1; weapons add to it, it clears on its own
 
     readonly List<Weapon> slots = new List<Weapon>();
     PlayerPunch fists;
@@ -82,7 +81,6 @@ public class WeaponInventory : MonoBehaviour
 
     void Update()
     {
-        haze = Mathf.MoveTowards(haze, 0, Time.deltaTime * 0.18f);
         toastT -= Time.deltaTime;
         if (health && health.IsDead) { if (Current && Current.Equipped) Current.Unequip(); return; }
 

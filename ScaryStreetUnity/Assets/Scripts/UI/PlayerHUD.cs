@@ -8,7 +8,7 @@ using UnityEngine.UI;
 //   bottom-centre weapon slot cards (icon, key, name / ammo) and the weapon hint
 //   top           round + timer tags, workers / knockouts, boss bar, DoorDash status, announcements
 //   centre        crosshair, interact prompt, weapon messages, level-up flash
-//   overlays      hurt vignette, smoke haze, downed / game-over card
+//   overlays      hurt vignette, downed / game-over card
 // Also handles going down (controls off) and R / M (Start / Select) after a game over, and rumbles the
 // controller when you get hit. Button names follow the player's device (PlayerControls.Prompt).
 [RequireComponent(typeof(Health))]
@@ -27,7 +27,7 @@ public class PlayerHUD : MonoBehaviour
 
     Canvas canvas;
     RectTransform area, slotBar;
-    Image hpFill, hpGhost, xpFill, hurt, haze, bossFill;
+    Image hpFill, hpGhost, xpFill, hurt, bossFill;
     PlayerControls controls;
     Text scoreText, comboText;
     Text promptKey, hpText, levelText, cashText, extrasText, roundText, timerText, countText, bannerText, subText,
@@ -95,7 +95,6 @@ public class PlayerHUD : MonoBehaviour
 
         // overlays
         hurt = UIKit.Panel(area, "Hurt", Color.clear); hurt.sprite = RedVignette(); UIKit.Fill(hurt.rectTransform);
-        haze = UIKit.Panel(area, "Haze", Color.clear); UIKit.Fill(haze.rectTransform);
 
         // --- bottom-left: cash / level tags, health, xp
         var vitals = Group(area, new Vector2(0, 0), new Vector2(36, 34), new Vector2(560, 124));
@@ -294,9 +293,10 @@ public class PlayerHUD : MonoBehaviour
         }
         string ex = upgrades && upgrades.Used > 0 ? upgrades.Summary() : "";
         string st = stats ? stats.Summary() : "";
-        extrasText.text = st.Length > 0 ? (ex.Length > 0 ? ex + "\n" + st : st) : ex;
+        string pickLine = progress ? $"NEXT PICK AT LV {progress.NextPickLevel}" : "";
+        string extras = st.Length > 0 ? (ex.Length > 0 ? ex + "\n" + st : st) : ex;
+        extrasText.text = extras.Length > 0 ? pickLine + "\n" + extras : pickLine;
         hurt.color = new Color(0.75f, 0.03f, 0.02f, 0.8f * hurtFlash);
-        haze.color = new Color(0.86f, 0.9f, 0.86f, weapons ? weapons.haze * 0.55f : 0);
 
         // weapons
         EnsureSlots();

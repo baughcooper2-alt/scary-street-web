@@ -86,7 +86,6 @@ public class CartWeapon : Weapon
                 inventory.Toast($"Blinker loaded: {Key("left click", GamepadInfo.RT)} to let it out", 1.6f);
                 Rumble(0.2f, 0.5f, 0.15f);
             }
-            inventory.haze = Mathf.Min(0.55f, inventory.haze + dt * 0.12f);
         }
         else holdFull = 0;
         if (arms) arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f);
@@ -103,7 +102,6 @@ public class CartWeapon : Weapon
                 Shoot(SmokeShot.Kind.Blast);
                 SoundKit.Play(Sfx.Blinker, 0.9f);
                 blinkReady = false; lung = 0; blinkCd = blinkerCooldown; fireCd = 0.6f;
-                inventory.haze = 0.9f;
                 inventory.Toast("BLINKER", 1f);
                 if (arms) arms.Kick(1.6f);
                 Rumble(0.9f, 1f, 0.45f);
@@ -115,7 +113,6 @@ public class CartWeapon : Weapon
                 if (Tier >= 2) ringT = ringDelay;
                 lung -= 1f; fireCd = fireCooldown;
                 oil = Mathf.Max(1f, oil - 0.4f);
-                inventory.haze = Mathf.Min(inventory.haze + 0.08f, 0.5f);
                 if (arms) arms.Kick();
                 Rumble(0.1f, 0.3f, 0.08f);
             }
