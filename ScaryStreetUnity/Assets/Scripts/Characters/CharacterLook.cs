@@ -96,6 +96,15 @@ public class CharacterLook : ScriptableObject
                 skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
 
+            case "jack":                                                    // web build's JACK: khaki tee, light-blue shorts, curly brown hair
+                displayName = "Jack"; height = 1.84f;
+                skin = Hex("#e8c19c"); eyes = Hex("#4a3322"); shirt = Hex("#c8b48a"); longSleeves = false;
+                oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
+                pants = Hex("#9cc8e0"); shorts = true; socks = Hex("#f4f4f4"); shoes = Hex("#f2f2f2");
+                hair = Hex("#5a3a22"); brows = Hex("#4a2e1a"); hairStyle = HairStyle.Curly; wearsCap = false;
+                workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
+                break;
+
             case "courier":                                                 // web build's DoorDash driver: red shirt and cap
                 displayName = "DoorDash Driver"; height = 1.8f;
                 skin = Hex("#8d5a3b"); eyes = Hex("#2a1c14"); shirt = Hex("#b3261e"); longSleeves = true;

@@ -11,6 +11,8 @@ public class SpawnEntry
 {
     public GameObject prefab;
     [Min(0)] public float weight = 1f;
+    [Tooltip("Enemy level (McDonald's: 1 fists, 2 spatula / fryer basket, 3 throws food).")]
+    [Range(1, 3)] public int level = 1;
 }
 
 [Serializable]
@@ -28,7 +30,7 @@ public class RoundDefinition
     public int maxAlive = 6;
     [Tooltip("Enemies arrive in packs of 1 to this many.")]
     public int maxPackSize = 1;
-    [Tooltip("Boss fought after this round (blank = none). Bosses aren't built yet, so this only shows a message.")]
+    [Tooltip("Boss fought after this round (blank = none). Jack is built; others just show a 'coming soon' message.")]
     public string bossAfter;
 }
 
@@ -78,6 +80,8 @@ public class RoundManager : MonoBehaviour
     Health playerHealth;
     int index;
     float stateT, spawnT, bannerT, nextRoundT = -1f;
+    Health boss;
+    bool bossDown;
     string banner, subBanner;
     GUIStyle bigStyle, smallStyle, hudStyle;
 
@@ -142,16 +146,18 @@ public class RoundManager : MonoBehaviour
 
             case State.Cleared:
                 if ((stateT -= Time.deltaTime) > 0) break;
-                if (!string.IsNullOrEmpty(Current.bossAfter))
-                {
-                    CurrentState = State.Boss; stateT = bossNoticeTime;
-                    Show($"Boss: {Current.bossAfter}", "Boss fights are coming soon. Skipping ahead.");
-                }
+                if (!string.IsNullOrEmpty(Current.bossAfter)) StartBoss(Current.bossAfter);
                 else GoToShop();
                 break;
 
             case State.Boss:
-                if ((stateT -= Time.deltaTime) <= 0) GoToShop();
+                if (boss && !boss.IsDead) break;                          // fight until the boss is beaten (DESIGN.md)
+                if (boss && boss.IsDead && !bossDown)
+                {
+                    bossDown = true; stateT = 4f;
+                    Show($"{Current.bossAfter} is down!", "Grab the loot");
+                }
+                if ((stateT -= Time.deltaTime) <= 0) { Pickup.VacuumAll(); boss = null; GoToShop(); }
                 break;
 
             case State.Shop:
@@ -178,6 +184,22 @@ public class RoundManager : MonoBehaviour
         if (healBetweenRounds && playerHealth) playerHealth.Heal(playerHealth.maxHealth);
         Show($"{Current.name} cleared!", $"{KillsThisRound} knocked out");
         RoundEnded?.Invoke(RoundNumber);
+    }
+
+    void StartBoss(string name)
+    {
+        CurrentState = State.Boss;
+        bossDown = false; boss = null;
+        if (name == "Jack" && FindSpawnSpot(out var spot))
+        {
+            boss = JackBoss.Spawn(spot).Health;
+            Show("BOSS: Jack", "Bad jokes, worse farts");
+        }
+        else
+        {
+            stateT = bossNoticeTime;                                  // not built yet
+            Show($"Boss: {name}", "This boss is coming soon. Skipping ahead.");
+        }
     }
 
     void GoToShop()
@@ -218,7 +240,8 @@ public class RoundManager : MonoBehaviour
 
         for (int n = 0; n < pack; n++)
         {
-            var prefab = PickPrefab(r);
+            var entry = PickEntry(r);
+            var prefab = entry?.prefab;
             if (!prefab) { Debug.LogWarning($"RoundManager: {r.name} has no enemy prefabs.", this); spawnT = 5f; return; }
 
             Vector3 pos = spot;
@@ -230,6 +253,8 @@ public class RoundManager : MonoBehaviour
             Vector3 face = player.position - pos; face.y = 0;
             var go = Instantiate(prefab, pos, face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity);
 
+            var worker = go.GetComponent<McDonaldsWorker>();
+            if (worker) worker.SetLevel(entry.level);
             var h = go.GetComponent<Health>();
             if (!h) continue;
             alive.Add(h);
@@ -241,7 +266,7 @@ public class RoundManager : MonoBehaviour
         spawnT = Mathf.Lerp(r.spawnIntervalStart, r.spawnIntervalEnd, k) * pack;
     }
 
-    static GameObject PickPrefab(RoundDefinition r)
+    static SpawnEntry PickEntry(RoundDefinition r)
     {
         float total = 0;
         foreach (var e in r.enemies) if (e.prefab) total += e.weight;
@@ -249,7 +274,7 @@ public class RoundManager : MonoBehaviour
         foreach (var e in r.enemies)
         {
             if (!e.prefab) continue;
-            if ((pick -= e.weight) <= 0) return e.prefab;
+            if ((pick -= e.weight) <= 0) return e;
         }
         return null;
     }
@@ -328,7 +353,8 @@ public class RoundManager : MonoBehaviour
         float w = Screen.width;
 
         // top bar: round, timer, enemies left
-        string timer = CurrentState == State.Fighting ? $"{Mathf.FloorToInt(TimeLeft / 60)}:{Mathf.FloorToInt(TimeLeft % 60):00}" : "--:--";
+        string timer = CurrentState == State.Fighting ? $"{Mathf.FloorToInt(TimeLeft / 60)}:{Mathf.FloorToInt(TimeLeft % 60):00}"
+                     : CurrentState == State.Boss && boss && !boss.IsDead ? "BOSS FIGHT" : "--:--";
         GUI.Label(new Rect(0, 12, w, 30), $"{Current.name.ToUpper()}    {timer}", hudStyle);
         if (CurrentState == State.Fighting) GUI.Label(new Rect(0, 40, w, 26), $"Workers: {alive.Count}    Knocked out: {KillsThisRound}", smallStyle);
 
@@ -338,6 +364,16 @@ public class RoundManager : MonoBehaviour
             GUI.Label(new Rect(0, Screen.height * 0.22f, w, 60), banner, bigStyle);
             if (!string.IsNullOrEmpty(subBanner)) GUI.Label(new Rect(0, Screen.height * 0.22f + 55, w, 30), subBanner, smallStyle);
             GUI.color = old;
+        }
+
+        if (CurrentState == State.Boss && boss && !boss.IsDead)
+        {
+            float bw = Mathf.Min(700, w * 0.6f), bx = (w - bw) / 2f, by = 70;
+            var old = GUI.color;
+            GUI.color = new Color(0, 0, 0, 0.7f); GUI.DrawTexture(new Rect(bx - 3, by - 3, bw + 6, 26), Texture2D.whiteTexture);
+            GUI.color = new Color(0.55f, 0.75f, 0.23f); GUI.DrawTexture(new Rect(bx, by, bw * boss.Fraction, 20), Texture2D.whiteTexture);
+            GUI.color = old;
+            GUI.Label(new Rect(0, by - 2, w, 24), $"{Current.bossAfter.ToUpper()}  {Mathf.CeilToInt(boss.Current)} / {boss.maxHealth:0}", smallStyle);
         }
 
         if (CurrentState == State.Shop && nextRoundT < 0 && !DoorDashShop.IsOpen)
@@ -355,12 +391,21 @@ public class RoundManager : MonoBehaviour
 
     // Round lengths, crews and boss slots from DESIGN.md. Spawn pacing is a first guess for a 25 HP
     // player with fists (the web build had 100 HP and ranged weapons); tune in the Inspector.
+    // DESIGN.md: round 1 L1, round 2 L1–2, round 3 on L1–3 (Cane's and cops aren't built yet, so McDonald's fills in).
+    static List<SpawnEntry> McDonaldsMix(GameObject worker, int roundIndex)
+    {
+        SpawnEntry E(int lvl, float w) => new SpawnEntry { prefab = worker, level = lvl, weight = w };
+        if (roundIndex == 0) return new List<SpawnEntry> { E(1, 1f) };
+        if (roundIndex == 1) return new List<SpawnEntry> { E(1, 0.6f), E(2, 0.4f) };
+        return new List<SpawnEntry> { E(1, 0.4f), E(2, 0.3f), E(3, 0.3f) };
+    }
+
     public static List<RoundDefinition> DesignRounds(GameObject mcdonaldsL1)
     {
         var rows = new (string planned, string sub, float start, float end, int max, int pack, string boss)[]
         {
             ("McDonald's L1",                          "McDonald's workers are coming in the front door and the back gate", 3.0f, 1.5f,  6, 1, ""),
-            ("McDonald's L1–2",                        "Now they brought spatulas and fryer cages",                          2.8f, 1.4f,  8, 2, ""),
+            ("McDonald's L1–2",                        "Now they brought spatulas and fryer baskets",                          2.8f, 1.4f,  8, 2, ""),
             ("McDonald's L1–3",                        "Heads up: they throw burgers, fries and sodas",                      2.6f, 1.3f, 10, 2, "Jack"),
             ("McDonald's L1–3, Cane's L1",             "The chicken finger crew shows up throwing tenders",                  2.4f, 1.2f, 11, 3, ""),
             ("McDonald's L1–3, Cane's L1–2",           "Texas toast bombs incoming",                                         2.2f, 1.1f, 12, 3, ""),
@@ -381,7 +426,7 @@ public class RoundManager : MonoBehaviour
                 subtitle = row.sub,
                 duration = 120f + 30f * i,
                 plannedEnemies = row.planned,
-                enemies = new List<SpawnEntry> { new SpawnEntry { prefab = mcdonaldsL1, weight = 1f } },
+                enemies = McDonaldsMix(mcdonaldsL1, i),
                 spawnIntervalStart = row.start,
                 spawnIntervalEnd = row.end,
                 maxAlive = row.max,

@@ -1,14 +1,22 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-// McDonald's worker, level 1 (DESIGN.md: round 1, fists).
-// Chases the player over the NavMesh and throws a wind-up punch when close.
+// McDonald's worker (DESIGN.md), levels 1–3:
+//   L1 fists · L2 a spatula or fryer basket (hits harder, reaches further) · L3 carries a tray of food and
+//   throws burgers, fries and sodas from 3–10 m (web build: every 2.4–3.4 s), and bashes with the tray up close.
+// Chases the nearest player over the NavMesh and throws a wind-up hit when close. RoundManager calls SetLevel on spawn.
 // Numbers are ported from the web build. The body is a BlockyCharacter (built into the prefab by
 // Tools > Scary Street > Create McDonald's Worker Prefab, or at runtime if the prefab has no model).
 [RequireComponent(typeof(NavMeshAgent), typeof(Health), typeof(CapsuleCollider))]
 [RequireComponent(typeof(WorldHealthBar), typeof(LootDrop))]
 public class McDonaldsWorker : MonoBehaviour
 {
+    [Header("Level")]
+    [Range(1, 3)] public int level = 1;
+    [Tooltip("L3 throws food from this range (min, max).")]
+    public Vector2 throwRange = new Vector2(3f, 10f);
+    public float throwDamage = 4f;
+
     [Header("Movement")]
     public Vector2 speedRange = new Vector2(2.9f, 3.5f);
     [Tooltip("How often the path to the player is recalculated (seconds).")]
@@ -48,8 +56,31 @@ public class McDonaldsWorker : MonoBehaviour
     Transform player, model;
     Vector3 modelScale = Vector3.one;
     CharacterAnimator body;
-    float repathT, cooldownT, attackT = -1f, staggerT, deadT;
-    bool hitDone;
+    float repathT, cooldownT, attackT = -1f, staggerT, deadT, throwCd, throwT = -1f;
+    bool hitDone, thrown;
+    Transform heldItem;
+
+    // Called right after spawning (before Start). Numbers per level follow the web build's waves.
+    public void SetLevel(int newLevel)
+    {
+        level = Mathf.Clamp(newLevel, 1, 3);
+        if (!health) health = GetComponent<Health>();
+        switch (level)
+        {
+            case 1: health.ResetHealth(30f); damage = 5f; break;
+            case 2:
+                health.ResetHealth(36f);
+                damage = 7f; attackStartRange = 1.3f; hitRange = 1.7f;
+                break;
+            default:
+                health.ResetHealth(40f);
+                damage = 8f; attackStartRange = 1.2f; hitRange = 1.6f;
+                speedRange = new Vector2(2.5f, 3.1f);                 // the tray slows them down
+                if (agent) agent.speed = Random.Range(speedRange.x, speedRange.y);
+                throwCd = Random.Range(1f, 2.5f);
+                break;
+        }
+    }
 
     // Runs when the component is first added in the editor: enemy-sized defaults.
     void Reset() => ApplyDefaults();
@@ -81,6 +112,7 @@ public class McDonaldsWorker : MonoBehaviour
         else foreach (Transform c in transform) if (c.GetComponentInChildren<Renderer>()) { model = c; break; }
         if (model) modelScale = model.localScale;
         body = GetComponentInChildren<CharacterAnimator>();
+        BuildHeldItem();
 
         // spawned slightly off the mesh? snap onto it so the agent doesn't error
         if (!agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hitPos, 3f, NavMesh.AllAreas))
@@ -91,18 +123,14 @@ public class McDonaldsWorker : MonoBehaviour
         FindPlayer();
     }
 
-    void FindPlayer()
-    {
-        var go = GameObject.FindWithTag("Player");
-        if (go) player = go.transform;
-        else { var fpc = FindAnyObjectByType<FirstPersonController>(); if (fpc) player = fpc.transform; }
-        playerHealth = player ? player.GetComponent<Health>() : null;
-    }
+    // Chase whoever is nearest and still alive (co-op ready).
+    void FindPlayer() => player = Players.Nearest(transform.position, out playerHealth);
 
     void Update()
     {
         if (health.IsDead) { UpdateCorpse(); return; }
-        if (!player) { FindPlayer(); if (!player) return; }
+        if ((repathT <= 0 || !player) ) FindPlayer();                 // re-pick the nearest player whenever we repath
+        if (!player) { if (agent.isOnNavMesh) agent.isStopped = true; UpdateAnim(); return; }
         if (!agent.isOnNavMesh) return;
 
         Vector3 to = player.position - transform.position;
@@ -114,7 +142,9 @@ public class McDonaldsWorker : MonoBehaviour
         cooldownT -= Time.deltaTime;
         if (staggerT > 0) { staggerT -= Time.deltaTime; UpdateAnim(); return; }
 
-        if (attackT >= 0) UpdatePunch(to, dist, sameFloor);
+        throwCd -= Time.deltaTime;
+        if (throwT >= 0) UpdateThrow(to);
+        else if (attackT >= 0) UpdatePunch(to, dist, sameFloor);
         else if (playerDead) agent.isStopped = true;
         else
         {
@@ -123,9 +153,88 @@ public class McDonaldsWorker : MonoBehaviour
             if (repathT <= 0) { repathT = repathInterval; agent.SetDestination(player.position); }
 
             if (dist < attackStartRange && sameFloor && cooldownT <= 0) StartPunch();
+            else if (level >= 3 && throwCd <= 0 && sameFloor && dist > throwRange.x && dist < throwRange.y && CanSee()) StartThrow();
             else if (dist < agent.stoppingDistance + 0.2f) Face(to);   // agent stops turning once it arrives
         }
         UpdateAnim();
+    }
+
+    // ---------- L3: throwing food ----------
+
+    bool CanSee()
+    {
+        Vector3 eye = transform.position + Vector3.up * 1.5f, target = player.position + Vector3.up * 1.2f;
+        return !Physics.Linecast(eye, target, out var hit, ~0, QueryTriggerInteraction.Ignore) || hit.transform.root == player.root;
+    }
+
+    void StartThrow()
+    {
+        throwT = 0; thrown = false;
+        agent.isStopped = true;
+        agent.velocity = Vector3.zero;
+        if (body) body.Punch(0.55f, 0.6f);
+    }
+
+    void UpdateThrow(Vector3 to)
+    {
+        throwT += Time.deltaTime;
+        Face(to);
+        if (!thrown && throwT >= 0.33f)                               // let go 60% through the wind-up
+        {
+            thrown = true;
+            Vector3 hand = transform.position + Vector3.up * 1.5f + transform.forward * 0.3f;
+            FoodShot.Throw(hand, player.position + Vector3.up * 1.1f, throwDamage, gameObject);
+        }
+        if (throwT >= 0.55f) { throwT = -1f; throwCd = Random.Range(2.4f, 3.4f); }
+    }
+
+    // ---------- held items ----------
+
+    void BuildHeldItem()
+    {
+        var b = GetComponentInChildren<BlockyCharacter>();
+        if (!b || level < 2) return;
+        var mats = BlockyCharacter.RuntimeMaterials();
+        if (level == 2 && Random.value < 0.5f)
+        {
+            // spatula: black handle, steel blade pointing down out of the fist
+            heldItem = new GameObject("Spatula").transform;
+            heldItem.SetParent(b.handR, false);
+            heldItem.localPosition = new Vector3(0, -0.06f, 0.03f);
+            Piece(PrimitiveType.Cube, heldItem, new Vector3(0, 0, 0.06f), new Vector3(0.022f, 0.022f, 0.2f), mats("Handle", new Color(0.08f, 0.08f, 0.08f)));
+            Piece(PrimitiveType.Cube, heldItem, new Vector3(0, -0.01f, 0.21f), new Vector3(0.09f, 0.008f, 0.12f), mats("Steel", new Color(0.75f, 0.77f, 0.8f)));
+        }
+        else if (level == 2)
+        {
+            // fryer basket: wire basket on a long handle
+            damage = 8f; windupTime = 0.75f;
+            heldItem = new GameObject("FryerBasket").transform;
+            heldItem.SetParent(b.handR, false);
+            heldItem.localPosition = new Vector3(0, -0.06f, 0.03f);
+            Piece(PrimitiveType.Cube, heldItem, new Vector3(0, 0, 0.1f), new Vector3(0.025f, 0.025f, 0.24f), mats("Handle", new Color(0.08f, 0.08f, 0.08f)));
+            Piece(PrimitiveType.Cube, heldItem, new Vector3(0, -0.02f, 0.3f), new Vector3(0.16f, 0.09f, 0.2f), mats("Basket", new Color(0.55f, 0.56f, 0.58f)));
+            Piece(PrimitiveType.Cube, heldItem, new Vector3(0, 0.01f, 0.3f), new Vector3(0.14f, 0.04f, 0.18f), mats("Fries", new Color(0.95f, 0.78f, 0.3f)));
+        }
+        else
+        {
+            // tray of food carried in front of the chest
+            heldItem = new GameObject("Tray").transform;
+            heldItem.SetParent(b.spine, false);
+            heldItem.localPosition = new Vector3(0, 0.2f, 0.32f);
+            Piece(PrimitiveType.Cube, heldItem, Vector3.zero, new Vector3(0.36f, 0.02f, 0.26f), mats("Tray", new Color(0.55f, 0.12f, 0.1f)));
+            FoodShot.BuildFood(FoodShot.Food.Burger, heldItem, new Vector3(-0.09f, 0.04f, 0), mats);
+            FoodShot.BuildFood(FoodShot.Food.Fries, heldItem, new Vector3(0.05f, 0.06f, -0.05f), mats);
+            FoodShot.BuildFood(FoodShot.Food.Soda, heldItem, new Vector3(0.11f, 0.08f, 0.06f), mats);
+        }
+    }
+
+    static void Piece(PrimitiveType type, Transform parent, Vector3 pos, Vector3 scale, Material m)
+    {
+        var go = GameObject.CreatePrimitive(type);
+        Destroy(go.GetComponent<Collider>());
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = pos; go.transform.localScale = scale;
+        go.GetComponent<Renderer>().sharedMaterial = m;
     }
 
     void StartPunch()

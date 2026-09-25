@@ -51,6 +51,12 @@ public class FirstPersonController : MonoBehaviour
         cc.slopeLimit = 50f;
     }
 
+    void OnEnable() => Players.All.Add(this);
+    void OnDisable() => Players.All.Remove(this);
+
+    // Set by attacks like Jack's jokes: stunned = can't move or jump; slowed = half speed.
+    [System.NonSerialized] public float stunnedUntil, slowedUntil;
+
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -117,6 +123,8 @@ public class FirstPersonController : MonoBehaviour
         move = Vector2.ClampMagnitude(move, 1f);
         Vector3 dir = transform.right * move.x + transform.forward * move.y;
         float speed = crouching ? crouchSpeed : walkSpeed;
+        if (Time.time < stunnedUntil) { dir = Vector3.zero; jump = false; }
+        else if (Time.time < slowedUntil) speed *= 0.5f;
         if (cc.isGrounded && verticalVel < 0) verticalVel = -2f;
         if (jump && cc.isGrounded && !crouching) verticalVel = Mathf.Sqrt(jumpHeight * -2f * gravity);
         verticalVel += gravity * Time.deltaTime;

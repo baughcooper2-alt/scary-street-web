@@ -80,6 +80,8 @@ public class MusicNote : MonoBehaviour
             float d = (w.transform.position - transform.position).sqrMagnitude;
             if (d < bestD) { bestD = d; best = w.transform; }
         }
+        var jack = JackBoss.Current;                                   // bosses count too
+        if (jack && !jack.Health.IsDead && (jack.transform.position - transform.position).sqrMagnitude < bestD) best = jack.transform;
         return best;
     }
 }
