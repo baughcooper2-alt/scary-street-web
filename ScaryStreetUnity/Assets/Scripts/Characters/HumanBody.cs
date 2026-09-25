@@ -62,9 +62,12 @@ public static class HumanBody
         };
         b.skinParts.Add(bodySmr);
 
-        // clothes
-        Skinned(root, "Top", GarmentMesh(topKey), hips, t).sharedMaterial = Cloth(mat("Shirt", look.shirt));
-        Skinned(root, "Bottom", GarmentMesh(bottomKey), hips, t).sharedMaterial = Cloth(mat("Pants", look.pants));
+        // clothes (crowds skip the separate garment meshes: the covered body already wears their colours)
+        if (!look.simpleClothes)
+        {
+            Skinned(root, "Top", GarmentMesh(topKey), hips, t).sharedMaterial = Cloth(mat("Shirt", look.shirt));
+            Skinned(root, "Bottom", GarmentMesh(bottomKey), hips, t).sharedMaterial = Cloth(mat("Pants", look.pants));
+        }
 
         var h = Head();
         new Dresser(b, look, mat, h).Dress(B, topKey);

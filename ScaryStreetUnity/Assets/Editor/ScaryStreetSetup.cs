@@ -229,6 +229,8 @@ public static class ScaryStreetSetup
                 AssetDatabase.CreateAsset(m, path);
             }
             if (m.color != color) { m.color = color; EditorUtility.SetDirty(m); }
+            float finish = BlockyCharacter.Finish(part);
+            if (!Mathf.Approximately(m.GetFloat("_Smoothness"), finish)) { m.SetFloat("_Smoothness", finish); EditorUtility.SetDirty(m); }
             return m;
         };
     }
@@ -405,6 +407,68 @@ public static class ScaryStreetSetup
         EditorSceneManager.MarkSceneDirty(root.scene);
         Selection.activeGameObject = root;
         EditorUtility.DisplayDialog("Scary Street", $"Placed {WebMirrors.Length} mirrors (bathroom, bedroom 1 full-length, bathroom 2). They show up when you press Play.", "OK");
+    }
+
+    // ---------- Graphics ----------
+
+    // Less "plastic toy", more film: tunes the scene's post-processing volume (ACES tonemapping, bloom, grading,
+    // vignette, light grain, warm white balance, no motion blur), the URP asset (4x MSAA, 4K shadows),
+    // the lighting (warm sun, sky/equator/ground ambient, light fog) and turns post-processing on for the player camera.
+    [MenuItem("Tools/Scary Street/Improve Graphics")]
+    static void ImproveGraphics()
+    {
+        var volume = Object.FindAnyObjectByType<UnityEngine.Rendering.Volume>();
+        if (volume && volume.sharedProfile)
+        {
+            var p = volume.sharedProfile;
+            Undo.RecordObject(p, "Improve Graphics");
+            T Get<T>() where T : UnityEngine.Rendering.VolumeComponent { if (!p.TryGet<T>(out var c)) { c = p.Add<T>(true); AssetDatabase.AddObjectToAsset(c, p); } c.active = true; return c; }
+            var tone = Get<UnityEngine.Rendering.Universal.Tonemapping>(); tone.mode.Override(UnityEngine.Rendering.Universal.TonemappingMode.ACES);
+            var bloom = Get<UnityEngine.Rendering.Universal.Bloom>(); bloom.intensity.Override(0.35f); bloom.threshold.Override(1.05f); bloom.scatter.Override(0.65f);
+            var grade = Get<UnityEngine.Rendering.Universal.ColorAdjustments>(); grade.postExposure.Override(0.25f); grade.contrast.Override(14f); grade.saturation.Override(-6f);
+            var wb = Get<UnityEngine.Rendering.Universal.WhiteBalance>(); wb.temperature.Override(6f); wb.tint.Override(2f);
+            var vig = Get<UnityEngine.Rendering.Universal.Vignette>(); vig.intensity.Override(0.26f); vig.smoothness.Override(0.45f);
+            var grain = Get<UnityEngine.Rendering.Universal.FilmGrain>(); grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Thin1); grain.intensity.Override(0.18f); grain.response.Override(0.8f);
+            var smh = Get<UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights>(); smh.shadows.Override(new Vector4(0.96f, 0.98f, 1.04f, -0.02f)); smh.highlights.Override(new Vector4(1.03f, 1.0f, 0.96f, 0f));
+            if (p.TryGet<UnityEngine.Rendering.Universal.MotionBlur>(out var blur)) blur.active = false;
+            EditorUtility.SetDirty(p);
+        }
+
+        var rp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+        if (rp)
+        {
+            var so = new SerializedObject(rp);
+            void Set(string prop, int v) { var sp = so.FindProperty(prop); if (sp != null) sp.intValue = v; }
+            void SetF(string prop, float v) { var sp = so.FindProperty(prop); if (sp != null) sp.floatValue = v; }
+            Set("m_MSAA", 4); Set("m_MainLightShadowmapResolution", 4096); SetF("m_ShadowDistance", 45f); Set("m_SoftShadowsSupported", 1); Set("m_SoftShadowQuality", 3);
+            so.ApplyModifiedProperties();
+        }
+
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.58f, 0.64f, 0.74f);
+        RenderSettings.ambientEquatorColor = new Color(0.48f, 0.45f, 0.42f);
+        RenderSettings.ambientGroundColor = new Color(0.22f, 0.19f, 0.17f);
+        RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogColor = new Color(0.62f, 0.64f, 0.68f); RenderSettings.fogDensity = 0.012f;
+        foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+            if (l.type == LightType.Directional)
+            {
+                Undo.RecordObject(l, "Improve Graphics");
+                l.color = new Color(1f, 0.93f, 0.82f); l.intensity = 1.35f; l.shadows = LightShadows.Soft; l.shadowStrength = 0.85f;
+            }
+        foreach (var fpc in Object.FindObjectsByType<FirstPersonController>(FindObjectsSortMode.None))
+        {
+            var cam = fpc.GetComponentInChildren<Camera>();
+            if (!cam) continue;
+            var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(cam);
+            Undo.RecordObject(data, "Improve Graphics");
+            data.renderPostProcessing = true;
+            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // 4x MSAA handles edges
+            EditorUtility.SetDirty(data);
+        }
+        EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        AssetDatabase.SaveAssets();
+        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, grain, softer/higher-res shadows, 4x MSAA, warmer light with ambient and fog. Save the scene.", "OK");
     }
 
     // ---------- World detail ----------

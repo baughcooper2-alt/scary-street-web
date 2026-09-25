@@ -86,12 +86,7 @@ public class JackBoss : MonoBehaviour
     void Update()
     {
         float dt = Time.deltaTime;
-        if (Health.IsDead)
-        {
-            deadT += dt;
-            model.localRotation = Quaternion.Euler(-90f * Mathf.SmoothStep(0, 1, deadT / 0.7f), 0, 0);
-            return;
-        }
+        if (Health.IsDead) { if (anim) anim.Die(); return; }
         if ((repathT -= dt) <= 0 || !target) { repathT = 0.25f; target = Players.Nearest(transform.position, out targetHealth); if (anim) anim.lookAt = target; if (target && agent.isOnNavMesh) agent.SetDestination(target.position); }
         if (!target || !agent.isOnNavMesh) return;
 

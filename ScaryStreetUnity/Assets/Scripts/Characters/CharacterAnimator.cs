@@ -12,7 +12,7 @@ using UnityEngine;
 [RequireComponent(typeof(BlockyCharacter))]
 public class CharacterAnimator : MonoBehaviour
 {
-    public enum Hold { None, Guitar, Book, Cart, Tray }
+    public enum Hold { None, Guitar, Book, Cart, Tray, Phone }
     enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave }
 
     [Tooltip("Meters covered per full stride (left + right step) when walking; running strides are longer.")]
@@ -22,6 +22,17 @@ public class CharacterAnimator : MonoBehaviour
     public Transform lookAt;
     [System.NonSerialized] public Hold hold;
     [System.NonSerialized] public bool inhaling;                  // cart at the mouth
+
+    [Header("Personal style (enemies randomise these)")]
+    [Range(0.8f, 1.2f)] public float strideScale = 1f;
+    [Range(0.4f, 1.5f)] public float armSwingScale = 1f;
+    [Tooltip("Degrees of forward slouch.")] public float hunch;
+    [Tooltip("Extra hip and shoulder roll when walking.")] [Range(0, 1)] public float swagger;
+
+    bool dead; float deadT, fallDir = -1f;
+
+    // Collapse: knees buckle, then the body goes down (backwards or forwards) and settles.
+    public void Die(bool forwards = false) { if (dead) return; dead = true; deadT = 0; fallDir = forwards ? 1f : -1f; }
 
     BlockyCharacter b;
     Quaternion hipsR, spineR, neckR, headR, shLR, shRR, elLR, elRR, legLR, legRR, knLR, knRR;
@@ -89,6 +100,27 @@ public class CharacterAnimator : MonoBehaviour
         return Mathf.Exp(-d * d * 2f);
     }
 
+    void Collapse(float dt)
+    {
+        deadT += dt;
+        float buckle = Mathf.SmoothStep(0, 1, deadT / 0.3f), fall = Mathf.SmoothStep(0, 1, (deadT - 0.2f) / 0.65f);
+        float k = 1f - Mathf.Exp(-dt * 14f);
+        lgL = Vector3.Lerp(lgL, new Vector3(-40f * buckle, 0, -6f), k); lgR = Vector3.Lerp(lgR, new Vector3(-25f * buckle, 0, 8f), k);
+        knL = Vector3.Lerp(knL, new Vector3(80f * buckle * (1f - 0.6f * fall), 0, 0), k); knR = Vector3.Lerp(knR, new Vector3(60f * buckle * (1f - 0.5f * fall), 0, 0), k);
+        spineE = Vector3.Lerp(spineE, new Vector3(18f * buckle * -fallDir, 8f, 6f), k);
+        headE = Vector3.Lerp(headE, new Vector3(-25f * fallDir * fall, 20f, 10f), k);
+        sL = Vector3.Lerp(sL, new Vector3(-30f * fallDir * fall, 0, -35f * fall), k); sR = Vector3.Lerp(sR, new Vector3(-50f * fallDir * fall, 0, 45f * fall), k);
+        eL = Vector3.Lerp(eL, new Vector3(-30f, 0, 0), k); eR = Vector3.Lerp(eR, new Vector3(-15f, 0, 0), k);
+        // the whole body tips over from the feet and drops a little as the knees go
+        transform.localRotation = Quaternion.Euler(88f * fallDir * fall, 0, 0);
+        b.hips.localPosition = hipsP + Vector3.down * 0.25f * buckle * (1f - fall);
+        b.spine.localRotation = spineR * Quaternion.Euler(spineE); b.head.localRotation = headR * Quaternion.Euler(headE);
+        b.shoulderL.localRotation = shLR * Quaternion.Euler(sL); b.elbowL.localRotation = elLR * Quaternion.Euler(eL);
+        b.shoulderR.localRotation = shRR * Quaternion.Euler(sR); b.elbowR.localRotation = elRR * Quaternion.Euler(eR);
+        b.legL.localRotation = legLR * Quaternion.Euler(lgL); b.legR.localRotation = legRR * Quaternion.Euler(lgR);
+        b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
+    }
+
     void Play(Act a, float duration, float hitMoment) { act = a; actT = 0f; actDur = Mathf.Max(0.05f, duration); actHit = hitMoment; }
 
     void LateUpdate()
@@ -96,6 +128,7 @@ public class CharacterAnimator : MonoBehaviour
         float dt = Time.deltaTime;
         if (dt <= 0) return;
         t += dt;
+        if (dead) { Collapse(dt); return; }
 
         // ---------- what the body is doing ----------
         Vector3 d = transform.position - lastPos; lastPos = transform.position;
@@ -116,7 +149,7 @@ public class CharacterAnimator : MonoBehaviour
 
         // stepping: stride grows with speed so feet don't slide; backwards runs the cycle in reverse;
         // little steps when turning on the spot
-        float stride = Mathf.Clamp(0.8f + 0.3f * speed, 1.0f, 2.6f) * strideLength / 1.3f;
+        float stride = Mathf.Clamp(0.8f + 0.3f * speed, 1.0f, 2.6f) * strideLength / 1.3f * strideScale;
         float stepSpeed = speed + (speed < 0.3f ? Mathf.Abs(yawRate) * 0.006f : 0f);
         phase = Mathf.Repeat(phase + stepSpeed / stride * Mathf.PI * 2f * dt * (fwd < -0.3f ? -1f : 1f), Mathf.PI * 2f);
         float stepAmt = Mathf.Max(move, speed < 0.3f ? Mathf.Clamp01(Mathf.Abs(yawRate) / 200f) * 0.35f : 0f);
@@ -147,17 +180,17 @@ public class CharacterAnimator : MonoBehaviour
         float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
         float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
         b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);
-        float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt, pelvisDrop = c * 4f * move;
+        float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt * (1f + swagger), pelvisDrop = c * 4f * move * (1f + swagger * 1.5f);
         b.hips.localRotation = hipsR * Quaternion.Euler(0, pelvisYaw, pelvisDrop + Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
         float breathe = Mathf.Sin(t * 1.7f);
         // chest counter-rotates against the hips, leans into a run, and rocks a touch against the pelvis dip
-        Vector3 tSpine = new Vector3(Mathf.Lerp(3f, 14f, run) * move + breathe * idle + crouch * 22f + squat * 25f - flinch * 18f + air * 6f
+        Vector3 tSpine = new Vector3(hunch + Mathf.Lerp(3f, 14f, run) * move + breathe * idle + crouch * 22f + squat * 25f - flinch * 18f + air * 6f
                                      + Mathf.Abs(Mathf.Cos(phase)) * 2f * run,
                                      -pelvisYaw * 1.9f, -pelvisDrop * 0.6f + side * 5f * move);
 
         // ---------- arms: swing opposite the legs, a beat behind, elbows following through ----------
         float lag = 0.35f, sa = Mathf.Sin(phase - lag), ca = Mathf.Cos(phase - lag);
-        float armSwing = Mathf.Lerp(24f, 48f, run) * move, elbowBase = Mathf.Lerp(14f, 88f, run);
+        float armSwing = Mathf.Lerp(24f, 48f, run) * move * armSwingScale, elbowBase = Mathf.Lerp(14f, 88f, run);
         Vector3 tSL = new Vector3(sa * armSwing + Mathf.Sin(t * 1.1f) * 1.5f * idle, 0, -3f - 6f * run);
         Vector3 tSR = new Vector3(-sa * armSwing + Mathf.Sin(t * 1.1f + 1f) * 1.5f * idle, 0, 3f + 6f * run);
         Vector3 tEL = new Vector3(-elbowBase - Mathf.Max(0, -sa) * armSwing * 0.9f + ca * 4f * move, 0, 0);
@@ -170,6 +203,7 @@ public class CharacterAnimator : MonoBehaviour
             case Hold.Book:   tSR = new Vector3(-22f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-85f, 0, 0); break;
             case Hold.Cart:   tSR = new Vector3(-14f, 0, 6f); tER = new Vector3(-95f, 0, 0); break;
             case Hold.Tray:   tSL = new Vector3(-48f, 0, 4f); tSR = new Vector3(-48f, 0, -4f); tEL = tER = new Vector3(-48f, 0, 0); break;
+            case Hold.Phone:  tSR = new Vector3(-32f, 0, 14f); tER = new Vector3(-128f, 0, 0); tSpine.x += 6f; break;
         }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
 
@@ -230,6 +264,7 @@ public class CharacterAnimator : MonoBehaviour
         }
         else tHead.y += glanceNow;
         if (talkT > 0) tHead.x += Mathf.Sin(t * 9f) * 5f;
+        if (hold == Hold.Phone) { tHead.x += 22f; tHead.y = 0; }                // eyes on the screen
         if (mouth) mouth.localScale = talkT > 0 ? Vector3.Scale(mouthScale, new Vector3(1f, 1f + 2.5f * Mathf.Abs(Mathf.Sin(t * 14f)), 1f)) : mouthScale;
 
         // blinking every few seconds

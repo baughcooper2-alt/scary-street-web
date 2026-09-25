@@ -162,6 +162,7 @@ public class GameFlow : MonoBehaviour
         else { camPos = defaultCameraPosition; camRot = Quaternion.LookRotation(defaultCameraLookAt - defaultCameraPosition); }
         menuCam.SetPositionAndRotation(camPos, camRot);
         go.GetComponent<Camera>().fieldOfView = 50f;
+        UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(go.GetComponent<Camera>()).renderPostProcessing = true;
     }
 
     void Update()

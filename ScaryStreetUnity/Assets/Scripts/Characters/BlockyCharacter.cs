@@ -325,6 +325,22 @@ public class BlockyCharacter : MonoBehaviour
         }
     }
 
+    // How shiny each kind of part is: soft skin, matte cloth, glossy eyes and lips (the default Lit 0.5 looks like plastic).
+    public static float Finish(string part)
+    {
+        switch (part)
+        {
+            case "Skin": return 0.32f;
+            case "Lips": return 0.45f;
+            case "EyeWhite": case "Eyes": case "Pupil": case "Shine": return 0.85f;
+            case "Hair": case "HairModel": return 0.3f;
+            case "Shoes": case "Sole": return 0.35f;
+            case "Cap": case "Band": case "Brim": case "Tag": return 0.25f;
+            case "Stage": return 0.2f;
+            default: return part.StartsWith("Cart") || part.StartsWith("Guitar") ? 0.45f : 0.08f;   // clothes, prints, cloth
+        }
+    }
+
     // Throwaway materials for characters built while playing (one per color).
     public static MaterialSource RuntimeMaterials()
     {
@@ -332,7 +348,11 @@ public class BlockyCharacter : MonoBehaviour
         var cache = new Dictionary<(string, Color), Material>();      // per part too: some parts change their material (hair, clothes)
         return (part, color) =>
         {
-            if (!cache.TryGetValue((part, color), out var m)) cache[(part, color)] = m = new Material(lit) { color = color, name = part };
+            if (!cache.TryGetValue((part, color), out var m))
+            {
+                cache[(part, color)] = m = new Material(lit) { color = color, name = part };
+                m.SetFloat("_Smoothness", Finish(part));
+            }
             return m;
         };
     }
