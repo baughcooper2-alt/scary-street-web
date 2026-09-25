@@ -82,15 +82,16 @@ public class PlayerHUD : MonoBehaviour
             GUI.color = Color.Lerp(Color.white, new Color(0.45f, 1f, 0.45f), cashFlash);
             GUI.Label(new Rect(x, xy - 30, w, 28), $"${progress.Cash}", cashStyle);
             GUI.color = old;
-            string picks = progress.PendingPicks > 0 ? $"   ({progress.PendingPicks} upgrade pick{(progress.PendingPicks > 1 ? "s" : "")} saved)" : "";
-            GUI.Label(new Rect(x + 80, xy - 26, w + 200, 24), $"LV {progress.Level}   XP {progress.Xp} / {progress.XpToNext}{picks}");
-            if (upgrades && upgrades.Used > 0) GUI.Label(new Rect(x, xy - 54, 700, 24), upgrades.Summary());
+            GUI.Label(new Rect(x + 80, xy - 26, w + 200, 24), $"LV {progress.Level}   XP {progress.Xp} / {progress.XpToNext}");
+            float line = xy - 54;
+            if (upgrades && upgrades.Used > 0) { GUI.Label(new Rect(x, line, 900, 24), upgrades.Summary()); line -= 24; }
+            var stats = PlayerStats.Instance;
+            if (stats && stats.Summary().Length > 0) GUI.Label(new Rect(x, line, 900, 24), stats.Summary());
 
-            if (levelFlash > 0)
+            if (levelFlash > 0 && !LevelUpScreen.IsOpen)
             {
                 GUI.color = new Color(0.55f, 0.85f, 1f, Mathf.Clamp01(levelFlash));
                 GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 50), $"LEVEL {progress.Level}!", bigStyle);
-                GUI.Label(new Rect(0, Screen.height * 0.62f + 42, Screen.width, 24), "Upgrade picks are saved until the upgrade screen exists", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter });
                 GUI.color = old;
             }
         }

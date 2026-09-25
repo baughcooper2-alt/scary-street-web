@@ -48,6 +48,7 @@ public static class ScaryStreetSetup
         inv.smokeMaterial = SmokeMaterial();
         if (!go.GetComponent<PlayerInteract>()) Undo.AddComponent<PlayerInteract>(go);
         if (!go.GetComponent<PlayerUpgrades>()) Undo.AddComponent<PlayerUpgrades>(go);
+        if (!go.GetComponent<PlayerStats>()) Undo.AddComponent<PlayerStats>(go);
         if (!go.GetComponent<ThirdPersonView>()) Undo.AddComponent<ThirdPersonView>(go).look = Look("Cooper", "cooper");
 
         var cam = go.GetComponentInChildren<Camera>();
@@ -60,7 +61,7 @@ public static class ScaryStreetSetup
         EditorSceneManager.MarkSceneDirty(go.scene);
         Selection.activeGameObject = go;
         EditorUtility.DisplayDialog("Scary Street",
-            $"Player set up: tag Player, Health 25, PlayerPunch, PlayerProgress, PlayerHUD, WeaponInventory (cart in slot 1), PlayerInteract (doors), PlayerUpgrades, FirstPersonArms + ThirdPersonView (Cooper)." +
+            $"Player set up: tag Player, Health 25, PlayerPunch, PlayerProgress, PlayerHUD, WeaponInventory (cart in slot 1), PlayerInteract (doors), PlayerUpgrades, PlayerStats (level-up picks), FirstPersonArms + ThirdPersonView (Cooper)." +
             (removed > 0 ? $"\nRemoved {removed} extra controller(s) from the camera." : ""), "OK");
     }
 

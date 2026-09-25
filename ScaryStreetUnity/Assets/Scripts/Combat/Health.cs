@@ -9,6 +9,11 @@ public class Health : MonoBehaviour
     public float maxHealth = 25f;
     [Tooltip("Seconds of invulnerability after a hit (0 = none).")]
     public float invulnerableTime = 0f;
+    [Tooltip("Share of incoming damage ignored (0–0.8). The Defense stat sets this on the player.")]
+    [Range(0, 0.8f)] public float damageReduction = 0f;
+
+    // Extra shove the last hit asked for (Law Book swings, the OBJECTION slam); enemies read it in their Damaged handler.
+    public float LastKnockback { get; private set; }
 
     public float Current { get; private set; }
     public float Fraction => maxHealth > 0 ? Current / maxHealth : 0f;
@@ -21,9 +26,11 @@ public class Health : MonoBehaviour
 
     void Awake() => Current = maxHealth;
 
-    public void TakeDamage(float amount)
+    public void TakeDamage(float amount, float knockback = 0f)
     {
         if (IsDead || amount <= 0 || Time.time < invulnUntil) return;
+        amount *= 1f - Mathf.Clamp(damageReduction, 0f, 0.8f);
+        LastKnockback = knockback;
         Current = Mathf.Max(0, Current - amount);
         invulnUntil = Time.time + invulnerableTime;
         Damaged?.Invoke(amount);

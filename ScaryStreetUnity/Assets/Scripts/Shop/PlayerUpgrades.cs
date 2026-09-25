@@ -57,6 +57,8 @@ public class PlayerUpgrades : MonoBehaviour
 
     void Start()
     {
+        var stats = GetComponent<PlayerStats>();
+        if (stats) stats.Changed += ApplyMovement;
         var c = GetComponentInChildren<Camera>();
         cam = c ? c.transform : null;
     }
@@ -77,11 +79,12 @@ public class PlayerUpgrades : MonoBehaviour
         return true;
     }
 
-    void ApplyMovement()
+    public void ApplyMovement()
     {
         if (!fpc) return;
         int skate = Level(Id.Skateboard);
-        float speed = (1f + 0.15f * Level(Id.EnergyDrink)) * (skate > 0 ? 2f + 0.1f * (skate - 1) : 1f);
+        float speed = (1f + 0.15f * Level(Id.EnergyDrink)) * (skate > 0 ? 2f + 0.1f * (skate - 1) : 1f)
+                    * (PlayerStats.Instance ? PlayerStats.Instance.SpeedMultiplier : 1f);   // Speed stat
         fpc.walkSpeed = baseWalk * speed;
         fpc.crouchSpeed = baseCrouch * speed;
         fpc.jumpHeight = baseJump * (skate > 0 ? 1.5f : 1f);

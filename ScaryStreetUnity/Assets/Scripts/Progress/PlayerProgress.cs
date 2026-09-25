@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 // The player's money and XP for this run (DESIGN.md: XP fills your level bar; each level grants one upgrade pick).
-// Picks are banked in PendingPicks until the upgrade screen exists.
+// Each level adds a pick to PendingPicks; LevelUpScreen (opened by PlayerStats) spends them.
 public class PlayerProgress : MonoBehaviour
 {
     [Tooltip("Thorton starts with $100 (DESIGN.md); everyone else 0.")]

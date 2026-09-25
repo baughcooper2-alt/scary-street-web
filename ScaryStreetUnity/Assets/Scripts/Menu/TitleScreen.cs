@@ -101,7 +101,7 @@ public class TitleScreen : MonoBehaviour
         { "Jump / Crouch",            "Space / C or Shift",  "A / B" },
         { "Punch · blow smoke",       "Left click",          "Right trigger" },
         { "Hit the cart",             "Right click or E",    "Left trigger" },
-        { "Weapon slots",             "1–5 · mouse wheel",   "LB / RB" },
+        { "Weapon slots · reload",    "1–5, wheel · R",      "LB / RB · d-pad ↓" },
         { "Doors · DoorDash driver",  "F",                   "X" },
         { "Switch camera view",       "V",                   "Y" },
         { "Next round (after shop)",  "Enter",               "Start" },

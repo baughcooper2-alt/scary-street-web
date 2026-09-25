@@ -37,6 +37,12 @@ public class McDonaldsWorker : MonoBehaviour
     [Tooltip("Animator with optional 'Speed' float and 'Punch' / 'Hit' / 'Die' triggers (for a real rigged model later).")]
     public Animator animator;
 
+    // every living worker, for things that home in on enemies (Guitar notes)
+    public static readonly System.Collections.Generic.List<McDonaldsWorker> All = new System.Collections.Generic.List<McDonaldsWorker>();
+    public bool IsAlive => health && !health.IsDead;
+    void OnEnable() => All.Add(this);
+    void OnDisable() => All.Remove(this);
+
     NavMeshAgent agent;
     Health health, playerHealth;
     Transform player, model;
@@ -169,7 +175,7 @@ public class McDonaldsWorker : MonoBehaviour
             agent.velocity = Vector3.zero;
             Vector3 away = player ? transform.position - player.position : -transform.forward;
             away.y = 0;
-            float shove = knockback + (PlayerUpgrades.Instance ? PlayerUpgrades.Instance.KnockbackBonus : 0f);   // Pee upgrade
+            float shove = knockback + health.LastKnockback + (PlayerUpgrades.Instance ? PlayerUpgrades.Instance.KnockbackBonus : 0f);   // weapon + Pee upgrade
             agent.Move(away.normalized * shove);   // Move stays on the NavMesh, so no shoving through walls
         }
         if (model) model.localScale = Vector3.Scale(modelScale, new Vector3(1.15f, 0.85f, 1.15f));   // squash, eases back in UpdateAnim

@@ -12,6 +12,8 @@ public class WeaponInventory : MonoBehaviour
     [Min(1)] public int capacity = 5;
     [Tooltip("Puts the cart in slot 1 at the start of a run.")]
     public bool startWithCart = true;
+    [Tooltip("Adds your character's starting weapon (DESIGN.md: Cooper = Law Book, Nathan = Guitar) in the next slot.")]
+    public bool startWithCharacterWeapon = true;
     [Tooltip("Transparent material for smoke; the setup tool saves one so builds keep the shader variant.")]
     public Material smokeMaterial;
 
@@ -40,6 +42,15 @@ public class WeaponInventory : MonoBehaviour
     void Start()
     {
         if (startWithCart) Add<CartWeapon>();
+        if (startWithCharacterWeapon)
+        {
+            // who you're playing: the select-screen pick, or whoever the first-person arms are dressed as
+            var look = GameFlow.Chosen;
+            if (!look) { var arms = GetComponentInChildren<FirstPersonArms>(true); if (arms) look = arms.look; }
+            var entry = look ? CharacterRoster.Find(look.displayName) : null;
+            if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.LawBook) Add<LawBookWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Guitar) Add<GuitarWeapon>();
+        }
         Select(0);
     }
 
@@ -76,6 +87,7 @@ public class WeaponInventory : MonoBehaviour
 
         var input = new WeaponInput();
         bool locked = Cursor.lockState == CursorLockMode.Locked;
+        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen) return;     // their number keys and clicks aren't for us
 #if ENABLE_INPUT_SYSTEM
         var kb = Keyboard.current; var mouse = Mouse.current; var pad = Gamepad.current;
         if (kb != null)
@@ -86,6 +98,7 @@ public class WeaponInventory : MonoBehaviour
             if (kb.digit4Key.wasPressedThisFrame) Select(3);
             if (kb.digit5Key.wasPressedThisFrame) Select(4);
             input.secondaryHeld |= kb.eKey.isPressed;
+            input.reloadPressed |= kb.rKey.wasPressedThisFrame;
         }
         if (mouse != null)
         {
@@ -102,6 +115,7 @@ public class WeaponInventory : MonoBehaviour
             input.primaryPressed |= pad.rightTrigger.wasPressedThisFrame;
             input.primaryHeld |= pad.rightTrigger.isPressed;
             input.secondaryHeld |= pad.leftTrigger.isPressed;
+            input.reloadPressed |= pad.dpad.down.wasPressedThisFrame;
         }
 #else
         for (int i = 0; i < 5; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Select(i);
@@ -110,6 +124,7 @@ public class WeaponInventory : MonoBehaviour
         input.primaryPressed = Input.GetMouseButtonDown(0);
         input.primaryHeld = Input.GetMouseButton(0);
         input.secondaryHeld = Input.GetMouseButton(1) || Input.GetKey(KeyCode.E);
+        input.reloadPressed = Input.GetKeyDown(KeyCode.R);
 #endif
         if (!locked) input = new WeaponInput();                    // clicks that grab the mouse don't fire
         if (Current) Current.Tick(input);

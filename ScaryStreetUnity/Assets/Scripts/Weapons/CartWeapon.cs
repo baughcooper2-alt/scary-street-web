@@ -17,6 +17,9 @@ public class CartWeapon : Weapon
     public float blinkerCooldown = 5f;
 
     // level-ups upgrade it (web build), and the DoorDash shop can unlock the next tier early
+    // the cart levels with you automatically (web build), so level-up picks don't offer it
+    public override bool CanLevelUp => false;
+
     public int Tier => Mathf.Clamp(Mathf.Max(progress ? progress.Level : 1, boughtTier), 1, 3);
     int boughtTier = 1;
 
@@ -28,7 +31,6 @@ public class CartWeapon : Weapon
 
     float lung, holdFull, fireCd, blinkCd, ringT = -1f, oil = 100f, glow;
     bool blinkReady, warned;
-    Transform fpModel, tpModel;
     Material ledMat;
 
     public override void Init(WeaponInventory inv)
@@ -119,7 +121,7 @@ public class CartWeapon : Weapon
         Vector3 mouth = cam.position;
         var cc = inventory.GetComponent<CharacterController>();
         if (cc) mouth = inventory.transform.position + Vector3.up * (cc.height - 0.2f);
-        float dmg = PlayerUpgrades.Instance ? PlayerUpgrades.Instance.DamageMultiplier : 1f;   // Shooter
+        float dmg = PlayerStats.RangedDamage(1f);                     // Precision, Shooter, crits (rolled once per shot)
         SmokeShot.Spawn(kind, mouth + cam.forward * 0.5f, cam.forward, inventory.gameObject, inventory.smokeMaterial, dmg);
     }
 
@@ -172,22 +174,22 @@ public class CartWeapon : Weapon
         root.localScale = Vector3.one * 0.55f;
 
         var mats = BlockyCharacter.RuntimeMaterials();
-        Part(PrimitiveType.Cube, root, new Vector3(0, -0.035f, 0), new Vector3(0.05f, 0.17f, 0.026f), mats("CartBody", new Color(0.88f, 0.25f, 0.17f)), firstPerson);
-        Part(PrimitiveType.Cylinder, root, new Vector3(-0.025f, -0.035f, 0), new Vector3(0.026f, 0.085f, 0.026f), mats("CartSide", new Color(0.93f, 0.35f, 0.15f)), firstPerson);
-        Part(PrimitiveType.Cylinder, root, new Vector3(0.025f, -0.035f, 0), new Vector3(0.026f, 0.085f, 0.026f), mats("CartSide", new Color(0.93f, 0.35f, 0.15f)), firstPerson);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.046f, 0), new Vector3(0.077f, 0.008f, 0.028f), mats("CartBand", new Color(0.96f, 0.54f, 0.12f)), firstPerson);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.08f, 0), new Vector3(0.044f, 0.05f, 0.016f), mats("CartOil", new Color(0.85f, 0.64f, 0.25f)), firstPerson);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.128f, 0), new Vector3(0.036f, 0.04f, 0.016f), mats("CartTip", new Color(0.96f, 0.54f, 0.12f)), firstPerson);
-        Part(PrimitiveType.Cube, root, new Vector3(0, -0.124f, 0), new Vector3(0.074f, 0.012f, 0.03f), mats("CartBase", new Color(0.1f, 0.07f, 0.13f)), firstPerson);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.012f, 0.0135f), new Vector3(0.046f, 0.058f, 0.002f), mats("CartScreen", new Color(0.42f, 0.3f, 0.6f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, -0.035f, 0), new Vector3(0.05f, 0.17f, 0.026f), mats("CartBody", new Color(0.88f, 0.25f, 0.17f)), firstPerson);
+        CartPart(PrimitiveType.Cylinder, root, new Vector3(-0.025f, -0.035f, 0), new Vector3(0.026f, 0.085f, 0.026f), mats("CartSide", new Color(0.93f, 0.35f, 0.15f)), firstPerson);
+        CartPart(PrimitiveType.Cylinder, root, new Vector3(0.025f, -0.035f, 0), new Vector3(0.026f, 0.085f, 0.026f), mats("CartSide", new Color(0.93f, 0.35f, 0.15f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, 0.046f, 0), new Vector3(0.077f, 0.008f, 0.028f), mats("CartBand", new Color(0.96f, 0.54f, 0.12f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, 0.08f, 0), new Vector3(0.044f, 0.05f, 0.016f), mats("CartOil", new Color(0.85f, 0.64f, 0.25f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, 0.128f, 0), new Vector3(0.036f, 0.04f, 0.016f), mats("CartTip", new Color(0.96f, 0.54f, 0.12f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, -0.124f, 0), new Vector3(0.074f, 0.012f, 0.03f), mats("CartBase", new Color(0.1f, 0.07f, 0.13f)), firstPerson);
+        CartPart(PrimitiveType.Cube, root, new Vector3(0, 0.012f, 0.0135f), new Vector3(0.046f, 0.058f, 0.002f), mats("CartScreen", new Color(0.42f, 0.3f, 0.6f)), firstPerson);
 
-        var led = Part(PrimitiveType.Sphere, root, new Vector3(0, -0.128f, 0.012f), new Vector3(0.02f, 0.01f, 0.02f), null, firstPerson);
+        var led = CartPart(PrimitiveType.Sphere, root, new Vector3(0, -0.128f, 0.012f), new Vector3(0.02f, 0.01f, 0.02f), null, firstPerson);
         if (!ledMat) ledMat = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = new Color(0.18f, 0.42f, 0.28f) };
         led.GetComponent<Renderer>().sharedMaterial = ledMat;
         return root;
     }
 
-    static Transform Part(PrimitiveType type, Transform parent, Vector3 pos, Vector3 scale, Material m, bool firstPerson)
+    static Transform CartPart(PrimitiveType type, Transform parent, Vector3 pos, Vector3 scale, Material m, bool firstPerson)
     {
         var go = GameObject.CreatePrimitive(type);
         Destroy(go.GetComponent<Collider>());

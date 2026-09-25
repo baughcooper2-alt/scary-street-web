@@ -21,6 +21,11 @@ public class FirstPersonArms : MonoBehaviour
 
     public Transform RightHand => rightGrip;
 
+    // Weapons can take over a hand for the frame: set the override flag, a camera-space position and a rotation.
+    // (The walking bob is still added.) Clear the flags on Unequip.
+    [System.NonSerialized] public bool overrideRight, overrideLeft;
+    [System.NonSerialized] public Vector3 rightTarget, leftTarget, rightEuler, leftEuler;
+
     Transform right, left, rightGrip;
     float kick;
     Vector3 lastPlayerPos;
@@ -109,5 +114,8 @@ public class FirstPersonArms : MonoBehaviour
         right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
         right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
         left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
+        left.localRotation = Quaternion.identity;
+        if (overrideRight) { right.localPosition = rightTarget + bob + new Vector3(0, 0.01f, -0.05f) * kick; right.localRotation = Quaternion.Euler(rightEuler); }
+        if (overrideLeft) { left.localPosition = leftTarget + bob * 0.5f; left.localRotation = Quaternion.Euler(leftEuler); }
     }
 }
