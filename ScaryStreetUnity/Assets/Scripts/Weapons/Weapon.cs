@@ -34,8 +34,11 @@ public abstract class Weapon : MonoBehaviour
         owner = inv.GetComponent<Health>();
     }
 
-    public virtual void Equip() => Equipped = true;
-    public virtual void Unequip() => Equipped = false;
+    public virtual void Equip() { Equipped = true; if (BodyAnim) BodyAnim.hold = HoldPose; }
+    public virtual void Unequip() { Equipped = false; if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.inhaling = false; } }
+
+    // How the third-person body holds this weapon.
+    protected virtual CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.None;
     public abstract void Tick(WeaponInput input);
 
     // Short text under the slot (ammo, charge...) and a hint line while it's equipped.
@@ -65,6 +68,8 @@ public abstract class Weapon : MonoBehaviour
     protected void SyncModels()
     {
         if (!tpv) tpv = inventory.GetComponent<ThirdPersonView>();
+        var anim = BodyAnim;
+        if (Equipped && anim && anim.hold != HoldPose) anim.hold = HoldPose;       // the body may appear after we equip
         if (!fpModel && arms && arms.RightHand) fpModel = BuildFirstPersonModel();
         if (!tpModel) { var body = inventory.GetComponentInChildren<BlockyCharacter>(); if (body && body.handR) tpModel = BuildThirdPersonModel(body); }
         if (fpModel) fpModel.gameObject.SetActive(Equipped && !ThirdPerson);

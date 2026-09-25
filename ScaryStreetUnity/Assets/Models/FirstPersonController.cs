@@ -26,6 +26,11 @@ public class FirstPersonController : MonoBehaviour
     public float eyeFromTop = 0.12f;
 
     CharacterController cc;
+
+    // for the third-person body's animation
+    public bool IsCrouching => crouching;
+    public bool IsGrounded => cc && cc.isGrounded;
+    public float Pitch => pitch;
     PlayerControls controls;
     Transform cam;
     float pitch, verticalVel, currentHeight;

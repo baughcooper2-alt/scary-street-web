@@ -19,6 +19,7 @@ public class CartWeapon : Weapon
     // level-ups upgrade it (web build), and the DoorDash shop can unlock the next tier early
     // the cart levels with you automatically (web build), so level-up picks don't offer it
     public override bool CanLevelUp => false;
+    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Cart;
 
     public int Tier => Mathf.Clamp(Mathf.Max(progress ? progress.Level : 1, boughtTier), 1, 3);
     int boughtTier = 1;
@@ -87,6 +88,7 @@ public class CartWeapon : Weapon
         }
         else holdFull = 0;
         if (arms) arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f);
+        var anim = BodyAnim; if (anim) { anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
         glow = Mathf.MoveTowards(glow, inhaling || blinkReady ? 1f : 0f, dt * 8f);
         if (ledMat) ledMat.color = Color.Lerp(new Color(0.18f, 0.42f, 0.28f), blinkReady ? new Color(1f, 0.35f, 0.12f) : new Color(1f, 0.7f, 0.28f), glow);
 

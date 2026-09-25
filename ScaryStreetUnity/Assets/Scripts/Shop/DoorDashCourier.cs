@@ -92,6 +92,8 @@ public class DoorDashCourier : MonoBehaviour, IInteractable
                     State = Phase.Waiting;
                     if (agent.isOnNavMesh) agent.isStopped = true;
                     SoundKit.PlayAt(Sfx.Knock, transform.position + Vector3.up, 1f, 0f);   // knock knock
+                    var anim = GetComponentInChildren<CharacterAnimator>();
+                    if (anim) { anim.Wave(); anim.lookAt = player; }
                     SoundKit.Play(Sfx.Doorbell, 0.5f, 0f);
                 }
                 break;

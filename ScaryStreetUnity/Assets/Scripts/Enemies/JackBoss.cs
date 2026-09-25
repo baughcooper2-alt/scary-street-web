@@ -92,7 +92,7 @@ public class JackBoss : MonoBehaviour
             model.localRotation = Quaternion.Euler(-90f * Mathf.SmoothStep(0, 1, deadT / 0.7f), 0, 0);
             return;
         }
-        if ((repathT -= dt) <= 0 || !target) { repathT = 0.25f; target = Players.Nearest(transform.position, out targetHealth); if (target && agent.isOnNavMesh) agent.SetDestination(target.position); }
+        if ((repathT -= dt) <= 0 || !target) { repathT = 0.25f; target = Players.Nearest(transform.position, out targetHealth); if (anim) anim.lookAt = target; if (target && agent.isOnNavMesh) agent.SetDestination(target.position); }
         if (!target || !agent.isOnNavMesh) return;
 
         Vector3 to = target.position - transform.position;
@@ -126,10 +126,10 @@ public class JackBoss : MonoBehaviour
             jokeT = jokeEvery;
             JokeBubble.Spawn(transform.position + Vector3.up * 2.2f, target.position + Vector3.up * 1.4f,
                              Jokes[Random.Range(0, Jokes.Length)], jokeDamage, jokeStun, jokeSlow);
-            if (anim) anim.Punch(0.4f, 0.5f);                          // arm up as he delivers the line
+            if (anim) anim.Talk(1.3f);                                  // mouth going, hands gesturing
             SoundKit.PlayAt(Sfx.Blah, transform.position + Vector3.up * 1.7f, 0.8f);
         }
-        if (fartT <= 0) { fartT = fartEvery; FartCloud.Spawn(transform.position - transform.forward * 0.4f, 6f, fartDamagePerSecond); }
+        if (fartT <= 0) { fartT = fartEvery; FartCloud.Spawn(transform.position - transform.forward * 0.4f, 6f, fartDamagePerSecond); if (anim) anim.Squat(0.8f); }
 
         // punch up close
         if (windT >= 0)

@@ -113,6 +113,7 @@ public class McDonaldsWorker : MonoBehaviour
         if (model) modelScale = model.localScale;
         body = GetComponentInChildren<CharacterAnimator>();
         BuildHeldItem();
+        if (body && level >= 3) body.hold = CharacterAnimator.Hold.Tray;
 
         // spawned slightly off the mesh? snap onto it so the agent doesn't error
         if (!agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hitPos, 3f, NavMesh.AllAreas))
@@ -124,7 +125,11 @@ public class McDonaldsWorker : MonoBehaviour
     }
 
     // Chase whoever is nearest and still alive (co-op ready).
-    void FindPlayer() => player = Players.Nearest(transform.position, out playerHealth);
+    void FindPlayer()
+    {
+        player = Players.Nearest(transform.position, out playerHealth);
+        if (body) body.lookAt = player;                                     // keep an eye on who we're chasing
+    }
 
     void Update()
     {
@@ -172,7 +177,7 @@ public class McDonaldsWorker : MonoBehaviour
         throwT = 0; thrown = false;
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
-        if (body) body.Punch(0.55f, 0.6f);
+        if (body) body.Throw(0.55f, 0.6f);
     }
 
     void UpdateThrow(Vector3 to)
@@ -243,7 +248,11 @@ public class McDonaldsWorker : MonoBehaviour
         attackT = 0; hitDone = false;
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
-        if (body) body.Punch(windupTime, hitMoment);
+        if (body)
+        {
+            if (level == 2) body.Swing(windupTime, hitMoment);               // spatula / basket: overhead chop
+            else body.Punch(windupTime, hitMoment);                           // fists, or a shove with the tray
+        }
         if (animator) SetTrigger("Punch");
     }
 

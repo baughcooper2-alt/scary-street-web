@@ -12,6 +12,7 @@ public class GuitarWeapon : MagazineWeapon
     public float strumCooldown = 0.5f;
 
     protected override int BaseMagazine => 8;
+    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Guitar;
     protected override float ReloadTime => 1.3f;
     protected override string ReloadText => "Tuning…";
 
@@ -52,7 +53,7 @@ public class GuitarWeapon : MagazineWeapon
         cooldown = strumCooldown;
         strumT = 0;
         UseAmmo();
-        if (BodyAnim) BodyAnim.Punch(0.3f, 0.3f);
+        if (BodyAnim) BodyAnim.Strum(0.25f);
         SoundKit.Play(Sfx.Strum, 0.7f, 0f);
 
         Vector3 dir = cam.forward, from = Eye + dir * 0.6f + Vector3.down * 0.25f;

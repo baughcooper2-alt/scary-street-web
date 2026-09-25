@@ -20,6 +20,7 @@ public class LawBookWeapon : MagazineWeapon
     public int slamPages = 2;
 
     protected override int BaseMagazine => 6;
+    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
     protected override float ReloadTime => 3f;
     protected override string ReloadText => "Reading up…";
 
@@ -80,7 +81,7 @@ public class LawBookWeapon : MagazineWeapon
         cooldown = swingCooldown;
         swingT = 0;
         UseAmmo();
-        if (BodyAnim) BodyAnim.Punch(0.35f, 0.35f);
+        if (BodyAnim) BodyAnim.Swing(0.35f, 0.4f);
         SoundKit.Play(Sfx.Whoosh, 0.55f);
 
         Vector3 eye = Eye, fwd = cam.forward; fwd.y = 0; fwd.Normalize();
@@ -103,7 +104,7 @@ public class LawBookWeapon : MagazineWeapon
         inventory.Toast("OBJECTION!", 1.4f);
         SoundKit.Play(Sfx.Slam, 0.9f); SoundKit.Play(Sfx.Objection, 0.7f, 0f);
         if (arms) arms.Kick(1.8f);
-        if (BodyAnim) BodyAnim.Punch(0.5f, 0.6f);
+        if (BodyAnim) BodyAnim.Slam(0.5f);
         float radius = slamRadius + (L3 ? 0.5f : 0f);
         foreach (var h in Nearby(inventory.transform.position, radius))
             h.TakeDamage(PlayerStats.MeleeDamage(slamDamage * LevelDamage, inventory.gameObject), slamKnockback + PlayerUpgrades.KnockbackFor(inventory.gameObject));
