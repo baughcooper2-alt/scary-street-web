@@ -52,7 +52,8 @@ public class BlockyCharacter : MonoBehaviour
 
     public static BlockyCharacter Build(CharacterLook look, Transform parent, MaterialSource mat)
     {
-        if (HumanBody.CanBuild(look)) return HumanBody.Build(look, parent, mat);   // realistic body (Cooper, Nathan)
+        if (RealBody.CanBuild(look)) return RealBody.Build(look, parent, mat);     // Cooper, Nathan: the Blender-built bodies
+        if (HumanBody.CanBuild(look)) return HumanBody.Build(look, parent, mat);   // web build's human (workers, Jack, courier)
         var root = new GameObject("Model").transform;
         root.SetParent(parent, false);
         root.localScale = Vector3.one * (look.height / 1.8f);

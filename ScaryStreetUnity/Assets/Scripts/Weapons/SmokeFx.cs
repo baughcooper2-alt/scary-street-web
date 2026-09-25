@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Particle smoke for the cart: soft billowing puffs, O-rings made of wisps, and the big Blinker cloud.
 // Visual only; SmokeShot does the damage. Uses a generated 2×2 sheet of noisy smoke blobs on URP's
-// Particles/Unlit shader, tinted grey and a little see-through.
+// Particles/Unlit shader: white, a little see-through, with darker rims so the clumps read.
 public static class SmokeFx
 {
     static Material shared;
@@ -32,7 +32,7 @@ public static class SmokeFx
                 shape *= 1f - Mathf.SmoothStep(0.84f, 1f, r);                        // never touch the cell border
                 float density = shape * Mathf.Lerp(0.6f, 1f, Fbm(u * 7f + oy, v * 7f + ox));
                 float rim = Mathf.SmoothStep(0.38f, 0.8f, edge);                      // darker band just inside the edge
-                float light = Mathf.Lerp(0.78f, 1f, Mathf.Clamp01(0.5f + (dy - dx) * 1.2f)) * Mathf.Lerp(0.9f, 1f, f) * Mathf.Lerp(1f, 0.5f, rim);
+                float light = Mathf.Lerp(0.78f, 1f, Mathf.Clamp01(0.5f + (dy - dx) * 1.2f)) * Mathf.Lerp(0.9f, 1f, f) * Mathf.Lerp(1f, 0.62f, rim);
                 px[(cy + y) * n + cx + x] = new Color(light, light, light, Mathf.Clamp01(density * 1.4f));
             }
         }
@@ -104,7 +104,7 @@ public static class SmokeFx
             case SmokeShot.Kind.Ring:
             {
                 // the ring: wisps on a circle that travel with it and spread out; plus a faint trail left behind
-                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.66f, 0.66f, 0.68f, 0.88f),
+                var ring = Make(parent, "RingFx", rot, mat, local: true, color: new Color(0.93f, 0.93f, 0.95f, 0.88f),
                                 size: (0.08f, 0.14f), life: (1.1f, 1.3f), speed: (0f, 0.05f), grow: 2.4f, max: 160);
                 Burst(ring, 130);
                 var sh = ring.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.15f; sh.radiusThickness = 0f;
@@ -113,7 +113,7 @@ public static class SmokeFx
                 vel.x = vel.y = vel.z = new ParticleSystem.MinMaxCurve(0f);
                 Noise(ring, 0.06f, 2.2f);
                 Fade(ring, 0.04f, 0.65f);
-                var trail = Make(ring.transform, "RingTrail", rot, mat, local: false, color: new Color(0.68f, 0.68f, 0.7f, 0.35f),
+                var trail = Make(ring.transform, "RingTrail", rot, mat, local: false, color: new Color(0.92f, 0.92f, 0.94f, 0.35f),
                                  size: (0.06f, 0.1f), life: (0.5f, 0.9f), speed: (0f, 0.1f), grow: 3f, max: 120);
                 var te = trail.emission; te.rateOverDistance = 22f;
                 var ts = trail.shape; ts.shapeType = ParticleSystemShapeType.Circle; ts.radius = 0.2f; ts.radiusThickness = 0f;
@@ -125,7 +125,7 @@ public static class SmokeFx
             case SmokeShot.Kind.Blast:
             {
                 // the Blinker: a big, thick, slightly green cloud that rolls forward and hangs in the air
-                var ps = Make(parent, "BlinkerFx", rot, mat, local: false, color: new Color(0.6f, 0.64f, 0.6f, 0.75f),
+                var ps = Make(parent, "BlinkerFx", rot, mat, local: false, color: new Color(0.88f, 0.93f, 0.89f, 0.75f),
                               size: (0.45f, 0.85f), life: (1.8f, 3f), speed: (2f, 8.5f), grow: 4.5f, max: 220);
                 var em = ps.emission;
                 em.SetBursts(new[] { new ParticleSystem.Burst(0f, 38), new ParticleSystem.Burst(0.08f, 14) });
@@ -135,14 +135,14 @@ public static class SmokeFx
                 Noise(ps, 0.6f, 0.4f);
                 Fade(ps, 0.06f, 0.5f);
                 var main = ps.main; main.gravityModifier = -0.03f;
-                Head(ps, mat, new Color(0.5f, 0.54f, 0.5f, 0.85f), (0.8f, 1.1f), 45f);
+                Head(ps, mat, new Color(0.8f, 0.85f, 0.81f, 0.85f), (0.8f, 1.1f), 45f);
                 ps.gameObject.SetActive(true);
                 return ps;
             }
             default:
             {
                 // a puff: a burst that plumes out of your mouth, and a trail that thins behind it
-                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(0.66f, 0.66f, 0.68f, 0.62f),
+                var ps = Make(parent, "PuffFx", rot, mat, local: false, color: new Color(0.92f, 0.92f, 0.94f, 0.62f),
                               size: (0.22f, 0.4f), life: (1.3f, 2.2f), speed: (2f, 6.5f), grow: 4f, max: 200);
                 Burst(ps, 16);
                 var em = ps.emission; em.rateOverDistance = 18f;
@@ -151,7 +151,7 @@ public static class SmokeFx
                 Noise(ps, 0.35f, 0.6f);
                 Fade(ps, 0.08f, 0.45f);
                 var main = ps.main; main.gravityModifier = -0.02f;
-                Head(ps, mat, new Color(0.52f, 0.52f, 0.54f, 0.85f), (0.3f, 0.42f), 70f);
+                Head(ps, mat, new Color(0.84f, 0.84f, 0.86f, 0.85f), (0.3f, 0.42f), 70f);
                 ps.gameObject.SetActive(true);
                 return ps;
             }
@@ -194,7 +194,7 @@ public static class SmokeFx
         main.startSpeed = new ParticleSystem.MinMaxCurve(speed.Item1, speed.Item2);
         main.startSize = new ParticleSystem.MinMaxCurve(size.Item1, size.Item2);
         main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(color.r * 0.72f, color.g * 0.72f, color.b * 0.72f, color.a), color);   // two greys so clumps stand apart
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(color.r * 0.84f, color.g * 0.84f, color.b * 0.84f, color.a), color);   // two tones so clumps stand apart
         main.maxParticles = max;
         main.stopAction = ParticleSystemStopAction.Destroy;
         main.scalingMode = ParticleSystemScalingMode.Local;

@@ -17,3 +17,10 @@ The rigged human body, fitted clothes and knit texture come from this project's 
 
 - **Creepster** by **Font Diner, Inc** (the title's "SCARY"), from Google Fonts. License: **SIL Open Font License 1.1**; the license text ships with it at `ScaryStreetUnity/Assets/Resources/Fonts/Creepster-OFL.txt`.
   https://fonts.google.com/specimen/Creepster
+
+## Cooper and Nathan's bodies and clothes
+
+- **Base body, eyes, teeth and skin textures**: a Character Creator 3+ base character (Reallusion), exported by the project owner. Used under the owner's Character Creator licence; only the processed game data (`ScaryStreetUnity/Assets/Resources/RealBody/`) is in the repo, not the source export.
+- **Sweater, pants (and the unused beanie)**: "Urban Outfit" by **@00p5_** (instagram.com/00p5_), purchased by the project owner. Nathan wears it as is; Cooper's tee is the sweater cut down.
+- **Cooper's hair**: a free stylized hair model ("DummyHair") supplied by the project owner.
+- Everything was fitted, re-skinned and re-posed in Blender by `tools/real_bodies/`.

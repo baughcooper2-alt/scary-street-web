@@ -38,6 +38,8 @@ public class CharacterLook : ScriptableObject
     public HairStyle hairStyle = HairStyle.Buzz;
     [Tooltip("Realistic body only: a real hair model from HairAssets (\"cooper_flow\", \"nathan_curls\"); blank = grown hair only.")]
     public string hairAsset = "";
+    [Tooltip("Resources/RealBody/<name>.bytes to use instead of building a body (empty = the display name, if that file exists).")]
+    public string realModel = "";
     public Color hair = Hex("#2a1d14");
     public bool wearsCap;
     public Color cap = Hex("#111111");
@@ -88,7 +90,7 @@ public class CharacterLook : ScriptableObject
                 displayName = "Cooper"; height = 1.86f; realisticBody = true; simpleClothes = false;                    // basketball hoop graphic, black shorts, white wristband
                 skin = Hex("#e6bea2"); eyes = Hex("#3f3129"); shirt = Hex("#5f5a55"); longSleeves = false;
                 oversizedShirt = true; shirtGraphic = ShirtGraphic.BasketballHoop;
-                pants = Hex("#1b1b1d"); shorts = true; socks = Hex("#f4f4f4"); shoes = Hex("#e8e8e8");
+                pants = Hex("#1b1b1d"); shorts = false; socks = Hex("#f4f4f4"); shoes = Hex("#e8e8e8");
                 wristband = true; wristbandColor = Hex("#f2f2f2");
                 hair = Hex("#8f6c4c"); brows = Hex("#6e5038"); hairStyle = HairStyle.Flow; wearsCap = false; hairAsset = "cooper_flow";
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];

@@ -42,6 +42,7 @@ public class CharacterAnimator : MonoBehaviour
     Act act; float actT = -1f, actDur = 0.6f, actHit = 0.55f;
     FirstPersonController fpc;
     Transform[] lids; Vector3[] lidScale; Transform mouth; Vector3 mouthScale;
+    SkinnedMeshRenderer face; int blinkL = -1, blinkR = -1, jaw = -1;          // realistic faces blink / talk with blendshapes
 
     // smoothed joint angles (degrees) so switching poses never snaps
     Vector3 sL, sR, eL, eR, spineE, headE, lgL, lgR, knL, knR, anL, anR;
@@ -66,6 +67,14 @@ public class CharacterAnimator : MonoBehaviour
         foreach (Transform c in b.head) { if (c.name == "Lid") found.Add(c); if (c.name == "Mouth") { mouth = c; mouthScale = c.localScale; } }
         lids = found.ToArray();
         lidScale = System.Array.ConvertAll(lids, l => l.localScale);
+        foreach (var smr in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var m = smr.sharedMesh; if (!m) continue;
+            int i = m.GetBlendShapeIndex("Eye_Blink_L");
+            if (i < 0) continue;
+            face = smr; blinkL = i; blinkR = m.GetBlendShapeIndex("Eye_Blink_R"); jaw = m.GetBlendShapeIndex("V_Open");
+            break;
+        }
     }
 
     // ---------- actions ----------
@@ -307,6 +316,12 @@ public class CharacterAnimator : MonoBehaviour
         if ((blinkT -= dt) <= 0) { blinkT = Random.Range(2.5f, 5.5f); blink = 1f; }
         blink = Mathf.MoveTowards(blink, 0, dt * 9f);
         for (int i = 0; i < lids.Length; i++) if (lids[i]) lids[i].localScale = new Vector3(lidScale[i].x, lidScale[i].y * (1f + blink * 1.6f), lidScale[i].z);
+        if (face)
+        {
+            float shut = Mathf.Clamp01(blink * 1.4f) * 100f;
+            face.SetBlendShapeWeight(blinkL, shut); if (blinkR >= 0) face.SetBlendShapeWeight(blinkR, shut);
+            if (jaw >= 0) face.SetBlendShapeWeight(jaw, talkT > 0 ? 60f * Mathf.Abs(Mathf.Sin(t * 14f)) : 0f);
+        }
 
         // ---------- apply, smoothed ----------
         float k = 1f - Mathf.Exp(-dt * 18f), kl = 1f - Mathf.Exp(-dt * 40f);   // legs follow the gait tightly
