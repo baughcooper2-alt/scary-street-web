@@ -40,42 +40,46 @@ public class TitleScreen : MonoBehaviour
         var mt = (RectTransform)main.transform;
         UIArt.PopIn(UIArt.Tag(mt, "1–4 PLAYER CO-OP SURVIVAL", UIArt.Theme.Mustard, UIArt.Theme.Ink, 110, 118, 380, 42, 24), 0f);
         // BOOGYING DOWN ON
-        // SCARY ~~MAPLE~~ STREET   (red word, crossed-out word, last word in the intro's style), baselines lined up
-        var top = UIKit.Label(main.transform, flow.titleIntro, 84, UIArt.Theme.Paper, TextAnchor.LowerLeft);
+        // ~~MAPLE~~ STREET
+        //  SCARY            <- red, horror font, scrawled under the crossed-out word like a correction
+        const float size = 84;
+        var top = UIKit.Label(main.transform, flow.titleIntro, (int)size, UIArt.Theme.Paper, TextAnchor.LowerLeft);
         top.font = UIArt.Display;
         UIKit.Place(UIArt.Print(top, 5f).rectTransform, 108, 160, 1200, 104);
-        var line = UIKit.Place(UIKit.Node("TitleLine", main.transform), 104, 272, 1300, 200);
-        line.pivot = new Vector2(0.15f, 0.5f);
+        var line = Pivoted(UIKit.Place(UIKit.Node("TitleLine", main.transform), 108, 262, 1200, 280), new Vector2(0.1f, 0.5f));
         line.gameObject.AddComponent<UIPulse>().amount = 0.01f;
-        const float big = 170, small = 84, descent = 0.2f;              // Impact's descent, as a fraction of the size
         float x = 0;
-        Text Word(string text, float size, Color color, float shadow)
+        Text Word(string text, Color color, float shadow)
         {
             var t = UIKit.Label(line, text, (int)size, color, TextAnchor.LowerLeft);
             t.font = UIArt.Display; t.horizontalOverflow = HorizontalWrapMode.Overflow;
             float w = t.preferredWidth;
-            UIKit.Place(UIArt.Print(t, shadow).rectTransform, x, 0, w + 10, 200 - (big - size) * descent);   // raise small words so baselines match
+            UIKit.Place(UIArt.Print(t, shadow).rectTransform, x, 0, w + 10, 104);
             x += w + size * 0.28f;
             return t;
         }
-        var scary = Word(flow.titleWord, big, UIArt.Theme.Blood, 9f);
-        float struckX = x;
-        var struck = Word(flow.titleStruck, small, new Color(0.95f, 0.92f, 0.87f, 0.55f), 3f);
-        var end = Word(flow.titleEnd, small, UIArt.Theme.Paper, 5f);
-        // the cross-out: a thick red slash through the struck word, a little crooked like it was done by hand
-        var slash = UIArt.Print(UIArt.RoundPanel(line, "Strike", UIArt.Theme.Blood, 4), 3f);
-        float sw = struck.preferredWidth + 20;
-        float baseline = 200 - big * descent;
-        var srt = UIKit.Place(slash.rectTransform, struckX - 10, baseline - small * 0.4f - 7, sw, 14);
-        srt.pivot = new Vector2(0.5f, 0.5f); srt.anchoredPosition += new Vector2(sw / 2f, -7);
-        srt.localRotation = Quaternion.Euler(0, 0, 7f);
-        UIArt.PopIn(top, 0.05f); UIArt.PopIn(scary, 0.15f); UIArt.PopIn(struck, 0.22f); UIArt.PopIn(end, 0.3f); UIArt.PopIn(slash, 0.42f);
-        var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
-        UIKit.Place(tag.rectTransform, 112, 484, 560, 70);
+        var struck = Word(flow.titleStruck, new Color(0.95f, 0.92f, 0.87f, 0.55f), 3f);
+        var end = Word(flow.titleEnd, UIArt.Theme.Paper, 5f);
 
-        startButton = MenuButton(main.transform, "START", 576, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 668, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 760, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
+        // the cross-out: a thick red slash through the struck word, a little crooked like it was done by hand
+        float sw = struck.preferredWidth + 24, baseline = 104 - size * 0.2f;       // Impact's descent is ~0.2 of the size
+        var slash = UIArt.Print(UIArt.RoundPanel(line, "Strike", UIArt.Theme.Blood, 4), 3f);
+        var srt = Pivoted(UIKit.Place(slash.rectTransform, -12, baseline - size * 0.4f - 7, sw, 14), new Vector2(0.5f, 0.5f));
+        srt.localRotation = Quaternion.Euler(0, 0, 7f);
+
+        // SCARY underneath, tilted, starting just left of the struck word
+        var scary = UIKit.Label(line, flow.titleWord, UIArt.HorrorIsReal ? 150 : 140, UIArt.Theme.Blood, TextAnchor.UpperLeft);
+        scary.font = UIArt.Horror; scary.horizontalOverflow = HorizontalWrapMode.Overflow;
+        var crt = Pivoted(UIKit.Place(UIArt.Print(scary, 8f).rectTransform, -6, 96, scary.preferredWidth + 20, 180), new Vector2(0.2f, 0.5f));
+        crt.localRotation = Quaternion.Euler(0, 0, 4f);
+        UIArt.PopIn(top, 0.05f); UIArt.PopIn(struck, 0.15f); UIArt.PopIn(end, 0.22f); UIArt.PopIn(slash, 0.4f); UIArt.PopIn(scary, 0.55f);
+
+        var tag = UIKit.Label(main.transform, flow.tagline, 26, UIArt.Theme.Muted, TextAnchor.UpperLeft);
+        UIKit.Place(tag.rectTransform, 112, 552, 560, 70);
+
+        startButton = MenuButton(main.transform, "START", 628, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f, UIArt.Theme.Blood);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 720, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f, UIArt.Theme.Ink3);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 812, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f, UIArt.Theme.Ink3);
 
         UIArt.Stripe(mt, 112, 990, 120, 8);
         var foot = UIKit.Label(main.transform, "EARLY PROTOTYPE  ·  MAC & WINDOWS", 18, UIArt.Theme.Muted, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -86,6 +90,15 @@ public class TitleScreen : MonoBehaviour
         settings.SetActive(false);
         controls.SetActive(false);
         Select(startButton);
+    }
+
+    // Change a placed rect's pivot without moving it (UIKit.Place leaves the pivot at the top-left).
+    static RectTransform Pivoted(RectTransform rt, Vector2 pivot)
+    {
+        var size = rt.sizeDelta;
+        rt.anchoredPosition += new Vector2((pivot.x - rt.pivot.x) * size.x, (pivot.y - rt.pivot.y) * size.y);
+        rt.pivot = pivot;
+        return rt;
     }
 
     Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay, Color color)

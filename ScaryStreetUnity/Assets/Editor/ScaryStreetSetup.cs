@@ -360,16 +360,32 @@ public static class ScaryStreetSetup
         finally { MeshKit.Persist = null; }
     }
 
-    // Transparent smoke material saved as an asset, so player builds keep URP's transparent shader variant.
+    // Cart smoke: SmokeFx's particle material + generated smoke sheet saved as assets, so player builds keep
+    // URP's particle shader variants (soft particles, camera fade) and don't regenerate the texture.
     static Material SmokeMaterial()
     {
         EnsureFolder("Assets", "Weapons");
-        const string path = "Assets/Weapons/Smoke.mat";
+        const string texPath = "Assets/Weapons/SmokeSheet.png", path = "Assets/Weapons/SmokeParticles.mat";
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        if (!tex)
+        {
+            System.IO.File.WriteAllBytes(texPath, SmokeFx.MakeSheet().EncodeToPNG());
+            AssetDatabase.ImportAsset(texPath);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+            imp.alphaIsTransparency = true; imp.wrapMode = TextureWrapMode.Clamp; imp.mipmapEnabled = true;
+            imp.SaveAndReimport();
+            tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        }
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (m) return m;
-        m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.93f, 0.94f, 0.96f, 0.85f) };
-        SmokeShot.MakeTransparent(m);
-        AssetDatabase.CreateAsset(m, path);
+        if (!m)
+        {
+            m = new Material(Shader.Find("Universal Render Pipeline/Particles/Simple Lit"));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        SmokeFx.Setup(m);
+        m.mainTexture = tex; m.SetTexture("_BaseMap", tex);
+        EditorUtility.SetDirty(m);
+        AssetDatabase.SaveAssets();
         return m;
     }
 

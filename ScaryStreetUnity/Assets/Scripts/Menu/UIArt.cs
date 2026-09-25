@@ -109,6 +109,10 @@ public static class UIArt
     static Font display;
 
     // Impact on Mac and Windows (Arial Black / Helvetica as fallbacks) for titles.
+    // Horror lettering for "SCARY": Resources/Fonts/Creepster.ttf (Google Fonts, OFL), falling back to Display.
+    static Font horror; static bool horrorLooked;
+    public static Font Horror { get { if (!horrorLooked || !horror) { horrorLooked = true; horror = Resources.Load<Font>("Fonts/Creepster"); } return horror ? horror : Display; } }
+    public static bool HorrorIsReal => Horror != Display;
     public static Font Display => display ? display : display = Font.CreateDynamicFontFromOSFont(new[] { "Impact", "Arial Black", "Helvetica Neue Condensed Black", "Helvetica Neue", "Arial" }, 64);
 
     // White rounded rectangle for Image.type = Sliced (tint it with Image.color).
