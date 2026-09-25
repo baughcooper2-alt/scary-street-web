@@ -15,7 +15,7 @@ public class LevelUpScreen : MonoBehaviour
     public static bool IsOpen => current;
     static LevelUpScreen current;
 
-    class Choice { public string kind, title, desc; public Color color; public Action take; }
+    class Choice { public string kind, title, pill, desc; public Color color; public UIArt.Icon icon; public Action take; }
 
     PlayerStats stats;
     PlayerProgress progress;
@@ -49,7 +49,9 @@ public class LevelUpScreen : MonoBehaviour
         s.prevLock = Cursor.lockState; s.prevCursorVisible = Cursor.visible;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
 
-        UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.6f)).rectTransform);
+        UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.55f)).rectTransform);
+        var vig = UIKit.Panel(s.root, "Vignette", new Color(0.15f, 0.02f, 0.02f, 0.9f)); vig.sprite = UIArt.Vignette();
+        UIKit.Fill(vig.rectTransform);
         SoundKit.Play(Sfx.LevelUp, 0.7f, 0f);
         s.NextPage();
     }
@@ -63,30 +65,60 @@ public class LevelUpScreen : MonoBehaviour
         UIKit.Fill((RectTransform)page.transform);
         var t = page.transform;
 
-        var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}: " : "";   // co-op: whose pick
-        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 90, UIKit.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
-        UIKit.Place(UIKit.Outlined(title, Color.black, 5f).rectTransform, 0, 120, 1920, 110);
-        string more = progress.PendingPicks > 1 ? $"  ({progress.PendingPicks - 1} more after this)" : "";
-        var sub = UIKit.Label(t, "Pick one" + more, 30, Color.white, TextAnchor.MiddleCenter);
-        UIKit.Place(sub.rectTransform, 0, 236, 1920, 44);
+        // starburst behind the title
+        var burst = UIKit.Panel(t, "Burst", new Color(1f, 0.8f, 0.3f, 0.35f));
+        burst.sprite = UIArt.Burst();
+        var brt = burst.rectTransform; brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 1f); brt.sizeDelta = new Vector2(1100, 1100); brt.anchoredPosition = new Vector2(0, -175);
+        burst.gameObject.AddComponent<UISpin>();
+
+        var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}  " : "";   // co-op: whose pick
+        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 120, UIKit.Gold, TextAnchor.MiddleCenter);
+        title.font = UIArt.Display;
+        UIKit.Place(UIKit.Outlined(title, new Color(0.25f, 0.08f, 0f), 6f).rectTransform, 0, 100, 1920, 140);
+        UIArt.PopIn(title, 0f);
+        string more = progress.PendingPicks > 1 ? $"   ·   {progress.PendingPicks - 1} more after this" : "";
+        var sub = UIKit.Label(t, "PICK ONE" + more, 30, Color.white, TextAnchor.MiddleCenter);
+        sub.font = UIArt.Display;
+        UIKit.Place(UIArt.Shadowed(sub, 2f).rectTransform, 0, 240, 1920, 44);
 
         Button first = null;
-        float w = 400, gap = 40, x0 = (1920 - (choices.Count * w + (choices.Count - 1) * gap)) / 2f;
+        float w = 420, h = 520, gap = 44, x0 = (1920 - (choices.Count * w + (choices.Count - 1) * gap)) / 2f;
         for (int i = 0; i < choices.Count; i++)
         {
             var c = choices[i];
             var b = UIKit.Button(t, "", 20, () => Take(c));
-            var card = UIKit.Place((RectTransform)b.transform, x0 + i * (w + gap), 320, w, 460);
-            var cb = b.colors; cb.normalColor = new Color(0.1f, 0.07f, 0.08f, 0.96f); cb.highlightedColor = cb.selectedColor = new Color(0.25f, 0.12f, 0.1f); b.colors = cb;
-            UIKit.Place(UIKit.Panel(card, "Edge", c.color).rectTransform, 0, 0, w, 10);
-            var key = UIKit.Label(card, (i + 1).ToString(), 26, UIKit.Dim, TextAnchor.MiddleRight, FontStyle.Bold);
-            UIKit.Place(key.rectTransform, w - 70, 26, 44, 36);
-            var kind = UIKit.Label(card, c.kind.ToUpper(), 22, c.color, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UIKit.Place(kind.rectTransform, 30, 26, 300, 36);
-            var nm = UIKit.Label(card, c.title, 42, Color.white, TextAnchor.UpperLeft, FontStyle.Bold);
-            UIKit.Place(nm.rectTransform, 30, 80, w - 60, 120);
-            var ds = UIKit.Label(card, c.desc, 28, new Color(1, 1, 1, 0.8f), TextAnchor.UpperLeft);
-            UIKit.Place(ds.rectTransform, 30, 220, w - 60, 200);
+            var card = UIKit.Place((RectTransform)b.transform, x0 + i * (w + gap), 310, w, h);
+            card.pivot = new Vector2(0.5f, 0.5f); card.anchoredPosition += new Vector2(w / 2f, -h / 2f);   // lift from the centre
+            var img = b.GetComponent<Image>(); img.sprite = UIArt.Rounded(28); img.type = Image.Type.Sliced;
+            var cb = b.colors; cb.normalColor = new Color(0.1f, 0.07f, 0.08f, 0.97f); cb.highlightedColor = cb.selectedColor = new Color(0.2f, 0.12f, 0.1f); b.colors = cb;
+            UIArt.Shadowed(img, 12f, 0.6f);
+            b.gameObject.AddComponent<UIHover>().lift = 1.07f;
+            UIArt.PopIn(b, 0.12f + i * 0.09f);
+
+            var band = UIArt.RoundPanel(card, "Band", c.color, 28);
+            UIKit.Place(band.rectTransform, 0, 0, w, 190);
+            UIKit.Place(UIKit.Panel(card, "BandEdge", c.color).rectTransform, 0, 160, w, 30);
+            var glow = UIKit.Panel(card, "Glow", new Color(1, 1, 1, 0.18f)); glow.sprite = UIArt.VerticalFade();
+            UIKit.Place(glow.rectTransform, 0, 0, w, 190);
+            var icon = UIArt.IconImage(card, c.icon, Color.white);
+            UIKit.Place(UIArt.Shadowed(icon, 4f, 0.4f).rectTransform, w / 2f - 65, 28, 130, 130);
+
+            var key = UIArt.RoundPanel(card, "Key", new Color(0, 0, 0, 0.35f), 20);
+            UIKit.Place(key.rectTransform, w - 64, 18, 44, 44);
+            var keyText = UIKit.Label(key.rectTransform, (i + 1).ToString(), 26, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            UIKit.Fill(keyText.rectTransform);
+            var kind = UIKit.Label(card, c.kind.ToUpper(), 20, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            UIKit.Place(kind.rectTransform, 22, 24, 200, 30);
+
+            var nm = UIKit.Label(card, c.title, 44, Color.white, TextAnchor.MiddleCenter);
+            nm.font = UIArt.Display;
+            UIKit.Place(nm.rectTransform, 20, 206, w - 40, 60);
+            var pill = UIArt.RoundPanel(card, "Pill", new Color(c.color.r, c.color.g, c.color.b, 0.25f), 20);
+            UIKit.Place(pill.rectTransform, w / 2f - 90, 272, 180, 44);
+            var pillText = UIKit.Label(pill.rectTransform, c.pill, 26, c.color, TextAnchor.MiddleCenter, FontStyle.Bold);
+            UIKit.Fill(pillText.rectTransform);
+            var ds = UIKit.Label(card, c.desc, 27, new Color(1, 1, 1, 0.82f), TextAnchor.UpperCenter);
+            UIKit.Place(ds.rectTransform, 34, 340, w - 68, 160);
             if (!first) first = b;
         }
         if (EventSystem.current && first) EventSystem.current.SetSelectedGameObject(first.gameObject);
@@ -101,8 +133,8 @@ public class LevelUpScreen : MonoBehaviour
             int cur = stats.Get(stat);
             pool.Add(new Choice
             {
-                kind = "Stat", color = new Color(0.4f, 0.75f, 1f),
-                title = $"{PlayerStats.Name(stat)}  {cur} → {cur + 1}",
+                kind = "Stat", color = new Color(0.3f, 0.62f, 0.95f), icon = StatIcon(stat),
+                title = PlayerStats.Name(stat).ToUpper(), pill = $"{cur}  →  {cur + 1}",
                 desc = PlayerStats.Describe(stat),
                 take = () => stats.Add(stat),
             });
@@ -114,8 +146,8 @@ public class LevelUpScreen : MonoBehaviour
                 var wpn = w;
                 pool.Add(new Choice
                 {
-                    kind = "Weapon", color = UIKit.Blood,
-                    title = $"{wpn.displayName}  Lv {wpn.level + 1}",
+                    kind = "Weapon", color = new Color(0.85f, 0.2f, 0.15f), icon = WeaponIcon(wpn),
+                    title = wpn.displayName.ToUpper(), pill = $"LV {wpn.level}  →  {wpn.level + 1}",
                     desc = wpn.LevelUpText,
                     take = () => wpn.LevelUp(),
                 });
@@ -129,6 +161,15 @@ public class LevelUpScreen : MonoBehaviour
             pool.RemoveAt(i);
         }
     }
+
+    static UIArt.Icon StatIcon(PlayerStats.Stat s) => s switch
+    {
+        PlayerStats.Stat.Health => UIArt.Icon.Heart, PlayerStats.Stat.Strength => UIArt.Icon.Fist,
+        PlayerStats.Stat.Precision => UIArt.Icon.Crosshair, PlayerStats.Stat.Speed => UIArt.Icon.Bolt,
+        PlayerStats.Stat.Luck => UIArt.Icon.Clover, PlayerStats.Stat.Defense => UIArt.Icon.Shield, _ => UIArt.Icon.Star,
+    };
+
+    static UIArt.Icon WeaponIcon(Weapon w) => w is LawBookWeapon ? UIArt.Icon.Book : w is GuitarWeapon ? UIArt.Icon.Guitar : w is CartWeapon ? UIArt.Icon.Cart : UIArt.Icon.Fist;
 
     void Take(Choice c)
     {

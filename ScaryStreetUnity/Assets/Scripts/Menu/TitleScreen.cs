@@ -27,22 +27,31 @@ public class TitleScreen : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // darken the left side so the text reads over the house (stacked strips fake a gradient)
+        // vignette around the house, plus a darker left side so the text reads (stacked strips fake a gradient)
+        var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.85f)); vig.sprite = UIArt.Vignette();
+        UIKit.Fill(vig.rectTransform);
         for (int i = 0; i < 6; i++)
-            UIKit.Place(UIKit.Panel(root, "Shade", new Color(0, 0, 0, 0.16f)).rectTransform, 0, 0, 1100 - i * 150, 1080);
+            UIKit.Place(UIKit.Panel(root, "Shade", new Color(0, 0, 0, 0.13f)).rectTransform, 0, 0, 1100 - i * 150, 1080);
 
         main = UIKit.Node("Main", root).gameObject;
         UIKit.Fill((RectTransform)main.transform);
-        var top = UIKit.Label(main.transform, flow.titleTop, 64, UIKit.Gold, TextAnchor.LowerLeft, FontStyle.BoldAndItalic);
-        UIKit.Place(UIKit.Outlined(top, Color.black).rectTransform, 110, 120, 1200, 80);
-        var title = UIKit.Label(main.transform, flow.titleMain, 150, UIKit.Blood, TextAnchor.UpperLeft, FontStyle.Bold);
-        UIKit.Place(UIKit.Outlined(title, Color.black, 5f).rectTransform, 104, 196, 1500, 180);
+        var top = UIKit.Label(main.transform, flow.titleTop, 76, UIKit.Gold, TextAnchor.LowerLeft);
+        top.font = UIArt.Display;
+        UIKit.Place(UIKit.Outlined(top, Color.black).rectTransform, 110, 110, 1200, 90);
+        var titleHolder = UIKit.Place(UIKit.Node("TitleHolder", main.transform), 104, 190, 1500, 200);
+        titleHolder.pivot = new Vector2(0.2f, 0.5f);
+        titleHolder.gameObject.AddComponent<UIPulse>().amount = 0.012f;
+        var title = UIKit.Label(titleHolder, flow.titleMain, 176, UIKit.Blood, TextAnchor.UpperLeft);
+        title.font = UIArt.Display;
+        UIKit.Fill(UIKit.Outlined(title, new Color(0.12f, 0.01f, 0.01f), 6f).rectTransform);
+        UIArt.PopIn(top, 0.05f); UIArt.PopIn(title, 0.15f);
         var tag = UIKit.Label(main.transform, flow.tagline, 30, new Color(1, 1, 1, 0.8f), TextAnchor.UpperLeft, FontStyle.Italic);
         UIKit.Place(UIKit.Outlined(tag, Color.black, 1.5f).rectTransform, 112, 380, 1200, 44);
 
-        startButton = MenuButton(main.transform, "START", 520, () => flow.ShowCharacterSelect());
-        var settingsButton = MenuButton(main.transform, "SETTINGS", 610, () => Open(settings, settingsBack));
-        var controlsButton = MenuButton(main.transform, "CONTROLS", 700, () => Open(controls, controlsBack));
+        startButton = MenuButton(main.transform, "START", 520, () => flow.ShowCharacterSelect(), UIArt.Icon.Play, 0.3f);
+        var settingsButton = MenuButton(main.transform, "SETTINGS", 612, () => Open(settings, settingsBack), UIArt.Icon.Gear, 0.38f);
+        var controlsButton = MenuButton(main.transform, "CONTROLS", 704, () => Open(controls, controlsBack), UIArt.Icon.Gamepad, 0.46f);
+        var cb = startButton.colors; cb.normalColor = new Color(0.72f, 0.11f, 0.09f, 0.95f); cb.highlightedColor = cb.selectedColor = new Color(0.9f, 0.2f, 0.14f); startButton.colors = cb;
 
         var foot = UIKit.Label(main.transform, "Early prototype · Mac & Windows", 20, new Color(1, 1, 1, 0.45f), TextAnchor.LowerLeft);
         UIKit.Place(foot.rectTransform, 112, 1010, 800, 40);
@@ -54,10 +63,13 @@ public class TitleScreen : MonoBehaviour
         Select(startButton);
     }
 
-    Button MenuButton(Transform parent, string label, float y, System.Action onClick)
+    Button MenuButton(Transform parent, string label, float y, System.Action onClick, UIArt.Icon icon, float delay)
     {
-        var b = UIKit.Button(parent, label, 40, onClick, TextAnchor.MiddleLeft);
-        UIKit.Place((RectTransform)b.transform, 110, y, 380, 74);
+        var b = UIArt.Button(parent, label, 40, onClick, new Color(0.08f, 0.05f, 0.06f, 0.82f), icon, TextAnchor.MiddleLeft);
+        var rt = UIKit.Place((RectTransform)b.transform, 110, y, 400, 76);
+        rt.pivot = new Vector2(0, 0.5f); rt.anchoredPosition += new Vector2(0, -38);   // grow to the right on hover
+        UIArt.Shadowed(b.GetComponent<Image>(), 5f, 0.5f);
+        UIArt.PopIn(b, delay);
         return b;
     }
 
@@ -136,11 +148,17 @@ public class TitleScreen : MonoBehaviour
 
     RectTransform Card(Transform root, string title)
     {
-        var card = UIKit.Place(UIKit.Panel(root, title, new Color(0.04f, 0.02f, 0.03f, 0.92f)).rectTransform, 1080, 150, 760, 780);
-        card.GetComponent<Image>().raycastTarget = true;
-        UIKit.Place(UIKit.Panel(card, "Stripe", UIKit.Blood).rectTransform, 0, 0, 760, 8);
-        var t = UIKit.Label(card, title, 56, UIKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
-        UIKit.Place(UIKit.Outlined(t, Color.black).rectTransform, 50, 30, 660, 80);
+        var img = UIArt.RoundPanel(root, title, new Color(0.05f, 0.025f, 0.035f, 0.94f), 28);
+        var card = UIKit.Place(img.rectTransform, 1080, 150, 760, 780);
+        img.raycastTarget = true;
+        UIArt.Shadowed(img, 10f, 0.6f);
+        var band = UIArt.RoundPanel(card, "Band", new Color(0.7f, 0.1f, 0.08f), 28);
+        UIKit.Place(band.rectTransform, 0, 0, 760, 110);
+        UIKit.Place(UIKit.Panel(card, "BandEdge", new Color(0.7f, 0.1f, 0.08f)).rectTransform, 0, 80, 760, 30);
+        var t = UIKit.Label(card, title, 60, Color.white, TextAnchor.MiddleLeft);
+        t.font = UIArt.Display;
+        UIKit.Place(UIArt.Shadowed(t, 3f).rectTransform, 50, 16, 660, 80);
+        UIArt.PopIn(img, 0f);
         return card;
     }
 
@@ -158,7 +176,7 @@ public class TitleScreen : MonoBehaviour
 
     Button BackButton(RectTransform card, System.Action onClick)
     {
-        var b = UIKit.Button(card, "BACK", 32, onClick);
+        var b = UIArt.Button(card, "BACK", 32, onClick, new Color(0.2f, 0.12f, 0.12f));
         UIKit.Place((RectTransform)b.transform, 50, 690, 220, 64);
         return b;
     }
