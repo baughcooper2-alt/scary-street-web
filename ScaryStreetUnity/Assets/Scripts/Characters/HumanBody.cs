@@ -48,6 +48,7 @@ public static class HumanBody
         b.shoulderR = B("Bone.002_R.002"); b.elbowR = B("Bone.002_R.003"); b.handR = B("Bone.002_R.004");
         b.legL = B("Bone_L.002"); b.kneeL = B("Bone_L.003");
         b.legR = B("Bone_R.002"); b.kneeR = B("Bone_R.003");
+        b.ankleL = B("Bone_L.004"); b.ankleR = B("Bone_R.004");
 
         string topKey = look.longSleeves ? "top" : look.oversizedShirt ? "tee_big" : "tee";
         string bottomKey = look.shorts ? "shorts" : "pants";

@@ -371,6 +371,68 @@ public static class ScaryStreetSetup
         return m;
     }
 
+    // ---------- Mirrors ----------
+
+    // The web build's mirrors (three.js coordinates): centre x, y, z, width, height; all face +X in the web build.
+    static readonly (string name, float x, float y, float z, float w, float h)[] WebMirrors =
+    {
+        ("Bathroom mirror", 0.12f, 1.5f, 8.55f, 0.6f, 0.72f),
+        ("Bedroom 1 mirror (full length)", 0.12f, 1.16f, 6.6f, 0.9f, 1.9f),
+        ("Bathroom 2 mirror", 2.13f, 1.45f, 18.45f, 0.55f, 0.72f),
+    };
+
+    // Puts real mirrors where the web build had them. Safe to run again.
+    [MenuItem("Tools/Scary Street/Set Up Mirrors")]
+    static void SetUpMirrors()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var renderers = world.GetComponentsInChildren<MeshRenderer>(true);
+        float sx = CountDoorMatches(renderers, -1f) >= CountDoorMatches(renderers, 1f) ? -1f : 1f;   // same mirroring as the doors
+
+        var old = GameObject.Find("Mirrors");
+        if (old) Undo.DestroyObjectImmediate(old);
+        var root = new GameObject("Mirrors");
+        Undo.RegisterCreatedObjectUndo(root, "Set Up Mirrors");
+        foreach (var m in WebMirrors)
+        {
+            var go = new GameObject(m.name);
+            go.transform.SetParent(root.transform, false);
+            go.transform.SetPositionAndRotation(new Vector3(m.x * sx, m.y, m.z), Quaternion.LookRotation(new Vector3(sx, 0, 0)));
+            var mirror = go.AddComponent<Mirror>();
+            mirror.size = new Vector2(m.w, m.h);
+        }
+        EditorSceneManager.MarkSceneDirty(root.scene);
+        Selection.activeGameObject = root;
+        EditorUtility.DisplayDialog("Scary Street", $"Placed {WebMirrors.Length} mirrors (bathroom, bedroom 1 full-length, bathroom 2). They show up when you press Play.", "OK");
+    }
+
+    // ---------- World detail ----------
+
+    // Adds WorldDetail to the house (normal maps from its textures, fine detail layers, better finishes at runtime)
+    // and a saved material that keeps URP's normal-map / detail-map shader variants in player builds.
+    [MenuItem("Tools/Scary Street/Add World Detail")]
+    static void AddWorldDetail()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var wd = world.GetComponent<WorldDetail>() ? world.GetComponent<WorldDetail>() : Undo.AddComponent<WorldDetail>(world);
+        EnsureFolder("Assets", "World");
+        const string path = "Assets/World/DetailVariants.mat";
+        var keeper = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!keeper)
+        {
+            keeper = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            keeper.EnableKeyword("_NORMALMAP"); keeper.EnableKeyword("_DETAIL_MULX2");
+            keeper.SetTexture("_BumpMap", Texture2D.normalTexture); keeper.SetTexture("_DetailAlbedoMap", Texture2D.grayTexture);
+            AssetDatabase.CreateAsset(keeper, path);
+        }
+        Undo.RecordObject(wd, "Add World Detail");
+        wd.variantKeeper = keeper;
+        EditorSceneManager.MarkSceneDirty(world.scene);
+        EditorUtility.DisplayDialog("Scary Street", "World detail added. It kicks in when you press Play (the editor view doesn't change).", "OK");
+    }
+
     // ---------- Doors ----------
 
     // The web build's doors (three.js coordinates): axis 'x' = doorway in a wall along x at z = f, spanning x a..b;

@@ -65,11 +65,12 @@ public class CartWeapon : Weapon
         fireCd -= dt;
         blinkCd = Mathf.Max(0, blinkCd - dt);
         EnsureModels();
-        if (tpModel)                                                   // the body's copy only shows in third person
+        int index = PlayerLayers.IndexOf(inventory);                   // first-person copy: your camera only; body copy: body layer
+        if (fpModel && fpModel.gameObject.layer != PlayerLayers.Arms(index)) PlayerLayers.Set(fpModel.gameObject, PlayerLayers.Arms(index));
+        if (tpModel && tpModel.gameObject.layer != PlayerLayers.Body(index))
         {
-            var tpv = inventory.GetComponent<ThirdPersonView>();
-            var mode = tpv && tpv.IsThirdPerson ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-            foreach (var r in tpModel.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = mode;
+            PlayerLayers.Set(tpModel.gameObject, PlayerLayers.Body(index));
+            foreach (var r in tpModel.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
         }
 
         // hit it

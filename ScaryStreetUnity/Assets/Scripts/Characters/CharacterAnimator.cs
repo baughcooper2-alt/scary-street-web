@@ -32,7 +32,8 @@ public class CharacterAnimator : MonoBehaviour
     Transform[] lids; Vector3[] lidScale; Transform mouth; Vector3 mouthScale;
 
     // smoothed joint angles (degrees) so switching poses never snaps
-    Vector3 sL, sR, eL, eR, spineE, headE, lgL, lgR, knL, knR;
+    Vector3 sL, sR, eL, eR, spineE, headE, lgL, lgR, knL, knR, anL, anR;
+    Quaternion anLR = Quaternion.identity, anRR = Quaternion.identity;
 
     void Awake()
     {
@@ -43,6 +44,8 @@ public class CharacterAnimator : MonoBehaviour
         elLR = b.elbowL.localRotation; elRR = b.elbowR.localRotation;
         legLR = b.legL.localRotation; legRR = b.legR.localRotation;
         knLR = b.kneeL.localRotation; knRR = b.kneeR.localRotation;
+        if (b.ankleL) anLR = b.ankleL.localRotation;
+        if (b.ankleR) anRR = b.ankleR.localRotation;
         lastPos = transform.position; lastYaw = transform.eulerAngles.y;
         t = Random.value * 10f;
         fpc = GetComponentInParent<FirstPersonController>();
@@ -64,6 +67,27 @@ public class CharacterAnimator : MonoBehaviour
     public void Talk(float duration = 1.2f) => talkT = Mathf.Max(talkT, duration);
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
     public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing) actT = -1f; }
+
+    // One leg's angles at gait phase p (radians): hip swing, knee bend, ankle (+ = toes down).
+    static void Gait(float p, float swing, float kneeSwing, float kneeLoad, float amt, out float hip, out float knee, out float ankle)
+    {
+        p = Mathf.Repeat(p, Mathf.PI * 2f);
+        float sn = Mathf.Sin(p), cs = Mathf.Cos(p);
+        hip = -swing * (sn + 0.12f * Mathf.Sin(2f * p));                          // a touch more extension behind than flexion in front
+        float fromSwingMid = Mathf.DeltaAngle(0f, (p + 0.2f) * Mathf.Rad2Deg) * Mathf.Deg2Rad;   // swing peak just before 0
+        float swingBump = Mathf.Pow(Mathf.Max(0f, Mathf.Cos(fromSwingMid / 1.35f * Mathf.PI / 2f)), 1.5f);
+        float load = Bump(p, Mathf.PI * 0.5f + 0.45f, 0.5f);                      // knee gives a little after heel strike
+        knee = kneeSwing * swingBump + kneeLoad * load;
+        // keep the planted foot flat (cancel hip + knee), then heel-first landing and toe push-off
+        float planted = Mathf.Clamp01(-cs * 3f);
+        ankle = -(hip + knee) * planted * 0.85f - 10f * amt * Bump(p, Mathf.PI * 0.5f, 0.35f) + 22f * amt * Bump(p, Mathf.PI * 1.5f + 0.3f, 0.4f) - 6f * amt * swingBump;
+    }
+
+    static float Bump(float p, float centre, float width)
+    {
+        float d = Mathf.DeltaAngle(centre * Mathf.Rad2Deg, p * Mathf.Rad2Deg) * Mathf.Deg2Rad / width;
+        return Mathf.Exp(-d * d * 2f);
+    }
 
     void Play(Act a, float duration, float hitMoment) { act = a; actT = 0f; actDur = Mathf.Max(0.05f, duration); actHit = hitMoment; }
 
@@ -90,38 +114,54 @@ public class CharacterAnimator : MonoBehaviour
         talkT -= dt; squatT -= dt;
         float squat = Mathf.Clamp01(squatT * 4f) * Mathf.Clamp01(1f - (squatT - 0.8f) * 4f);
 
-        // stepping: forwards, backwards (phase runs the other way) or turning on the spot
-        float stride = strideLength * (1f + 0.5f * run);
+        // stepping: stride grows with speed so feet don't slide; backwards runs the cycle in reverse;
+        // little steps when turning on the spot
+        float stride = Mathf.Clamp(0.8f + 0.3f * speed, 1.0f, 2.6f) * strideLength / 1.3f;
         float stepSpeed = speed + (speed < 0.3f ? Mathf.Abs(yawRate) * 0.006f : 0f);
-        phase += stepSpeed / stride * Mathf.PI * 2f * dt * (fwd < -0.3f ? -1f : 1f);
+        phase = Mathf.Repeat(phase + stepSpeed / stride * Mathf.PI * 2f * dt * (fwd < -0.3f ? -1f : 1f), Mathf.PI * 2f);
         float stepAmt = Mathf.Max(move, speed < 0.3f ? Mathf.Clamp01(Mathf.Abs(yawRate) / 200f) * 0.35f : 0f);
         float s = Mathf.Sin(phase), c = Mathf.Cos(phase), idle = 1f - Mathf.Max(move, air);
 
-        // ---------- legs ----------
-        float legSwing = Mathf.Lerp(30f, 48f, run) * stepAmt * (1f - 0.6f * Mathf.Abs(side));
-        float kneeLift = Mathf.Lerp(55f, 90f, run) * stepAmt;
-        float spread = side * 12f * stepAmt;                                    // sidestep: legs open and close
-        Vector3 tLgL = new Vector3(-s * legSwing, 0, -Mathf.Abs(s) * spread), tLgR = new Vector3(s * legSwing, 0, Mathf.Abs(s) * spread);
-        Vector3 tKnL = new Vector3(3f + Mathf.Max(0, c) * kneeLift, 0, 0), tKnR = new Vector3(3f + Mathf.Max(0, -c) * kneeLift, 0, 0);
-        // jump tuck, crouch and squat all bend the legs
+        // ---------- legs: a real gait cycle per leg (left at phase, right half a cycle later) ----------
+        // hip: forward-most at π/2 (heel strike), back-most at 3π/2 (toe off); the swing is the half where cos > 0.
+        // knee: small give as the foot lands, big bend mid-swing. ankle: keeps the foot flat while it's planted,
+        // heel first on landing, rolls onto the toes as it pushes off.
+        float legSwing = Mathf.Lerp(26f, 44f, run) * stepAmt * (1f - 0.6f * Mathf.Abs(side));
+        float kneeSwing = Mathf.Lerp(46f, 95f, run) * stepAmt, kneeLoad = Mathf.Lerp(12f, 25f, run) * stepAmt;
+        float spread = side * 10f * stepAmt;                                     // sidestep: legs open and close
+        Gait(phase, legSwing, kneeSwing, kneeLoad, stepAmt, out float hipL, out float kneeL, out float ankL);
+        Gait(phase + Mathf.PI, legSwing, kneeSwing, kneeLoad, stepAmt, out float hipR, out float kneeR, out float ankR);
+        Vector3 tLgL = new Vector3(hipL, 0, -Mathf.Abs(s) * spread), tLgR = new Vector3(hipR, 0, Mathf.Abs(s) * spread);
+        Vector3 tKnL = new Vector3(2f + kneeL, 0, 0), tKnR = new Vector3(2f + kneeR, 0, 0);
+        Vector3 tAnL = new Vector3(ankL, 0, 0), tAnR = new Vector3(ankR, 0, 0);
+        // jump tuck, crouch and squat all bend the legs (and the ankles keep the feet flat)
         float bend = Mathf.Max(air * 0.8f, Mathf.Max(crouch, squat));
         tLgL = Vector3.Lerp(tLgL, new Vector3(-55f, 0, -4f), bend); tLgR = Vector3.Lerp(tLgR, new Vector3(-55f, 0, 4f), bend);
         tKnL = Vector3.Lerp(tKnL, new Vector3(95f, 0, 0), bend); tKnR = Vector3.Lerp(tKnR, new Vector3(95f, 0, 0), bend);
+        tAnL = Vector3.Lerp(tAnL, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend); tAnR = Vector3.Lerp(tAnR, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend);
 
-        // ---------- body ----------
-        float bob = Mathf.Abs(c) * Mathf.Lerp(0.03f, 0.06f, run) * move;
-        float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // weight shifts
-        b.hips.localPosition = hipsP + new Vector3(sway, bob - 0.012f * move - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);
-        b.hips.localRotation = hipsR * Quaternion.Euler(0, s * 7f * stepAmt, Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
+        // ---------- pelvis: bob twice per stride (lowest as each heel lands), shift over the planted leg,
+        // turn with the forward leg and dip on the swinging side ----------
+        float bobAmp = Mathf.Lerp(0.028f, 0.055f, run) * move;
+        float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * phase)) - bobAmp;
+        float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
+        float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
+        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);
+        float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt, pelvisDrop = c * 4f * move;
+        b.hips.localRotation = hipsR * Quaternion.Euler(0, pelvisYaw, pelvisDrop + Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
         float breathe = Mathf.Sin(t * 1.7f);
-        Vector3 tSpine = new Vector3(Mathf.Lerp(4f, 14f, run) * move + breathe * idle + crouch * 22f + squat * 25f - flinch * 18f + air * 6f,
-                                     -s * Mathf.Lerp(12f, 18f, run) * stepAmt, side * 5f * move);
+        // chest counter-rotates against the hips, leans into a run, and rocks a touch against the pelvis dip
+        Vector3 tSpine = new Vector3(Mathf.Lerp(3f, 14f, run) * move + breathe * idle + crouch * 22f + squat * 25f - flinch * 18f + air * 6f
+                                     + Mathf.Abs(Mathf.Cos(phase)) * 2f * run,
+                                     -pelvisYaw * 1.9f, -pelvisDrop * 0.6f + side * 5f * move);
 
-        // ---------- arms: locomotion swing, then holds, then actions on top ----------
-        float armSwing = Mathf.Lerp(26f, 45f, run) * move, elbowRun = Mathf.Lerp(12f, 85f, run);
-        Vector3 tSL = new Vector3(s * armSwing + Mathf.Sin(t * 1.1f) * 1.5f * idle, 0, -3f - 6f * run);
-        Vector3 tSR = new Vector3(-s * armSwing + Mathf.Sin(t * 1.1f + 1f) * 1.5f * idle, 0, 3f + 6f * run);
-        Vector3 tEL = new Vector3(-elbowRun - Mathf.Max(0, -s * armSwing) * 0.8f, 0, 0), tER = new Vector3(-elbowRun - Mathf.Max(0, s * armSwing) * 0.8f, 0, 0);
+        // ---------- arms: swing opposite the legs, a beat behind, elbows following through ----------
+        float lag = 0.35f, sa = Mathf.Sin(phase - lag), ca = Mathf.Cos(phase - lag);
+        float armSwing = Mathf.Lerp(24f, 48f, run) * move, elbowBase = Mathf.Lerp(14f, 88f, run);
+        Vector3 tSL = new Vector3(sa * armSwing + Mathf.Sin(t * 1.1f) * 1.5f * idle, 0, -3f - 6f * run);
+        Vector3 tSR = new Vector3(-sa * armSwing + Mathf.Sin(t * 1.1f + 1f) * 1.5f * idle, 0, 3f + 6f * run);
+        Vector3 tEL = new Vector3(-elbowBase - Mathf.Max(0, -sa) * armSwing * 0.9f + ca * 4f * move, 0, 0);
+        Vector3 tER = new Vector3(-elbowBase - Mathf.Max(0, sa) * armSwing * 0.9f - ca * 4f * move, 0, 0);
         if (air > 0.01f) { tSL = Vector3.Lerp(tSL, new Vector3(-35f, 0, -35f), air); tSR = Vector3.Lerp(tSR, new Vector3(-35f, 0, 35f), air); }
 
         switch (hold)
@@ -198,10 +238,11 @@ public class CharacterAnimator : MonoBehaviour
         for (int i = 0; i < lids.Length; i++) if (lids[i]) lids[i].localScale = new Vector3(lidScale[i].x, lidScale[i].y * (1f + blink * 1.6f), lidScale[i].z);
 
         // ---------- apply, smoothed ----------
-        float k = 1f - Mathf.Exp(-dt * 18f);
+        float k = 1f - Mathf.Exp(-dt * 18f), kl = 1f - Mathf.Exp(-dt * 40f);   // legs follow the gait tightly
         sL = Vector3.Lerp(sL, tSL, k); sR = Vector3.Lerp(sR, tSR, k); eL = Vector3.Lerp(eL, tEL, k); eR = Vector3.Lerp(eR, tER, k);
         spineE = Vector3.Lerp(spineE, tSpine, k); headE = Vector3.Lerp(headE, tHead, 1f - Mathf.Exp(-dt * 10f));
-        lgL = Vector3.Lerp(lgL, tLgL, k); lgR = Vector3.Lerp(lgR, tLgR, k); knL = Vector3.Lerp(knL, tKnL, k); knR = Vector3.Lerp(knR, tKnR, k);
+        lgL = Vector3.Lerp(lgL, tLgL, kl); lgR = Vector3.Lerp(lgR, tLgR, kl); knL = Vector3.Lerp(knL, tKnL, kl); knR = Vector3.Lerp(knR, tKnR, kl);
+        anL = Vector3.Lerp(anL, tAnL, kl); anR = Vector3.Lerp(anR, tAnR, kl);
 
         b.spine.localRotation = spineR * Quaternion.Euler(spineE);
         b.head.localRotation = headR * Quaternion.Euler(headE);
@@ -209,5 +250,7 @@ public class CharacterAnimator : MonoBehaviour
         b.shoulderR.localRotation = shRR * Quaternion.Euler(sR); b.elbowR.localRotation = elRR * Quaternion.Euler(eR);
         b.legL.localRotation = legLR * Quaternion.Euler(lgL); b.legR.localRotation = legRR * Quaternion.Euler(lgR);
         b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
+        if (b.ankleL) b.ankleL.localRotation = anLR * Quaternion.Euler(anL);
+        if (b.ankleR) b.ankleR.localRotation = anRR * Quaternion.Euler(anR);
     }
 }

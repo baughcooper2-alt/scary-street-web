@@ -25,6 +25,7 @@ public class ThirdPersonView : MonoBehaviour
     FirstPersonArms arms;
     CharacterAnimator anim;
     Renderer[] bodyRenderers;
+    GameObject bodyRoot;
     float currentDistance;
 
     void Start()
@@ -38,6 +39,7 @@ public class ThirdPersonView : MonoBehaviour
         body.name = "Body";
         anim = body.gameObject.AddComponent<CharacterAnimator>();
         bodyRenderers = body.GetComponentsInChildren<Renderer>();
+        bodyRoot = body.gameObject;
 
         var punch = GetComponent<PlayerPunch>();
         if (punch) punch.Punched += () => anim.Punch(0.3f, 0.35f);
@@ -46,10 +48,16 @@ public class ThirdPersonView : MonoBehaviour
         Apply(startInThirdPerson);
     }
 
+    // First person: your body is on your own body layer, which your camera skips (mirrors and other players
+    // still see it). Third person: your camera shows it and the first-person arms hide.
     void Apply(bool third)
     {
         IsThirdPerson = third;
-        foreach (var r in bodyRenderers) r.shadowCastingMode = third ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
+        int index = PlayerLayers.IndexOf(this);
+        foreach (var r in bodyRenderers) r.shadowCastingMode = ShadowCastingMode.On;
+        PlayerLayers.Set(bodyRoot, PlayerLayers.Body(index));
+        var c = cam ? cam.GetComponent<Camera>() : null;
+        if (c) c.cullingMask = PlayerLayers.CameraMask(index, third);
         if (arms) arms.visible = !third;
     }
 

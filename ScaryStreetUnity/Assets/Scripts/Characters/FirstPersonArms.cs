@@ -41,6 +41,8 @@ public class FirstPersonArms : MonoBehaviour
         var mats = BlockyCharacter.RuntimeMaterials();
         right = BuildArm("RightArm", 1, mats);
         left = BuildArm("LeftArm", -1, mats);
+        int layer = PlayerLayers.Arms(PlayerLayers.IndexOf(this));    // only this player's camera draws them
+        PlayerLayers.Set(right.gameObject, layer); PlayerLayers.Set(left.gameObject, layer);
         rightGrip = new GameObject("Grip").transform;                 // where held items go: in the curl of the fist
         rightGrip.SetParent(right, false);
         rightGrip.localPosition = new Vector3(-0.01f, 0.035f, 0.01f);

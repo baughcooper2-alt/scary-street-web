@@ -16,7 +16,7 @@ public class BlockyCharacter : MonoBehaviour
     public Transform hips;
     public Transform spine, neck, head;
     public Transform shoulderL, shoulderR, elbowL, elbowR, handR;
-    public Transform legL, legR, kneeL, kneeR;
+    public Transform legL, legR, kneeL, kneeR, ankleL, ankleR;
     public List<Renderer> skinParts = new List<Renderer>(), hairParts = new List<Renderer>();
 
     public delegate Material MaterialSource(string part, Color color);
@@ -81,6 +81,7 @@ public class BlockyCharacter : MonoBehaviour
             Sphere(b.hips, "Pelvis", new Vector3(0, 0.01f, 0), new Vector3(0.34f, 0.2f, 0.23f), "Pants", L.pants);
             b.legL = Leg(-1, out b.kneeL);
             b.legR = Leg(1, out b.kneeR);
+            b.ankleL = b.kneeL.Find("Ankle"); b.ankleR = b.kneeR.Find("Ankle");
 
             // torso: rounded belly + broader chest, like a real torso tapering to the waist
             b.spine = Joint("Spine", b.hips, new Vector3(0, 0.08f, 0));

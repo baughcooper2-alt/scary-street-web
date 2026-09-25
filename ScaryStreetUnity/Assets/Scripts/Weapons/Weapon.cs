@@ -72,12 +72,16 @@ public abstract class Weapon : MonoBehaviour
         if (Equipped && anim && anim.hold != HoldPose) anim.hold = HoldPose;       // the body may appear after we equip
         if (!fpModel && arms && arms.RightHand) fpModel = BuildFirstPersonModel();
         if (!tpModel) { var body = inventory.GetComponentInChildren<BlockyCharacter>(); if (body && body.handR) tpModel = BuildThirdPersonModel(body); }
-        if (fpModel) fpModel.gameObject.SetActive(Equipped && !ThirdPerson);
-        if (tpModel)
+        int index = PlayerLayers.IndexOf(inventory);
+        if (fpModel)
+        {
+            fpModel.gameObject.SetActive(Equipped && !ThirdPerson);
+            if (fpModel.gameObject.layer != PlayerLayers.Arms(index)) PlayerLayers.Set(fpModel.gameObject, PlayerLayers.Arms(index));
+        }
+        if (tpModel)                                  // held by the body: shows in third person, mirrors and to other players
         {
             tpModel.gameObject.SetActive(Equipped);
-            var mode = ThirdPerson ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-            foreach (var r in tpModel.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = mode;
+            if (tpModel.gameObject.layer != PlayerLayers.Body(index)) PlayerLayers.Set(tpModel.gameObject, PlayerLayers.Body(index));
         }
     }
 
