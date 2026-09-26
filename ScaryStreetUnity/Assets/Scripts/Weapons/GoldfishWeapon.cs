@@ -13,11 +13,12 @@ public class GoldfishWeapon : MagazineWeapon
     public float boxDamage = 22f, boxRadius = 3f, snackTime = 1.5f;
     public int boxCost = 4;
 
-    // first person: the carton sits low in front of you, a hand on each side
+    // first person: the carton sits low in front of you, a hand on each side (as the body holds it)
     static readonly Vector3 BoxRest = new Vector3(0f, -0.25f, 0.56f);
+    const float BoxTilt = -10f;                                                 // top a touch toward you
     static readonly Vector3 BoxSize = new Vector3(0.15f, 0.26f, 0.15f);        // a big milk carton
 
-    float cooldown, tossT = -1f, tossDur = 0.3f;
+    float cooldown, tossT = -1f, tossDur = 0.3f, toss;
     bool wasSecondary;
     static Material cracker, boxMat, boxBand, boxDark;
 
@@ -58,23 +59,25 @@ public class GoldfishWeapon : MagazineWeapon
         if (!tpModel || !body || !body.handL || !body.handR) return;
         Vector3 l = body.handL.TransformPoint(new Vector3(0.02f, -0.07f, 0)), r = body.handR.TransformPoint(new Vector3(-0.02f, -0.07f, 0));
         tpModel.position = (l + r) * 0.5f;
-        tpModel.rotation = Quaternion.LookRotation(body.transform.forward, Vector3.up);
+        tpModel.rotation = Quaternion.LookRotation(body.transform.forward, Vector3.up) * Quaternion.Euler(40f * toss, 0, 0);   // tipped forward on a toss
     }
 
-    // both hands on the carton; a toss lifts and tips it forward; a new carton comes up from below
+    // both hands on the carton; a toss lifts it and tips the open top forward (the body does the same); a new carton
+    // comes up from below
     void Animate(float dt, bool reloading)
     {
-        if (!arms || !fpModel) return;
         float k = 0;
         if (tossT >= 0) { float p = (tossT += dt) / tossDur; k = Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI); if (p >= 1f) tossT = -1f; }
+        toss = k;
+        if (!arms || !fpModel) return;
         float down = reloading ? Mathf.Clamp01(1f - Mathf.Abs(1f - 2f * (1f - reloadT / ReloadTime))) : 0f;   // dips out and back
         fpModel.localPosition = BoxRest + new Vector3(0, 0.07f * k - 0.35f * down, 0.09f * k);
-        fpModel.localRotation = Quaternion.Euler(-24f - 30f * k, 0, 0);          // top tipped toward you
+        fpModel.localRotation = Quaternion.Euler(BoxTilt + 40f * k, 0, 0);
         Vector3 side = fpModel.localRotation * new Vector3(BoxSize.x * 0.5f + 0.025f, -0.03f, -0.01f);
         arms.overrideLeft = arms.overrideRight = true;
         arms.leftTarget = fpModel.localPosition + new Vector3(-side.x, side.y, side.z);
         arms.rightTarget = fpModel.localPosition + side;
-        arms.leftEuler = arms.rightEuler = new Vector3(-24f - 30f * k, 0, 0);
+        arms.leftEuler = arms.rightEuler = new Vector3(BoxTilt + 12f * k, 0, 0);   // wrists stay steadier than the carton (keeps the forearms in frame)
     }
 
     static void Mats()
@@ -93,7 +96,7 @@ public class GoldfishWeapon : MagazineWeapon
         cooldown = handfulCooldown;
         UseAmmo();
         tossT = 0; tossDur = 0.3f;
-        if (BodyAnim) BodyAnim.Throw(0.3f, 0.5f);
+        if (BodyAnim) BodyAnim.Toss(0.3f);
         SoundKit.Play(Sfx.Throw, 0.5f, 0.15f);
         Mats();
         Vector3 from = ThirdPerson ? Eye + cam.forward * 0.45f + Vector3.down * 0.25f : Spout;
@@ -114,7 +117,7 @@ public class GoldfishWeapon : MagazineWeapon
         cooldown = 1f;
         UseAmmo(ammo);                                                    // the whole carton goes: a new one after the reload
         tossT = 0; tossDur = 0.4f;
-        if (BodyAnim) BodyAnim.Throw(0.5f, 0.55f);
+        if (BodyAnim) BodyAnim.Toss(0.4f);
         SoundKit.Play(Sfx.Throw, 0.7f);
         Mats();
         Vector3 v = (cam.forward + Vector3.up * 0.45f).normalized * 10f;
@@ -169,7 +172,7 @@ public class GoldfishWeapon : MagazineWeapon
     protected override Transform BuildFirstPersonModel()
     {
         var b = Carton(cam, true);                                        // held out in front, both hands on it
-        b.localPosition = BoxRest; b.localRotation = Quaternion.Euler(-8f, 0, 0);
+        b.localPosition = BoxRest; b.localRotation = Quaternion.Euler(BoxTilt, 0, 0);
         return b;
     }
 

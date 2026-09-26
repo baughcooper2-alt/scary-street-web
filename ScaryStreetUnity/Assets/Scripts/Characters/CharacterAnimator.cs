@@ -6,14 +6,15 @@ using UnityEngine;
 //   player   – jump / fall tuck and crouch from the FirstPersonController; head follows your aim
 //   idle     – breathing, weight shifts, glances around, blinking; heads look at their target
 //   holding  – guitar, law book, cart (and bringing it to the mouth), tray, nothing
-//   actions  – Punch (jab), Swing (overhead chop), Slam, Throw (overhand), Strum, Talk, Squat, Wave, Flinch
+//   actions  – Punch (jab), Swing (overhead chop), Sweep (across in front), Slam, Throw (overhand), Flick (take one
+//              from the left hand and whip it out), Toss (both hands lift a box), Strum, Talk, Squat, Wave, Flinch
 // Joint conventions (both bodies): limbs hang straight down at rest; −X swings a limb forward, knees bend +X,
 // elbows bend −X, +Z raises the right arm out to the side (−Z the left).
 [RequireComponent(typeof(BlockyCharacter))]
 public class CharacterAnimator : MonoBehaviour
 {
     public enum Hold { None, Guitar, Book, Cart, Tray, Phone, CarryLeft, HangLeft, Carton }   // add new ones at the end
-    enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave }
+    enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave, Sweep, Flick, Toss }
 
     [Tooltip("Scales every stride (1 = the natural length for this speed).")]
     public float strideLength = 1.3f;
@@ -22,7 +23,8 @@ public class CharacterAnimator : MonoBehaviour
     [Tooltip("Head turns toward this (the target an enemy is chasing, for example).")]
     public Transform lookAt;
     [System.NonSerialized] public Hold hold;
-    [System.NonSerialized] public bool inhaling;                  // cart at the mouth
+    [System.NonSerialized] public bool inhaling;                  // cart (or a bottle) at the mouth
+    [System.NonSerialized] public float charge;                   // 0..1: the held item raised overhead (Law Book charging a slam)
 
     [Header("Personal style (enemies randomise these)")]
     [Range(0.8f, 1.2f)] public float strideScale = 1f;
@@ -85,9 +87,12 @@ public class CharacterAnimator : MonoBehaviour
     public void Throw(float duration = 0.55f, float release = 0.6f) => Play(Act.Throw, duration, release);
     public void Strum(float duration = 0.3f) => Play(Act.Strum, duration, 0.5f);
     public void Wave(float duration = 1.4f) => Play(Act.Wave, duration, 0.5f);
+    public void Sweep(float duration = 0.4f, float hitMoment = 0.4f) => Play(Act.Sweep, duration, hitMoment);
+    public void Flick(float duration = 0.3f) => Play(Act.Flick, duration, 0.35f);
+    public void Toss(float duration = 0.35f) => Play(Act.Toss, duration, 0.5f);
     public void Talk(float duration = 1.2f) => talkT = Mathf.Max(talkT, duration);
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
-    public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing) actT = -1f; }
+    public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing || act == Act.Sweep) actT = -1f; }
 
     // Gait curves: (cycle position, degrees) pairs; 0 = this foot's heel strike. From human gait data, simplified.
     // Hip is degrees forward of vertical; knee is bend. Walking: knee gives on landing, starts bending before the toes
@@ -253,6 +258,7 @@ public class CharacterAnimator : MonoBehaviour
             case Hold.HangLeft:  tSL = new Vector3(-4f, 0, -10f); tEL = new Vector3(-12f, 0, 0); tSR = new Vector3(-20f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-75f, 0, 0); break;  // 6-pack carrier at your side, bottle in the right
             case Hold.Carton:    tSL = new Vector3(-40f, 0, 17f); tSR = new Vector3(-40f, 0, -17f); tEL = tER = new Vector3(-62f, 0, 0); break;   // a big box in both hands
         }
+        if (charge > 0) { tSR = Vector3.Lerp(tSR, new Vector3(-160f, 0, 12f), charge); tER = Vector3.Lerp(tER, new Vector3(-35f, 0, 0), charge); }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
 
         if (talkT > 0)                                                  // Jack delivering a joke: hand gestures, head bobs
@@ -267,8 +273,23 @@ public class CharacterAnimator : MonoBehaviour
             float p = Mathf.Clamp01(actT / actDur), wind = Mathf.SmoothStep(0, 1, Mathf.Clamp01(p / actHit));
             float back = p < actHit ? 0 : Mathf.SmoothStep(0, 1, Mathf.InverseLerp(actHit + (1 - actHit) * 0.35f, 1f, p));
             float hit = p < actHit ? 0 : 1f - back;                     // 0→1→0 over the follow-through
+            // the newer moves blend from the hold pose into the wind-up, snap to the hit and ease back to the hold
+            float into = p < actHit ? 0 : Mathf.SmoothStep(0, 1, (p - actHit) / Mathf.Max(0.01f, (1 - actHit) * 0.35f));
+            Vector3 Blend(Vector3 hold, Vector3 windPose, Vector3 hitPose) => Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(hold, windPose, wind), hitPose, into), hold, back);
             switch (act)
             {
+                case Act.Sweep:   // arm out to the right, then across in front of you (the item leads), chest turning with it
+                    tSR = Blend(tSR, new Vector3(-70f, 0, 55f), new Vector3(-80f, 0, -28f)); tER = Blend(tER, new Vector3(-50f, 0, 0), new Vector3(-15f, 0, 0));
+                    tSpine.y += Mathf.Lerp(22f * wind, -30f, into) * (1f - back);
+                    break;
+                case Act.Flick:   // right hand over to the left for one, then whip it out toward the aim
+                    tSR = Blend(tSR, new Vector3(-32f, 0, -24f), new Vector3(-78f, 0, 8f)); tER = Blend(tER, new Vector3(-105f, 0, 0), new Vector3(-12f, 0, 0));
+                    tSpine.y += Mathf.Lerp(-10f * wind, 10f, into) * (1f - back);
+                    break;
+                case Act.Toss:    // both hands lift the box up and forward
+                    float lift = Mathf.Sin(p * Mathf.PI);
+                    tSL.x -= 32f * lift; tSR.x -= 32f * lift; tEL.x += 22f * lift; tER.x += 22f * lift; tSpine.x -= 5f * lift;
+                    break;
                 case Act.Punch:   // wind up fist by the cheek, jab straight out, guard up
                     tSR = Vector3.Lerp(new Vector3(-40f * wind, 0, 6f), new Vector3(-88f, 0, 2f), hit); tER = Vector3.Lerp(new Vector3(-10f - 110f * wind, 0, 0), new Vector3(-5f, 0, 0), hit);
                     tSL = new Vector3(-45f, 0, -8f); tEL = new Vector3(-95f, 0, 0);

@@ -21,6 +21,24 @@ public class FirstPersonArms : MonoBehaviour
 
     public Transform RightHand => rightGrip;
     public Transform LeftHand => leftGrip;
+    public Transform RightFist => right;                                            // the arm itself: origin in the middle of the fist
+    public Transform LeftFist => left;
+
+    // The body's hand (arm hanging, bone unrotated) and this fist hold things the same way once the hand frame is
+    // turned back 110° about X: the first-person forearm points ahead where the real one hangs down. Weapons pass
+    // the same hand-local offset they use in third person, so an item sits in the fist the same way in both views.
+    static readonly Quaternion FromHand = Quaternion.Euler(-110f, 0, 0);
+    float fistScale = 1f;
+    public void HoldLikeHand(Transform item, bool leftHand, Vector3 handPos, Quaternion handRot)
+    {
+        var fist = leftHand ? left : right;
+        if (!fist) return;
+        item.SetParent(fist, false);
+        var centre = new Vector3(leftHand ? 0.02f : -0.02f, -0.08f, 0);            // the body's fist, in hand space
+        item.localPosition = FromHand * (handPos - centre) * fistScale;
+        item.localRotation = FromHand * handRot;
+        item.localScale *= fistScale;
+    }
 
     [Tooltip("The part of the held item that goes in your mouth (the cart's mouthpiece). With it set, raise brings that part to mouthPoint.")]
     [System.NonSerialized] public Transform mouthTip;
@@ -45,6 +63,7 @@ public class FirstPersonArms : MonoBehaviour
         if (!look) look = CharacterLook.Preset("cooper");
         var mats = BlockyCharacter.RuntimeMaterials();
         right = BuildArm("RightArm", 1, mats);
+        if (right.childCount > 0 && right.GetChild(0).name == "FP_R") fistScale = right.GetChild(0).localScale.x;   // the real arm is sized to the character
         left = BuildArm("LeftArm", -1, mats);
         int layer = PlayerLayers.Arms(PlayerLayers.IndexOf(this));    // only this player's camera draws them
         PlayerLayers.Set(right.gameObject, layer); PlayerLayers.Set(left.gameObject, layer);

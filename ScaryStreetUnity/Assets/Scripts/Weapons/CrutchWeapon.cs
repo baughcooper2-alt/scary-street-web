@@ -9,9 +9,13 @@ public class CrutchWeapon : Weapon
     public float swingDamage = 18f, swingReach = 2.6f, swingCooldown = 0.8f, swingShove = 1.2f;
     public float pokeDamage = 11f, pokeReach = 3.2f, pokeCooldown = 0.4f, pokeShove = 0.6f;
 
+    // first person, like the body: gripped at your side with the pole upright, the free hand down out of view
+    static readonly Vector3 CarryPos = new Vector3(0.4f, -0.1f, 0.5f), CarryEuler = new Vector3(95f, -40f, -40f);   // forearm up out of view
+    static readonly Vector3 GripPos = new Vector3(-0.02f, -0.08f, 0f);         // the grip bar in the fist (body hand space)
+
     float cooldown;
     bool wasSecondary;
-    readonly HandMotion hand = new HandMotion();
+    readonly HandMotion hand = new HandMotion { rest = CarryPos, restEuler = CarryEuler };
     static readonly Collider[] hits = new Collider[16];
 
     protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
@@ -19,7 +23,7 @@ public class CrutchWeapon : Weapon
 
     public override void Init(WeaponInventory inv) { base.Init(inv); displayName = "Crutch"; }
     public override void Equip() { base.Equip(); SyncModels(); }
-    public override void Unequip() { base.Unequip(); hand.Release(arms); SyncModels(); }
+    public override void Unequip() { base.Unequip(); hand.Release(arms); if (arms) arms.overrideLeft = false; SyncModels(); }
     public override string LevelUpText => level == 2 ? "+30% damage and longer reach" : "+30% damage";
     public override string Hint => $"{Key("left click", GamepadInfo.RT)} to swing wide · {Key("right click", GamepadInfo.LT)} to poke far";
 
@@ -36,13 +40,14 @@ public class CrutchWeapon : Weapon
             else if (poke) Poke();
         }
         hand.Apply(arms, dt);
+        if (arms) { arms.overrideLeft = true; arms.leftTarget = new Vector3(-0.3f, -0.5f, 0.3f); arms.leftEuler = Vector3.zero; }
     }
 
     void Swing()
     {
         cooldown = swingCooldown;
         hand.Play(HandMotion.Move.Swing, 0.4f);
-        if (BodyAnim) BodyAnim.Swing(0.45f, 0.45f);
+        if (BodyAnim) BodyAnim.Sweep(0.4f, 0.4f);
         SoundKit.Play(Sfx.Whoosh, 0.6f);
         Vector3 fwd = cam.forward; fwd.y = 0; fwd.Normalize();
         var targets = EnemyTargets.Around(inventory.transform.position + Vector3.up * 0.9f, swingReach + Extra);
@@ -103,15 +108,16 @@ public class CrutchWeapon : Weapon
 
     protected override Transform BuildFirstPersonModel()
     {
-        var c = Crutch(arms.RightHand, true);                             // grip in the fist, leaning forward
-        c.localPosition = new Vector3(0f, 0f, 0.01f); c.localRotation = Quaternion.Euler(-40f, 90f, 0); c.localScale = Vector3.one * 0.8f;
+        if (!arms.RightFist) return null;
+        var c = Crutch(arms.RightFist, true);                             // the grip in the fist, the same as the body holds it
+        arms.HoldLikeHand(c, false, GripPos, Quaternion.identity);
         return c;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
         var c = Crutch(body.handR, false);                                // the grip in the fist, standing upright
-        c.localPosition = new Vector3(-0.02f, -0.08f, 0f);
+        c.localPosition = GripPos;
         return c;
     }
 }

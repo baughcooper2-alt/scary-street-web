@@ -17,7 +17,9 @@ public class PokerChipsWeapon : MagazineWeapon
         new Color(0.95f, 0.95f, 0.93f), new Color(0.82f, 0.12f, 0.12f), new Color(0.15f, 0.32f, 0.85f),
         new Color(0.12f, 0.62f, 0.25f), new Color(0.08f, 0.08f, 0.09f),
     };
-    static readonly Vector3 LeftHold = new Vector3(-0.21f, -0.31f, 0.44f), LeftEuler = new Vector3(-10f, 25f, 0f);
+    // first person (camera space), like the body: the case lies level on the left forearm, the fist under its front
+    static readonly Vector3 CasePos = new Vector3(-0.2f, -0.23f, 0.52f), CaseEuler = new Vector3(-12f, 0, 0);
+    static readonly Vector3 LeftHold = CasePos + new Vector3(0.01f, -0.075f, 0.07f), LeftEuler = new Vector3(20f, 4f, 0f);
     static readonly Vector3 RightRest = new Vector3(0.17f, -0.23f, 0.44f);
 
     float cooldown;
@@ -51,7 +53,9 @@ public class PokerChipsWeapon : MagazineWeapon
         SyncModels();
         cooldown -= dt;
         bool reloading = TickReload(dt, input.reloadPressed);
-        if (arms) { arms.overrideLeft = true; arms.leftTarget = LeftHold + (reloading ? new Vector3(0, Mathf.Sin(Time.time * 12f) * 0.006f, 0) : Vector3.zero); arms.leftEuler = LeftEuler; }
+        Vector3 jiggle = reloading ? new Vector3(0, Mathf.Sin(Time.time * 12f) * 0.006f, 0) : Vector3.zero;
+        if (arms) { arms.overrideLeft = true; arms.leftTarget = LeftHold + jiggle; arms.leftEuler = LeftEuler; }
+        if (fpModel) fpModel.localPosition = CasePos + jiggle;
         if (fpCaseTop) hand.pickFrom = cam.InverseTransformPoint(fpCaseTop.position);
         if (!reloading && input.primaryHeld && cooldown <= 0 && ammo > 0) Throw();
         hand.Apply(arms, dt);
@@ -73,7 +77,7 @@ public class PokerChipsWeapon : MagazineWeapon
         cooldown = throwCooldown;
         UseAmmo();
         hand.Play(HandMotion.Move.Flick, 0.28f);
-        if (BodyAnim) BodyAnim.Throw(0.3f, 0.5f);
+        if (BodyAnim) BodyAnim.Flick(0.28f);
         float speed = 17f + 1.5f * Step;
         var p = Projectile.Spawn("PokerChip", Eye + cam.forward * 0.5f + Vector3.down * 0.12f, cam.forward * speed, inventory.gameObject);
         p.damage = PlayerStats.RangedDamage(Damage, inventory.gameObject);
@@ -145,9 +149,8 @@ public class PokerChipsWeapon : MagazineWeapon
 
     protected override Transform BuildFirstPersonModel()
     {
-        if (!arms.LeftHand) return null;
-        var c = Case(arms.LeftHand, true, out fpCaseTop);                // resting on the hand, tipped toward you so you see the rows
-        c.localPosition = new Vector3(0.08f, 0.04f, 0.02f); c.localRotation = Quaternion.Euler(-28f, -20f, 0);
+        var c = Case(cam, true, out fpCaseTop);                           // lying level on your left forearm, as the body carries it
+        c.localPosition = CasePos; c.localRotation = Quaternion.Euler(CaseEuler);
         return c;
     }
 

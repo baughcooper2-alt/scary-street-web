@@ -13,9 +13,11 @@ public class DeckOfCardsWeapon : Weapon
     public float flickCooldown = 0.16f;
     public float fanCooldown = 0.7f;
 
-    // first person: where the hands sit (camera space)
-    static readonly Vector3 LeftHold = new Vector3(-0.1f, -0.2f, 0.42f), LeftEuler = new Vector3(-25f, 25f, 15f);
-    static readonly Vector3 RightRest = new Vector3(0.17f, -0.23f, 0.44f);
+    // first person (camera space), like the body's CarryLeft: left forearm across the front with the deck in the fist,
+    // right hand ready beside it
+    static readonly Vector3 LeftHold = new Vector3(-0.12f, -0.22f, 0.42f), LeftEuler = new Vector3(8f, 28f, 0f);
+    static readonly Vector3 RightRest = new Vector3(0.17f, -0.24f, 0.44f);
+    static readonly Vector3 DeckGrip = new Vector3(0, -0.07f, 0.04f);          // in the left fist (body hand space)
 
     int cards = DeckSize;
     float cooldown;
@@ -47,8 +49,8 @@ public class DeckOfCardsWeapon : Weapon
 
         if (cooldown <= 0 && cards > 0)
         {
-            if (fan) { for (int i = -2; i <= 2; i++) Throw(i * 9f); cooldown = fanCooldown; hand.Play(HandMotion.Move.Flick, 0.32f); if (BodyAnim) BodyAnim.Throw(0.35f); }
-            else if (input.primaryHeld) { Throw(Random.Range(-1.5f, 1.5f)); cooldown = flickCooldown; hand.Play(HandMotion.Move.Flick, 0.16f); if (BodyAnim) BodyAnim.Throw(0.2f, 0.5f); }
+            if (fan) { for (int i = -2; i <= 2; i++) Throw(i * 9f); cooldown = fanCooldown; hand.Play(HandMotion.Move.Flick, 0.32f); if (BodyAnim) BodyAnim.Flick(0.32f); }
+            else if (input.primaryHeld) { Throw(Random.Range(-1.5f, 1.5f)); cooldown = flickCooldown; hand.Play(HandMotion.Move.Flick, 0.16f); if (BodyAnim) BodyAnim.Flick(0.16f); }
         }
         hand.Apply(arms, dt);
 
@@ -94,9 +96,9 @@ public class DeckOfCardsWeapon : Weapon
 
     protected override Transform BuildFirstPersonModel()
     {
-        if (!arms.LeftHand) return null;
-        var d = Deck(arms.LeftHand, true);
-        d.localPosition = new Vector3(0.01f, 0.03f, 0.02f); d.localRotation = Quaternion.Euler(-15f, 0, -10f);   // on the fingers, face up
+        if (!arms.LeftFist) return null;
+        var d = Deck(arms.LeftFist, true);
+        arms.HoldLikeHand(d, true, DeckGrip, Quaternion.identity);         // in the fist, as the body holds it
         return d;
     }
 
@@ -104,7 +106,7 @@ public class DeckOfCardsWeapon : Weapon
     {
         if (!body.handL) return null;
         var d = Deck(body.handL, false);
-        d.localPosition = new Vector3(0, -0.07f, 0.04f);
+        d.localPosition = DeckGrip;
         return d;
     }
 }

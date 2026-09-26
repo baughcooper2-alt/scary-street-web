@@ -1,7 +1,9 @@
 using UnityEngine;
 
-// First-person right-hand moves for the handheld weapons, layered on FirstPersonArms' override:
-// Throw (wind back, whip forward), Swing (sweep across), Poke (straight jab), Drink (up to the mouth and tip).
+// First-person right-hand moves for the handheld weapons, layered on FirstPersonArms' override. They match the
+// body's moves in third person: Throw (wind back, whip forward = Throw), Swing (sweep across = Sweep), Poke (the
+// forearm comes up level and jabs = Punch), Flick (take one from the other hand, whip it out = Flick),
+// Grab (over to the other hand and back), Drink (up to the mouth and tip). Each starts from and ends at the rest pose.
 public class HandMotion
 {
     public enum Move { None, Throw, Swing, Poke, Drink, Flick, Grab }
@@ -23,20 +25,24 @@ public class HandMotion
         {
             float p = Mathf.Clamp01((t += dt) / dur);
             float k = Mathf.Sin(p * Mathf.PI);
+            float inOut = Mathf.SmoothStep(0, 1, Mathf.Min(1f, Mathf.Min(p / 0.2f, (1f - p) / 0.3f)));   // from the rest pose and back
             switch (move)
             {
                 case Move.Throw:
                     float back = p < 0.35f ? Mathf.SmoothStep(0, 1, p / 0.35f) : 1f - Mathf.SmoothStep(0, 1, (p - 0.35f) / 0.4f);
                     float fwd = p < 0.35f ? 0f : Mathf.Sin((p - 0.35f) / 0.65f * Mathf.PI);
                     pos += new Vector3(0.02f, 0.1f * back + 0.06f * fwd, -0.12f * back + 0.22f * fwd);
-                    euler = new Vector3(-50f * back + 30f * fwd, 0, 0);
+                    euler = restEuler + new Vector3(-50f * back + 30f * fwd, 0, 0);
                     break;
                 case Move.Swing:
-                    pos += new Vector3(Mathf.Lerp(0.12f, -0.34f, p), 0.08f * k, 0.12f * k);
-                    euler = new Vector3(-20f * k, Mathf.Lerp(40f, -60f, p), -30f * k);
+                    // the forearm comes up level (the held item points ahead) and sweeps right to left
+                    float across = Mathf.SmoothStep(0, 1, p);
+                    pos = Vector3.Lerp(rest, rest + new Vector3(Mathf.Lerp(0.1f, -0.38f, across), 0.1f, 0.08f), inOut);
+                    euler = Vector3.Lerp(restEuler, new Vector3(-8f, Mathf.Lerp(45f, -60f, across), -25f * k), inOut);
                     break;
                 case Move.Poke:
                     pos += new Vector3(-0.08f * k, 0.05f * k, 0.3f * k);
+                    euler = Vector3.Lerp(restEuler, new Vector3(-4f, -6f, 0), Mathf.Min(1f, k * 1.8f));
                     break;
                 case Move.Flick:
                     // reach over to the other hand, pinch one, whip it out toward the crosshair

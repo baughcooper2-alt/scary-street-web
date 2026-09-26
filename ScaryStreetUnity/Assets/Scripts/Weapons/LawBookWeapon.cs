@@ -28,6 +28,13 @@ public class LawBookWeapon : Weapon
 
     protected override CharacterAnimator.Hold HoldPose => thrown ? CharacterAnimator.Hold.None : CharacterAnimator.Hold.Book;
 
+    // held by the top edge, hanging from the fingers: the same spot in the body's hand and in the first-person fist
+    static readonly Vector3 GripPos = new Vector3(-0.02f, -0.18f, 0.01f);
+    // first person: hanging from the fist at the right edge (the forearm runs up and out of view, as when your arm
+    // hangs at your side), the free left hand down out of view
+    static readonly Vector3 CarryPos = new Vector3(0.4f, -0.1f, 0.5f), CarryEuler = new Vector3(95f, -40f, -40f);
+    static readonly Vector3 LeftDown = new Vector3(-0.3f, -0.5f, 0.3f);
+
     bool thrown, wasSecondary;
     float slamReady;
     LawBookPickup onFloor;
@@ -50,7 +57,7 @@ public class LawBookWeapon : Weapon
     {
         base.Unequip();
         charging = false; charge = 0;
-        if (arms) arms.overrideRight = false;
+        if (arms) { arms.overrideRight = false; arms.overrideLeft = false; }
         SyncModels();
     }
 
@@ -71,7 +78,8 @@ public class LawBookWeapon : Weapon
             if (fpModel) fpModel.gameObject.SetActive(false);
             if (tpModel) tpModel.gameObject.SetActive(false);
             var fists = inventory.GetComponent<PlayerPunch>(); if (fists) fists.allowInput = true;
-            if (arms) arms.overrideRight = false;
+            if (arms) { arms.overrideRight = false; arms.overrideLeft = false; }
+            if (BodyAnim) BodyAnim.charge = 0;
             return;
         }
         if (throwPressed && cooldown <= 0 && !charging) { Throw(); return; }
@@ -97,13 +105,14 @@ public class LawBookWeapon : Weapon
         else { charging = false; charge = 0; }
 
         Animate(dt, reloading);
+        if (BodyAnim) BodyAnim.charge = charging ? Mathf.SmoothStep(0, 1, (charge - 0.15f) / 0.85f) : 0f;
     }
 
     void Swing()
     {
         cooldown = swingCooldown;
         swingT = 0;
-        if (BodyAnim) BodyAnim.Swing(0.35f, 0.4f);
+        if (BodyAnim) BodyAnim.Sweep(0.3f, 0.4f);
         SoundKit.Play(Sfx.Whoosh, 0.55f);
 
         Vector3 eye = Eye, fwd = cam.forward; fwd.y = 0; fwd.Normalize();
@@ -160,41 +169,40 @@ public class LawBookWeapon : Weapon
         return hit.collider.GetComponentInParent<Health>();          // the first thing in the way is an enemy, not a wall
     }
 
-    // First-person: swing across, raise it overhead while charging, bring it down on the slam.
+    // First person, matching the body: carried low at your side, swept across in front (the book leads), raised
+    // overhead while charging, brought down on the slam.
     void Animate(float dt, bool reloading)
     {
         if (!arms) return;
-        Vector3 pos = arms.restPosition + new Vector3(-0.02f, 0.02f, 0);
-        Vector3 rot = new Vector3(0, -12f, 0);
-
-        if (reloading)                                               // hold it open in front of you and read
-        {
-            pos = new Vector3(0.08f, -0.14f, 0.42f); rot = new Vector3(-40f, -30f, 0);
-        }
+        Vector3 pos = CarryPos, rot = CarryEuler;
         if (swingT >= 0)
         {
-            float p = (swingT += dt) / 0.3f, s = Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI);
-            pos += new Vector3(-0.3f, 0.06f, 0.12f) * s;
-            rot += new Vector3(-10f, 0, 55f) * s;
+            float p = Mathf.Clamp01((swingT += dt) / 0.3f), across = Mathf.SmoothStep(0, 1, p);
+            float inOut = Mathf.SmoothStep(0, 1, Mathf.Min(1f, Mathf.Min(p / 0.2f, (1f - p) / 0.3f)));
+            pos = Vector3.Lerp(CarryPos, CarryPos + new Vector3(Mathf.Lerp(0.1f, -0.38f, across), 0.1f, 0.06f), inOut);
+            rot = Vector3.Lerp(CarryEuler, new Vector3(-8f, Mathf.Lerp(45f, -60f, across), -25f * Mathf.Sin(p * Mathf.PI)), inOut);
             if (p >= 1f) swingT = -1f;
         }
         if (charging && charge > 0.15f)
         {
             float k = Mathf.SmoothStep(0, 1, (charge - 0.15f) / 0.85f);
-            pos = Vector3.Lerp(pos, new Vector3(0.06f, 0.14f, 0.36f), k);
-            rot = Vector3.Lerp(rot, new Vector3(-75f, -10f, 0), k);
+            pos = Vector3.Lerp(pos, new Vector3(0.12f, 0.02f, 0.36f), k);
+            rot = Vector3.Lerp(rot, new Vector3(-60f, -12f, 0), k);
             pos += Random.insideUnitSphere * 0.004f * k;             // trembling with the charge
         }
         if (slamT >= 0)
         {
             float p = (slamT += dt) / 0.35f, s = Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI);
-            pos = Vector3.Lerp(arms.restPosition, new Vector3(0.02f, -0.3f, 0.5f), s);
-            rot = new Vector3(55f * s, -10f, 0);
+            pos = Vector3.Lerp(CarryPos, new Vector3(0.04f, -0.24f, 0.5f), s);
+            rot = Vector3.Lerp(CarryEuler, new Vector3(20f, -10f, 0), s);
             if (p >= 1f) slamT = -1f;
         }
         arms.overrideRight = true;
         arms.rightTarget = pos;
         arms.rightEuler = rot;
+        arms.overrideLeft = true;                                    // the other hand hangs at your side, as in third person
+        arms.leftTarget = charging && charge > 0.15f || slamT >= 0 ? new Vector3(-0.12f, -0.12f, 0.42f) : LeftDown;   // both hands on it for the slam
+        arms.leftEuler = new Vector3(-20f, 20f, 0);
     }
 
     public override string Hint
@@ -224,7 +232,8 @@ public class LawBookWeapon : Weapon
         p.onEnd = at => onFloor = LawBookPickup.Drop(at, this);
         if (fpModel) fpModel.gameObject.SetActive(false);
         if (tpModel) tpModel.gameObject.SetActive(false);
-        if (BodyAnim) BodyAnim.hold = CharacterAnimator.Hold.None;
+        if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.charge = 0; }
+        if (arms) { arms.overrideRight = false; arms.overrideLeft = false; }
     }
 
     // Walked over it: back in your hand.
@@ -243,16 +252,16 @@ public class LawBookWeapon : Weapon
 
     protected override Transform BuildFirstPersonModel()
     {
-        var m = Book(arms.RightHand, true);
-        m.localPosition = new Vector3(0, 0.06f, 0.02f);
-        m.localRotation = Quaternion.Euler(0, -75f, 0);
+        if (!arms.RightFist) return null;
+        var m = Book(arms.RightFist, true);
+        arms.HoldLikeHand(m, false, GripPos, Quaternion.identity);      // by the top edge, like the body holds it
         return m;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
         var m = Book(body.handR, false);                                 // hanging from the hand, fingers hooked over the top edge
-        m.localPosition = new Vector3(-0.02f, -0.18f, 0.01f);
+        m.localPosition = GripPos;
         m.localRotation = Quaternion.identity;
         return m;
     }

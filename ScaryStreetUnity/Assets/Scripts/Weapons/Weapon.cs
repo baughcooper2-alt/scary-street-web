@@ -35,7 +35,7 @@ public abstract class Weapon : MonoBehaviour
     }
 
     public virtual void Equip() { Equipped = true; if (BodyAnim) BodyAnim.hold = HoldPose; }
-    public virtual void Unequip() { Equipped = false; if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.inhaling = false; } }
+    public virtual void Unequip() { Equipped = false; if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.inhaling = false; BodyAnim.charge = 0; } }
 
     // How the third-person body holds this weapon.
     protected virtual CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.None;
