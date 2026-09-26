@@ -128,7 +128,7 @@ public class PauseMenu : MonoBehaviour
         UIKit.Place(hint.rectTransform, 112, 850, 600, 32);
 
         var card = TitleScreen.Card(root, "SETTINGS");
-        settingsFirst = GameSettings.BuildRows(card, 140, 76);
+        settingsFirst = GameSettings.BuildRows(card, 140, 66);
         TitleScreen.BackButton(card, () => ShowSettings(false));
         settings = card.gameObject;
         settings.SetActive(false);

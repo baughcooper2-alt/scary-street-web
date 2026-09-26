@@ -5,7 +5,7 @@ using UnityEngine.UI;
 // pause menu. Changing one mid-run applies it to the players straight away.
 public static class GameSettings
 {
-    public const string StickSensitivityKey = "stickSensitivity", InvertYKey = "invertY", VibrationKey = "vibration";
+    public const string StickSensitivityKey = "stickSensitivity", InvertYKey = "invertY", VibrationKey = "vibration", ThirdPersonDistanceKey = "thirdPersonDistance";
 
     public static bool Vibration => PlayerPrefs.GetInt(VibrationKey, 1) == 1;
 
@@ -17,6 +17,8 @@ public static class GameSettings
         if (playerIndex == 0) fpc.mouseSensitivity = PlayerPrefs.GetFloat(GameFlow.SensitivityKey, fpc.mouseSensitivity);
         fpc.stickSensitivity = PlayerPrefs.GetFloat(StickSensitivityKey, fpc.stickSensitivity);
         fpc.invertY = PlayerPrefs.GetInt(InvertYKey, fpc.invertY ? 1 : 0) == 1;
+        var tpv = fpc.GetComponent<ThirdPersonView>();                        // how far back the over-the-shoulder camera sits
+        if (tpv) tpv.distance = PlayerPrefs.GetFloat(ThirdPersonDistanceKey, tpv.distance);
     }
 
     static void ApplyToPlayers()
@@ -34,6 +36,7 @@ public static class GameSettings
         Slider(card, "Controller look", y += rowHeight, 60f, 400f, PlayerPrefs.GetFloat(StickSensitivityKey, 160f), v => SetFloat(StickSensitivityKey, v));
         Toggle(card, "Invert look", y += rowHeight, PlayerPrefs.GetInt(InvertYKey, 0) == 1, v => SetBool(InvertYKey, v));
         Toggle(card, "Vibration", y += rowHeight, Vibration, v => SetBool(VibrationKey, v));
+        Slider(card, "Third-person zoom", y += rowHeight, 1.8f, 6f, PlayerPrefs.GetFloat(ThirdPersonDistanceKey, 2.8f), v => SetFloat(ThirdPersonDistanceKey, v));
         Slider(card, "Volume", y += rowHeight, 0f, 1f, PlayerPrefs.GetFloat(GameFlow.VolumeKey, 1f),
             v => { AudioListener.volume = v; PlayerPrefs.SetFloat(GameFlow.VolumeKey, v); PlayerPrefs.Save(); });
         Slider(card, "Music", y += rowHeight, 0f, 1f, SoundKit.MusicVolume, v => { SoundKit.MusicVolume = v; PlayerPrefs.Save(); });

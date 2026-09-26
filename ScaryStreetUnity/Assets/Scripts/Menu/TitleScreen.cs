@@ -118,7 +118,7 @@ public class TitleScreen : MonoBehaviour
     GameObject BuildSettings(Transform root)
     {
         var card = Card(root, "SETTINGS");
-        settingsFirst = GameSettings.BuildRows(card, 140, 76);
+        settingsFirst = GameSettings.BuildRows(card, 140, 66);
         settingsBack = BackButton(card, () => Close(settings));
         return card.gameObject;
     }
