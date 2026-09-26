@@ -3,10 +3,12 @@ using UnityEngine;
 
 // Cooper's starting weapon (DESIGN.md): melee hits, and when charged you slam it on the ground yelling "OBJECTION".
 // Toned down from the web build (it one-shot workers and cleared crowds): 16 damage to the 3 closest enemies in
-// a ~105° cone 1.7 m in front of you, 0.65 s between swings, 6 swings then 3.5 s "reading up on the law".
-// The OBJECTION slam takes 1.1 s to charge, costs 3 pages and hits 28 in 2.8 m. Lv 3+ reaches further, shoves harder.
+// a ~105° cone 1.7 m in front of you, 0.65 s between swings. No reloading (it's a melee weapon).
+// The OBJECTION slam takes 1.1 s to charge, hits 28 in 2.8 m, and needs 3.5 s before the next one.
+// Right click throws the book (24 damage, goes through 2): it lands on the floor and you walk over it to get it
+// back (fists until then). Lv 3+ reaches further, shoves harder.
 // Click to swing. Keep holding after a swing to charge; let go once it's charged to slam everyone around you.
-public class LawBookWeapon : MagazineWeapon
+public class LawBookWeapon : Weapon
 {
     public override UIArt.Icon Icon => UIArt.Icon.Book;
     [Header("Swing")]
@@ -20,12 +22,16 @@ public class LawBookWeapon : MagazineWeapon
     public float slamDamage = 28f;
     public float slamRadius = 2.8f;
     public float slamKnockback = 1.2f;
-    public int slamPages = 3;
+    public float slamCooldown = 3.5f;
+    [Header("Throw")]
+    public float throwDamage = 24f, throwSpeed = 15f;
 
-    protected override int BaseMagazine => 6;
-    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
-    protected override float ReloadTime => 3.5f;
-    protected override string ReloadText => "Reading up…";
+    protected override CharacterAnimator.Hold HoldPose => thrown ? CharacterAnimator.Hold.None : CharacterAnimator.Hold.Book;
+
+    bool thrown, wasSecondary;
+    float slamReady;
+    LawBookPickup onFloor;
+    public bool Thrown => thrown;
 
     bool L3 => level >= 3;
     float cooldown, swingT = -1f, slamT = -1f, charge;
@@ -55,11 +61,24 @@ public class LawBookWeapon : MagazineWeapon
         float dt = Time.deltaTime;
         SyncModels();
         cooldown -= dt;
-        bool reloading = TickReload(dt, input.reloadPressed);
+        slamReady -= dt;
+        bool throwPressed = input.secondaryHeld && !wasSecondary;
+        wasSecondary = input.secondaryHeld;
+        bool reloading = false;
+        if (thrown)
+        {
+            // the book's on the floor somewhere: fists until you pick it up
+            if (fpModel) fpModel.gameObject.SetActive(false);
+            if (tpModel) tpModel.gameObject.SetActive(false);
+            var fists = inventory.GetComponent<PlayerPunch>(); if (fists) fists.allowInput = true;
+            if (arms) arms.overrideRight = false;
+            return;
+        }
+        if (throwPressed && cooldown <= 0 && !charging) { Throw(); return; }
 
         if (!reloading)
         {
-            if (input.primaryPressed && cooldown <= 0 && ammo > 0)
+            if (input.primaryPressed && cooldown <= 0)
             {
                 Swing();
                 charging = true; charge = 0;
@@ -69,7 +88,8 @@ public class LawBookWeapon : MagazineWeapon
                 if (input.primaryHeld) charge = Mathf.Min(1f, charge + dt / chargeTime);
                 else
                 {
-                    if (charge >= 1f && ammo > 0) Slam();
+                    if (charge >= 1f && slamReady <= 0) Slam();
+                    else if (charge >= 1f) inventory.Toast("Objection overruled: wait a sec", 1f);
                     charging = false; charge = 0;
                 }
             }
@@ -83,7 +103,6 @@ public class LawBookWeapon : MagazineWeapon
     {
         cooldown = swingCooldown;
         swingT = 0;
-        UseAmmo();
         if (BodyAnim) BodyAnim.Swing(0.35f, 0.4f);
         SoundKit.Play(Sfx.Whoosh, 0.55f);
 
@@ -108,7 +127,7 @@ public class LawBookWeapon : MagazineWeapon
     void Slam()
     {
         slamT = 0;
-        UseAmmo(Mathf.Min(slamPages, ammo));
+        slamReady = slamCooldown;
         cooldown = swingCooldown * 1.5f;
         inventory.Toast("OBJECTION!", 1.4f);
         SoundKit.Play(Sfx.Slam, 0.9f); SoundKit.Play(Sfx.Objection, 0.7f, 0f);
@@ -182,11 +201,43 @@ public class LawBookWeapon : MagazineWeapon
     {
         get
         {
-            if (Reloading) return "Reading up on the law…";
-            if (charging && charge >= 1f) return "Charged: let go for OBJECTION!";
-            return $"{Key("Left click", GamepadInfo.RT)} to swing · keep holding to charge the OBJECTION slam · {Key("R", "d-pad ↓")} to reload";
+            if (thrown) return "Your book's on the floor: walk over it to pick it up (fists till then)";
+            if (charging && charge >= 1f) return slamReady > 0 ? "Slam's not ready yet" : "Charged: let go for OBJECTION!";
+            return $"{Key("Left click", GamepadInfo.RT)} to swing · keep holding to charge the OBJECTION slam · {Key("right click", GamepadInfo.LT)} to throw it";
         }
     }
+
+    public override string SlotStatus => thrown ? "Thrown" : slamReady > 0 ? "" : "Slam ready";
+
+    // ---------- throwing it ----------
+
+    void Throw()
+    {
+        thrown = true; cooldown = 0.4f; charging = false; charge = 0;
+        if (BodyAnim) BodyAnim.Throw(0.45f, 0.5f);
+        SoundKit.Play(Sfx.Throw, 0.7f);
+        var p = Projectile.Spawn("ThrownLawBook", Eye + cam.forward * 0.5f, cam.forward * throwSpeed + Vector3.up * 1.5f, inventory.gameObject);
+        p.damage = PlayerStats.MeleeDamage(throwDamage * LevelDamage, inventory.gameObject);
+        p.gravity = 6f; p.life = 3f; p.radius = 0.35f; p.pierce = 1; p.knockback = 1f;
+        p.spin = 800f; p.spinAxis = Vector3.right; p.hitSound = Sfx.Punch;
+        Book(p.transform, true);
+        p.onEnd = at => onFloor = LawBookPickup.Drop(at, this);
+        if (fpModel) fpModel.gameObject.SetActive(false);
+        if (tpModel) tpModel.gameObject.SetActive(false);
+        if (BodyAnim) BodyAnim.hold = CharacterAnimator.Hold.None;
+    }
+
+    // Walked over it: back in your hand.
+    public void PickedUp()
+    {
+        thrown = false; onFloor = null;
+        inventory.Toast("Got your book back", 1.2f);
+        SoundKit.Play(Sfx.Xp, 0.5f, 0f);
+        if (inventory.Current == this) { var fists = inventory.GetComponent<PlayerPunch>(); if (fists) fists.allowInput = false; }
+        SyncModels();
+    }
+
+    public Transform BuildBook(Transform parent, bool fp) => Book(parent, fp);
 
     // ---------- models ----------
 
@@ -200,9 +251,9 @@ public class LawBookWeapon : MagazineWeapon
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
-        var m = Book(body.handR, false);
-        m.localPosition = new Vector3(0, -0.09f, 0.03f);
-        m.localRotation = Quaternion.Euler(-90f, 90f, 0);
+        var m = Book(body.handR, false);                                 // hanging from the hand, fingers hooked over the top edge
+        m.localPosition = new Vector3(-0.02f, -0.18f, 0.01f);
+        m.localRotation = Quaternion.identity;
         return m;
     }
 

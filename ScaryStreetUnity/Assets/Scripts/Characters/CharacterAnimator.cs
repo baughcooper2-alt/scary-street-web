@@ -165,7 +165,7 @@ public class CharacterAnimator : MonoBehaviour
 
     void LateUpdate()
     {
-        float dt = Time.deltaTime;
+        float dt = Application.isPlaying ? Time.deltaTime : 1f / 30f;           // (edit-mode previews step it by hand)
         if (dt <= 0) return;
         t += dt;
         if (dead) { Collapse(dt); return; }
@@ -245,13 +245,13 @@ public class CharacterAnimator : MonoBehaviour
         switch (hold)
         {
             case Hold.Guitar: tSL = new Vector3(-62f, 0, 4f); tEL = new Vector3(-75f, 0, 0); tSR = new Vector3(-22f, 0, 12f); tER = new Vector3(-70f, 0, 0); break;
-            case Hold.Book:   tSR = new Vector3(-22f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-85f, 0, 0); break;
+            case Hold.Book:   tSR = new Vector3(-10f, 0, 7f) + new Vector3(s * armSwing * 0.4f, 0, 0); tER = new Vector3(-28f, 0, 0); break;   // carried at your side by the top edge
             case Hold.Cart:   tSR = new Vector3(-14f, 0, 6f); tER = new Vector3(-95f, 0, 0); break;
             case Hold.Tray:   tSL = new Vector3(-48f, 0, 4f); tSR = new Vector3(-48f, 0, -4f); tEL = tER = new Vector3(-48f, 0, 0); break;
             case Hold.Phone:  tSR = new Vector3(-32f, 0, 14f); tER = new Vector3(-128f, 0, 0); tSpine.x += 6f; break;
-            case Hold.CarryLeft: tSL = new Vector3(-28f, 0, -8f); tEL = new Vector3(-88f, 0, 0); tSR = new Vector3(-18f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-60f, 0, 0); break;   // deck / chip case in the left hand
+            case Hold.CarryLeft: tSL = new Vector3(-16f, 0, 16f); tEL = new Vector3(-96f, 0, 0); tSR = new Vector3(-18f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-60f, 0, 0); break;   // deck / chip case in the left hand
             case Hold.HangLeft:  tSL = new Vector3(-4f, 0, -10f); tEL = new Vector3(-12f, 0, 0); tSR = new Vector3(-20f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-75f, 0, 0); break;  // 6-pack carrier at your side, bottle in the right
-            case Hold.Carton:    tSL = new Vector3(-45f, 0, 12f); tSR = new Vector3(-45f, 0, -12f); tEL = tER = new Vector3(-55f, 0, 0); break;   // a big box in both hands
+            case Hold.Carton:    tSL = new Vector3(-40f, 0, 17f); tSR = new Vector3(-40f, 0, -17f); tEL = tER = new Vector3(-62f, 0, 0); break;   // a big box in both hands
         }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
 
@@ -341,5 +341,115 @@ public class CharacterAnimator : MonoBehaviour
         b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
         if (b.ankleL) b.ankleL.localRotation = anLR * Quaternion.Euler(anL);
         if (b.ankleR) b.ankleR.localRotation = anRR * Quaternion.Euler(anR);
+
+        ReachMouth(dt);
+        Fingers(dt);
+    }
+
+    // ---------- hands: fingers curl round what they hold ----------
+
+    // Hold → how far each hand's fingers curl (0 relaxed … 1 closed round a handle).
+    [System.NonSerialized] public float gripOverrideR = -1f, gripOverrideL = -1f;   // weapons can force a grip (-1 = automatic)
+    float gripR, gripL;
+    Transform[][] fingR, fingL;                                                        // [finger][segment], thumb last
+
+    void FindFingers()
+    {
+        Transform[][] Find(string side)
+        {
+            var names = new[] { "Index", "Mid", "Ring", "Pinky", "Thumb" };
+            var list = new Transform[names.Length][];
+            for (int f = 0; f < names.Length; f++)
+            {
+                list[f] = new Transform[3];
+                for (int j = 0; j < 3; j++) list[f][j] = FindDeep(transform, $"CC_Base_{side}_{names[f]}{j + 1}");
+                if (!list[f][0]) return null;
+            }
+            return list;
+        }
+        fingR = Find("R"); fingL = Find("L");
+    }
+
+    static Transform FindDeep(Transform t, string name)
+    {
+        if (t.name == name) return t;
+        foreach (Transform c in t) { var r = FindDeep(c, name); if (r) return r; }
+        return null;
+    }
+
+    void Fingers(float dt)
+    {
+        if (fingR == null && fingL == null) { if (!triedFingers) { triedFingers = true; FindFingers(); } if (fingR == null) return; }
+        bool punching = act == Act.Punch && actT >= 0;
+        // how far each hand closes for what it's holding: a fist round handles and bottles, a hook over a book's edge,
+        // flat palms on a box, a loose supporting hand under a case
+        float wantR = gripOverrideR >= 0 ? gripOverrideR
+            : punching || inhaling ? 1f
+            : hold == Hold.Book ? 0.55f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : hold == Hold.CarryLeft ? 0.3f : hold == Hold.None ? 0.2f : 0.95f;
+        float wantL = gripOverrideL >= 0 ? gripOverrideL
+            : hold == Hold.HangLeft || hold == Hold.Guitar ? 1f : hold == Hold.CarryLeft ? 0.45f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : 0.2f;
+        float k = 1f - Mathf.Exp(-dt * 16f);
+        gripR = Mathf.Lerp(gripR, wantR, k); gripL = Mathf.Lerp(gripL, wantL, k);
+        Curl(fingR, gripR, -1f); Curl(fingL, gripL, 1f);
+    }
+    bool triedFingers;
+
+    // Fingers hang straight down at rest with the knuckles along Z; curling toward the palm is about Z
+    // (the right palm faces -X, so the right hand turns the other way).
+    static void Curl(Transform[][] hand, float g, float sign)
+    {
+        if (hand == null) return;
+        float[] seg = { 72f, 95f, 60f };
+        for (int f = 0; f < 4; f++)
+            for (int j = 0; j < 3; j++)
+                if (hand[f][j]) hand[f][j].localRotation = Quaternion.Euler(0, 0, sign * (8f + seg[j] * g) * (1f - 0.08f * f * (1f - g)));
+        var th = hand[4];                                                              // thumb: across the front of the fingers
+        if (th[0]) th[0].localRotation = Quaternion.Euler(-25f * g, 0, sign * 20f * g);
+        if (th[1]) th[1].localRotation = Quaternion.Euler(0, 0, sign * 25f * g);
+        if (th[2]) th[2].localRotation = Quaternion.Euler(0, 0, sign * 30f * g);
+    }
+
+    // ---------- the cart to the mouth (third person) ----------
+
+    [Tooltip("What goes in the mouth while hitting the cart (its mouthpiece); set by the cart.")]
+    [System.NonSerialized] public Transform mouthItemTip;
+    float reach;
+    Quaternion handRRest; bool handRestSet;
+
+    // Two-bone reach for the right arm so the held item's tip ends up at the lips, elbow down and out.
+    void ReachMouth(float dt)
+    {
+        reach = Mathf.MoveTowards(reach, inhaling && mouthItemTip ? 1f : 0f, dt * 5f);
+        if (!b.handR || !b.head) return;
+        if (!handRestSet) { handRRest = b.handR.localRotation; handRestSet = true; }
+        b.handR.localRotation = handRRest;                                                // nothing else turns the hand: start from rest each frame
+        if (reach <= 0.001f || !mouthItemTip) return;
+        float s = transform.lossyScale.y;
+        Vector3 mouth = b.head.position + transform.forward * 0.1f * s + transform.up * 0.015f * s;
+        for (int iter = 0; iter < 2; iter++)
+        {
+            // where the hand has to be so the tip lands on the mouth (the item's tip → hand offset, kept)
+            Vector3 handTarget = mouth - (mouthItemTip.position - b.handR.position);
+            Solve(b.shoulderR, b.elbowR, b.handR, Vector3.Lerp(b.handR.position, handTarget, reach), transform.right * 0.6f - transform.up);
+            // turn the hand so the tip points at the mouth
+            Vector3 have = mouthItemTip.position - b.handR.position, want = mouth - b.handR.position;
+            b.handR.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(have, want), reach) * b.handR.rotation;
+        }
+    }
+
+    static void Solve(Transform shoulder, Transform elbow, Transform hand, Vector3 target, Vector3 pole)
+    {
+        Vector3 S = shoulder.position, E = elbow.position, H = hand.position;
+        float l1 = (E - S).magnitude, l2 = (H - E).magnitude;
+        Vector3 toT = target - S; float d = Mathf.Clamp(toT.magnitude, 0.05f, l1 + l2 - 0.001f);
+        float cosA = Mathf.Clamp((l1 * l1 + d * d - l2 * l2) / (2f * l1 * d), -1f, 1f);
+        Vector3 dir = toT.normalized;
+        Vector3 n = Vector3.Cross(dir, pole).normalized;
+        if (n.sqrMagnitude < 1e-6f) n = Vector3.Cross(dir, Vector3.up).normalized;
+        Vector3 upper = Quaternion.AngleAxis(Mathf.Acos(cosA) * Mathf.Rad2Deg, n) * dir;
+        if (Vector3.Dot(upper, pole) < 0) upper = Quaternion.AngleAxis(-Mathf.Acos(cosA) * Mathf.Rad2Deg, n) * dir;
+        shoulder.rotation = Quaternion.FromToRotation(E - S, upper) * shoulder.rotation;
+        Vector3 E2 = elbow.position, H2 = hand.position;
+        elbow.rotation = Quaternion.FromToRotation(H2 - E2, target - E2) * elbow.rotation;
     }
 }

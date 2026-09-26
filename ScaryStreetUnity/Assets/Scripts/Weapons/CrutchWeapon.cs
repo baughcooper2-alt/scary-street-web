@@ -82,7 +82,8 @@ public class CrutchWeapon : Weapon
         }
     }
 
-    // aluminium crutch: long pole, grey arm pad on top, hand grip part way down, rubber foot
+    // aluminium crutch, origin at the hand grip: the grip bar runs front to back (through the fist), the pole stands
+    // just outside the hand with the grey arm pad up top and the rubber foot below
     Transform Crutch(Transform parent, bool fp)
     {
         var mats = BlockyCharacter.RuntimeMaterials();
@@ -90,25 +91,27 @@ public class CrutchWeapon : Weapon
         var pad = mats("CrutchPad", new Color(0.18f, 0.18f, 0.2f));
         var root = new GameObject("Crutch").transform;
         root.SetParent(parent, false);
-        Part(PrimitiveType.Cylinder, root, new Vector3(0, 0.2f, 0), new Vector3(0.025f, 0.6f, 0.025f), metal, fp);               // pole
-        Part(PrimitiveType.Capsule, root, new Vector3(0, 0.82f, 0), new Vector3(0.045f, 0.09f, 0.045f), pad, fp, new Vector3(0, 0, 90f));   // arm pad
-        Part(PrimitiveType.Cylinder, root, new Vector3(0, 0.74f, 0), new Vector3(0.018f, 0.06f, 0.018f), metal, fp);             // pad post
-        Part(PrimitiveType.Cylinder, root, new Vector3(0.05f, 0f, 0), new Vector3(0.022f, 0.05f, 0.022f), pad, fp, new Vector3(0, 0, 90f));  // hand grip
-        Part(PrimitiveType.Cylinder, root, new Vector3(0, -0.41f, 0), new Vector3(0.035f, 0.02f, 0.035f), pad, fp);              // rubber foot
+        const float x = 0.045f;                                                                                           // pole beside the fist
+        Part(PrimitiveType.Cylinder, root, Vector3.zero, new Vector3(0.024f, 0.06f, 0.024f), pad, fp, new Vector3(90f, 0, 0));     // hand grip
+        foreach (float z in new[] { -0.06f, 0.06f })                                                                      // the two rails either side of the grip
+            Part(PrimitiveType.Cylinder, root, new Vector3(x, 0.19f, z), new Vector3(0.018f, 0.25f, 0.018f), metal, fp);
+        Part(PrimitiveType.Capsule, root, new Vector3(x, 0.45f, 0), new Vector3(0.045f, 0.1f, 0.045f), pad, fp, new Vector3(90f, 0, 0));  // arm pad
+        Part(PrimitiveType.Cylinder, root, new Vector3(x, -0.4f, 0), new Vector3(0.025f, 0.42f, 0.025f), metal, fp);           // pole down to the floor
+        Part(PrimitiveType.Cylinder, root, new Vector3(x, -0.83f, 0), new Vector3(0.035f, 0.02f, 0.035f), pad, fp);            // rubber foot
         return root;
     }
 
     protected override Transform BuildFirstPersonModel()
     {
-        var c = Crutch(arms.RightHand, true);
-        c.localPosition = new Vector3(-0.04f, 0f, 0.02f); c.localRotation = Quaternion.Euler(75f, 0, 0); c.localScale = Vector3.one * 0.8f;
+        var c = Crutch(arms.RightHand, true);                             // grip in the fist, leaning forward
+        c.localPosition = new Vector3(0f, 0f, 0.01f); c.localRotation = Quaternion.Euler(-40f, 90f, 0); c.localScale = Vector3.one * 0.8f;
         return c;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
-        var c = Crutch(body.handR, false);
-        c.localPosition = new Vector3(-0.05f, -0.08f, 0.03f); c.localRotation = Quaternion.Euler(90f, 0, 0);
+        var c = Crutch(body.handR, false);                                // the grip in the fist, standing upright
+        c.localPosition = new Vector3(-0.02f, -0.08f, 0f);
         return c;
     }
 }

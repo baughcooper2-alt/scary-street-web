@@ -200,8 +200,8 @@ public class SixPackWeapon : Weapon
     {
         var root = new GameObject("SixPackTP").transform;
         root.SetParent(body.handR, false);
-        tpBottle = Bottle(root, false);
-        tpBottle.localPosition = new Vector3(0, -0.1f, 0.03f);
+        tpBottle = Bottle(root, false);                                    // through the fist, like you'd really hold it
+        tpBottle.localPosition = new Vector3(-0.02f, -0.08f, -0.06f); tpBottle.localRotation = Quaternion.Euler(90f, 0, 0);
         if (body.handL)
         {
             var carrier = Carrier(body.handL, false, tpSlots);

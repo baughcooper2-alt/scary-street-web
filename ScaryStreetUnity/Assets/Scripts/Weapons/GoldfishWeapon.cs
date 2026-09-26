@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// Box of Goldfish (DESIGN.md, Kenny's weapon): a big orange carton held in both hands.
+// Box of Goldfish (DESIGN.md, Kenny's weapon): a big orange milk-carton-style box, open at the top, held in both hands.
 // Left click tosses a handful out of the top: 6 crackers in a spread, 4.5 damage each, short range (a snack shotgun).
 // Right click lobs the whole carton (needs 4 handfuls; uses what's left): it bursts for 22 damage in 3 m and the
 // workers it hits stop to snack for 1.5 s. 12 handfuls, then 2.2 s to open a new carton.
@@ -14,8 +14,8 @@ public class GoldfishWeapon : MagazineWeapon
     public int boxCost = 4;
 
     // first person: the carton sits low in front of you, a hand on each side
-    static readonly Vector3 BoxRest = new Vector3(0f, -0.3f, 0.46f);
-    static readonly Vector3 BoxSize = new Vector3(0.2f, 0.27f, 0.085f);
+    static readonly Vector3 BoxRest = new Vector3(0f, -0.25f, 0.56f);
+    static readonly Vector3 BoxSize = new Vector3(0.15f, 0.26f, 0.15f);        // a big milk carton
 
     float cooldown, tossT = -1f, tossDur = 0.3f;
     bool wasSecondary;
@@ -48,6 +48,17 @@ public class GoldfishWeapon : MagazineWeapon
             else if (input.primaryPressed && ammo > 0) Handful();
         }
         Animate(dt, reloading);
+        HoldBetweenHands();
+    }
+
+    // third person: the carton sits between the two hands
+    void HoldBetweenHands()
+    {
+        var body = inventory.GetComponentInChildren<BlockyCharacter>();
+        if (!tpModel || !body || !body.handL || !body.handR) return;
+        Vector3 l = body.handL.TransformPoint(new Vector3(0.02f, -0.07f, 0)), r = body.handR.TransformPoint(new Vector3(-0.02f, -0.07f, 0));
+        tpModel.position = (l + r) * 0.5f;
+        tpModel.rotation = Quaternion.LookRotation(body.transform.forward, Vector3.up);
     }
 
     // both hands on the carton; a toss lifts and tips it forward; a new carton comes up from below
@@ -58,12 +69,12 @@ public class GoldfishWeapon : MagazineWeapon
         if (tossT >= 0) { float p = (tossT += dt) / tossDur; k = Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI); if (p >= 1f) tossT = -1f; }
         float down = reloading ? Mathf.Clamp01(1f - Mathf.Abs(1f - 2f * (1f - reloadT / ReloadTime))) : 0f;   // dips out and back
         fpModel.localPosition = BoxRest + new Vector3(0, 0.07f * k - 0.35f * down, 0.09f * k);
-        fpModel.localRotation = Quaternion.Euler(-8f - 38f * k, 0, 0);
+        fpModel.localRotation = Quaternion.Euler(-24f - 30f * k, 0, 0);          // top tipped toward you
         Vector3 side = fpModel.localRotation * new Vector3(BoxSize.x * 0.5f + 0.025f, -0.03f, -0.01f);
         arms.overrideLeft = arms.overrideRight = true;
         arms.leftTarget = fpModel.localPosition + new Vector3(-side.x, side.y, side.z);
         arms.rightTarget = fpModel.localPosition + side;
-        arms.leftEuler = arms.rightEuler = new Vector3(-8f - 38f * k, 0, 0);
+        arms.leftEuler = arms.rightEuler = new Vector3(-24f - 30f * k, 0, 0);
     }
 
     static void Mats()
@@ -75,7 +86,7 @@ public class GoldfishWeapon : MagazineWeapon
         if (!boxDark) boxDark = mats("GoldfishCartonInside", new Color(0.35f, 0.18f, 0.05f));
     }
 
-    Vector3 Spout => fpModel ? fpModel.position + fpModel.up * BoxSize.y * 0.5f : Eye + cam.forward * 0.45f;
+    Vector3 Spout => fpModel ? fpModel.position + fpModel.up * (BoxSize.y * 0.5f + 0.04f) + fpModel.forward * BoxSize.z * 0.5f : Eye + cam.forward * 0.45f;
 
     void Handful()
     {
@@ -130,19 +141,28 @@ public class GoldfishWeapon : MagazineWeapon
         }
     }
 
-    // the big orange carton: white band, a smiling cracker on the front, open top with crackers showing
+    // a big orange milk carton: square body, gable top with the ridge fin, the front of the spout pulled open
+    // (crackers showing inside), a cracker fish and a white band on the front
     static Transform Carton(Transform parent, bool fp)
     {
         Mats();
         var root = new GameObject("GoldfishCarton").transform;
         root.SetParent(parent, false);
-        Part(PrimitiveType.Cube, root, Vector3.zero, BoxSize, boxMat, fp);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.055f, 0), new Vector3(BoxSize.x + 0.002f, 0.05f, BoxSize.z + 0.002f), boxBand, fp);
-        Part(PrimitiveType.Sphere, root, new Vector3(0, -0.035f, BoxSize.z * 0.5f + 0.004f), new Vector3(0.1f, 0.06f, 0.012f), cracker, fp);   // the mascot fish
-        Part(PrimitiveType.Cube, root, new Vector3(-0.055f, -0.035f, BoxSize.z * 0.5f + 0.004f), new Vector3(0.03f, 0.04f, 0.01f), cracker, fp, new Vector3(0, 0, 45f));
-        Part(PrimitiveType.Cube, root, new Vector3(0, BoxSize.y * 0.5f - 0.004f, 0), new Vector3(BoxSize.x - 0.02f, 0.01f, BoxSize.z - 0.015f), boxDark, fp);   // open top
-        for (int i = 0; i < 6; i++)
-            Part(PrimitiveType.Sphere, root, new Vector3(-0.07f + i * 0.028f, BoxSize.y * 0.5f + 0.004f, (i % 2 == 0 ? -0.015f : 0.015f)), new Vector3(0.024f, 0.014f, 0.035f), cracker, fp, new Vector3(0, i * 40f, 0));
+        float W = BoxSize.x, H = BoxSize.y, D = BoxSize.z, g = 0.075f;
+        float slope = Mathf.Atan2(g, D / 2) * Mathf.Rad2Deg, len = Mathf.Sqrt(g * g + D * D / 4);
+        Part(PrimitiveType.Cube, root, Vector3.zero, new Vector3(W, H, D), boxMat, fp);                                           // body
+        Part(PrimitiveType.Cube, root, new Vector3(0, 0.03f, 0), new Vector3(W + 0.002f, 0.045f, D + 0.002f), boxBand, fp);       // white band
+        Part(PrimitiveType.Sphere, root, new Vector3(0, -0.05f, D / 2 + 0.004f), new Vector3(0.09f, 0.055f, 0.012f), cracker, fp); // the fish
+        Part(PrimitiveType.Cube, root, new Vector3(-0.052f, -0.05f, D / 2 + 0.004f), new Vector3(0.028f, 0.036f, 0.01f), cracker, fp, new Vector3(0, 0, 45f));
+        Part(PrimitiveType.Cube, root, new Vector3(0, H / 2 - 0.002f, 0), new Vector3(W - 0.01f, 0.004f, D - 0.01f), boxDark, fp);  // inside, seen through the spout
+        // gable: back panel slopes up to the ridge; the front panel is folded out (the spout is open)
+        Part(PrimitiveType.Cube, root, new Vector3(0, H / 2 + g / 2, -D / 4), new Vector3(W, 0.004f, len), boxMat, fp, new Vector3(-slope, 0, 0));
+        Part(PrimitiveType.Cube, root, new Vector3(0, H / 2 + g * 0.35f, D / 2 + 0.02f), new Vector3(W * 0.96f, 0.004f, len), boxMat, fp, new Vector3(35f, 0, 0));
+        Part(PrimitiveType.Cube, root, new Vector3(0, H / 2 + g + 0.008f, -0.004f), new Vector3(W, 0.018f, 0.004f), boxMat, fp);  // ridge fin
+        foreach (float x in new[] { -W / 2, W / 2 })                                                                               // the folded side gussets
+            Part(PrimitiveType.Cube, root, new Vector3(x, H / 2 + g * 0.4f, -D / 8), new Vector3(0.004f, g * 0.8f, D * 0.6f), boxMat, fp, new Vector3(-slope * 0.5f, 0, 0));
+        for (int i = 0; i < 5; i++)                                                                                                 // crackers heaped at the opening
+            Part(PrimitiveType.Sphere, root, new Vector3(-0.05f + i * 0.025f, H / 2 + 0.008f, 0.02f + (i % 2) * 0.02f), new Vector3(0.024f, 0.014f, 0.035f), cracker, fp, new Vector3(0, i * 40f, 0));
         return root;
     }
 
@@ -157,7 +177,7 @@ public class GoldfishWeapon : MagazineWeapon
     {
         var anchor = body.spine ? body.spine : body.handR;
         var b = Carton(anchor, false);                                    // at the chest, between the hands
-        b.localPosition = new Vector3(0, 0.22f, 0.3f); b.localScale = Vector3.one * 1.15f;
+        b.localPosition = new Vector3(0, 0.22f, 0.3f);
         return b;
     }
 }

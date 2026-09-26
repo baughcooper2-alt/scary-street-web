@@ -15,6 +15,7 @@ public class Projectile : MonoBehaviour
     public Sfx hitSound = Sfx.Hit, burstSound = Sfx.Splat;
     public bool burstOnWall;                 // bottles and the goldfish box break when they land
     public System.Action<Vector3> onBurst;
+    public System.Action<Vector3> onEnd;       // wherever it stops (landed, hit its last enemy, or ran out of time)
 
     Vector3 velocity;
     GameObject owner;
@@ -47,7 +48,7 @@ public class Projectile : MonoBehaviour
     void Update()
     {
         float dt = Time.deltaTime;
-        if ((age += dt) >= life) { if (blastRadius > 0) Burst(); Destroy(gameObject); return; }
+        if ((age += dt) >= life) { if (blastRadius > 0) Burst(); End(); return; }
         velocity += Vector3.down * gravity * dt;
         Vector3 step = velocity * dt;
         if (Physics.Raycast(transform.position, step.normalized, out var wall, step.magnitude + 0.05f, ~0, QueryTriggerInteraction.Ignore)
@@ -55,7 +56,7 @@ public class Projectile : MonoBehaviour
         {
             transform.position = wall.point - step.normalized * 0.05f;
             if (blastRadius > 0 || burstOnWall) Burst();
-            Destroy(gameObject);
+            End();
             return;
         }
         transform.position += step;
@@ -69,7 +70,7 @@ public class Projectile : MonoBehaviour
             if (!h || h.IsDead || (owner && h.gameObject == owner) || h.GetComponent<FirstPersonController>() || !hit.Add(h)) continue;
             h.TakeDamage(damage, knockback);
             SoundKit.PlayAt(hitSound, transform.position, 0.6f);
-            if (blastRadius > 0) { Burst(); Destroy(gameObject); return; }
+            if (blastRadius > 0) { Burst(); End(); return; }
             if (bounces > 0)
             {
                 var next = EnemyTargets.Nearest(transform.position, bounceRange, hit);
@@ -81,9 +82,11 @@ public class Projectile : MonoBehaviour
                     return;
                 }
             }
-            if (--pierce < 0) { Destroy(gameObject); return; }
+            if (--pierce < 0) { End(); return; }
         }
     }
+
+    void End() { onEnd?.Invoke(transform.position); Destroy(gameObject); }
 
     void Burst()
     {

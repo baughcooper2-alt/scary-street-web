@@ -90,7 +90,7 @@ public class CartWeapon : Weapon
         }
         else holdFull = 0;
         if (arms) { arms.mouthTip = fpTip; arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f); }
-        var anim = BodyAnim; if (anim) { anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
+        var anim = BodyAnim; if (anim) { anim.mouthItemTip = tpTip; anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
         glow = Mathf.MoveTowards(glow, inhaling || blinkReady ? 1f : 0f, dt * 8f);
         DrawScreen(maxPuffs > 0 ? lung / maxPuffs : 0f);
         if (ledMat) ledMat.color = Color.Lerp(new Color(0.18f, 0.42f, 0.28f), blinkReady ? new Color(1f, 0.35f, 0.12f) : new Color(1f, 0.7f, 0.28f), glow);
@@ -181,8 +181,8 @@ public class CartWeapon : Weapon
         var root = new GameObject("Cart").transform;
         root.SetParent(hand, false);
         if (firstPerson) { root.localPosition = new Vector3(0, 0.03f, 0.01f); root.localRotation = Quaternion.Euler(-10f, 0, 0); }
-        else { root.localPosition = new Vector3(0, -0.08f, 0.03f); root.localRotation = Quaternion.Euler(-80f, 0, 0); }
-        root.localScale = Vector3.one * 0.55f;
+        else { root.localPosition = new Vector3(-0.02f, -0.08f, 0.02f); root.localRotation = Quaternion.Euler(90f, 0, 0); }   // in the fist, mouthpiece out the top
+        root.localScale = Vector3.one * (firstPerson ? 0.55f : 0.68f);
 
         var mats = BlockyCharacter.RuntimeMaterials();
         var shell = mats("CartShell", new Color(0.035f, 0.035f, 0.04f)); shell.SetFloat("_Smoothness", 0.7f);
@@ -193,7 +193,7 @@ public class CartWeapon : Weapon
         CartPart(PrimitiveType.Cube, root, new Vector3(-0.012f, H / 2 + 0.036f, 0), new Vector3(0.03f, 0.006f, 0.022f), matte, firstPerson);
         var tip = new GameObject("MouthTip").transform;                    // what goes in your mouth when you hit it
         tip.SetParent(root, false); tip.localPosition = new Vector3(-0.012f, H / 2 + 0.039f, 0);
-        if (firstPerson) fpTip = tip;
+        if (firstPerson) fpTip = tip; else tpTip = tip;
         CartPart(PrimitiveType.Cube, root, new Vector3(0, H / 2 - 0.002f, 0), new Vector3(W + 0.002f, 0.006f, D + 0.002f), shell, firstPerson);   // top rim
 
         // label (left) and screen (right) on the front face
@@ -219,7 +219,7 @@ public class CartWeapon : Weapon
     }
 
     Material labelMat, screenMat; Texture2D screenTex; int shownLevel = -1;
-    Transform fpTip;
+    Transform fpTip, tpTip;
 
     static void Face(Transform parent, Vector3 pos, Vector2 size, Material m, bool firstPerson)
     {

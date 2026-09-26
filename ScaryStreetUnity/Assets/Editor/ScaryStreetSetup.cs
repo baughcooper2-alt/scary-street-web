@@ -420,6 +420,19 @@ public static class ScaryStreetSetup
         foreach (var old in Object.FindObjectsByType<Fridge>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             if (old.replaces == block) Undo.DestroyObjectImmediate(old.gameObject);
         var bb = block.bounds;
+        // the model's microwave faces the counter; the fridge door goes a quarter turn round, toward the open floor
+        {
+            Vector3 side = Vector3.Cross(Vector3.up, front).normalized;
+            float Open(Vector3 dir)
+            {
+                float half = Mathf.Abs(dir.x) > 0.5f ? bb.extents.x : bb.extents.z;
+                Vector3 from = bb.center + Vector3.down * (bb.extents.y - 1f) + dir * (half + 0.05f);
+                return Physics.Raycast(from, dir, out var hit, 4f) ? hit.distance : 4f;
+            }
+            float a = Open(side), b2 = Open(-side);
+            Debug.Log($"Scary Street: fridge sides open {a:0.00} m / {b2:0.00} m (microwave faced {front})");
+            front = a >= b2 ? side : -side;
+        }
         var go = new GameObject("Kitchen Fridge", typeof(BoxCollider), typeof(Fridge));
         Undo.RegisterCreatedObjectUndo(go, "Set Up Kitchen Fridge");
         go.transform.position = new Vector3(bb.center.x, bb.min.y, bb.center.z);
@@ -445,7 +458,7 @@ public static class ScaryStreetSetup
         if (col) { Undo.RecordObject(col, "Set Up Kitchen Fridge"); col.enabled = false; }
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);
-        EditorUtility.DisplayDialog("Scary Street", "The kitchen fridge now opens: F opens and closes it (and refills your 6-pack). Save the scene; press Play to see it.", "OK");
+        EditorUtility.DisplayDialog("Scary Street", "The kitchen fridge now opens (turned to face the open floor): F opens and closes it and refills your 6-pack. Save the scene; press Play to see it.", "OK");
     }
 
     [MenuItem("Tools/Scary Street/Add Fridge")]

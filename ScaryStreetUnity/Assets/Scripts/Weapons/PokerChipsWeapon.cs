@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Poker Chips (DESIGN.md): upgrades change the chip colour, white → red → blue → green → black, and every step
-// hits harder and flies further. You hold an open chip case in your left arm; the right hand takes a chip out and
+// hits harder and flies further. You carry an open silver chip suitcase (a row of each colour) in your left arm; the right hand takes a chip out and
 // flicks it, and it bounces on to the next enemy (twice from green). 10 chips, then 1.6 s restacking.
 public class PokerChipsWeapon : MagazineWeapon
 {
@@ -17,7 +17,7 @@ public class PokerChipsWeapon : MagazineWeapon
         new Color(0.95f, 0.95f, 0.93f), new Color(0.82f, 0.12f, 0.12f), new Color(0.15f, 0.32f, 0.85f),
         new Color(0.12f, 0.62f, 0.25f), new Color(0.08f, 0.08f, 0.09f),
     };
-    static readonly Vector3 LeftHold = new Vector3(-0.13f, -0.25f, 0.4f), LeftEuler = new Vector3(0f, 25f, 0f);
+    static readonly Vector3 LeftHold = new Vector3(-0.21f, -0.31f, 0.44f), LeftEuler = new Vector3(-10f, 25f, 0f);
     static readonly Vector3 RightRest = new Vector3(0.17f, -0.23f, 0.44f);
 
     float cooldown;
@@ -55,6 +55,17 @@ public class PokerChipsWeapon : MagazineWeapon
         if (fpCaseTop) hand.pickFrom = cam.InverseTransformPoint(fpCaseTop.position);
         if (!reloading && input.primaryHeld && cooldown <= 0 && ammo > 0) Throw();
         hand.Apply(arms, dt);
+        LevelOnForearm();
+    }
+
+    // third person: the case rides level on the left forearm and hand, whatever angle the wrist is at
+    void LevelOnForearm()
+    {
+        var body = inventory.GetComponentInChildren<BlockyCharacter>();
+        if (!tpModel || !body || !body.handL || !body.elbowL) return;
+        Vector3 hand = body.handL.TransformPoint(new Vector3(0.02f, -0.06f, 0)), elbow = body.elbowL.position;
+        tpModel.position = Vector3.Lerp(elbow, hand, 0.7f) + Vector3.up * 0.06f;
+        tpModel.rotation = Quaternion.LookRotation(body.transform.forward, Vector3.up) * Quaternion.Euler(-8f, 0, 0);
     }
 
     void Throw()
@@ -93,47 +104,57 @@ public class PokerChipsWeapon : MagazineWeapon
         }
     }
 
-    // an open aluminium chip case: silver tray, lid tipped open at the back, rows of chips standing on edge
+    // a silver aluminium chip suitcase, lid open: black felt, a row of each colour, handle and latches on the front
     Transform Case(Transform parent, bool fp, out Transform top)
     {
         EnsureMats();
         var mats = BlockyCharacter.RuntimeMaterials();
-        var metal = mats("ChipCase", new Color(0.78f, 0.8f, 0.83f)); metal.SetFloat("_Smoothness", 0.75f);
-        var felt = mats("ChipCaseFelt", new Color(0.08f, 0.08f, 0.1f));
+        var metal = mats("ChipCase", new Color(0.8f, 0.82f, 0.85f)); metal.SetFloat("_Smoothness", 0.8f);
+        var edge = mats("ChipCaseEdge", new Color(0.35f, 0.36f, 0.38f)); edge.SetFloat("_Smoothness", 0.6f);
+        var felt = mats("ChipCaseFelt", new Color(0.07f, 0.07f, 0.09f));
         var root = new GameObject("ChipCase").transform;
         root.SetParent(parent, false);
-        Part(PrimitiveType.Cube, root, new Vector3(0, -0.012f, 0), new Vector3(0.2f, 0.028f, 0.13f), metal, fp);           // tray
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.0025f, 0), new Vector3(0.19f, 0.004f, 0.12f), felt, fp);           // lining
-        var lid = Part(PrimitiveType.Cube, root, new Vector3(0, 0.05f, 0.07f), new Vector3(0.2f, 0.1f, 0.01f), metal, fp, new Vector3(-12f, 0, 0));
-        for (int row = 0; row < 4; row++)                                                                                     // chips on edge, in rows
-            for (int n = 0; n < 7; n++)
-                Chip(root, new Vector3(-0.075f + row * 0.05f, 0.022f, -0.045f + n * 0.014f), true);
-        foreach (var r in chipRenderers) r.transform.localRotation = Quaternion.Euler(90f, 0, 0);
-        foreach (var r in spotRenderers) r.enabled = false;                                                                   // too small to see on edge
-        top = new GameObject("Top").transform; top.SetParent(root, false); top.localPosition = new Vector3(0.02f, 0.04f, -0.01f);
+        const float W = 0.34f, D = 0.24f, H = 0.075f;
+        Part(PrimitiveType.Cube, root, new Vector3(0, -H / 2, 0), new Vector3(W, H, D), metal, fp);                                 // bottom shell
+        Part(PrimitiveType.Cube, root, new Vector3(0, -0.004f, 0), new Vector3(W - 0.012f, 0.004f, D - 0.012f), felt, fp);           // lining
+        Part(PrimitiveType.Cube, root, new Vector3(0, 0.001f, 0), new Vector3(W + 0.004f, 0.006f, D + 0.004f), edge, fp);           // rim
+        var lid = new GameObject("Lid").transform; lid.SetParent(root, false); lid.localPosition = new Vector3(0, 0, -D / 2);
+        lid.localRotation = Quaternion.Euler(-165f, 0, 0);                                                                            // swung right back
+        Part(PrimitiveType.Cube, lid, new Vector3(0, 0.02f, D / 2), new Vector3(W, 0.04f, D), metal, fp);
+        Part(PrimitiveType.Cube, lid, new Vector3(0, -0.002f, D / 2), new Vector3(W - 0.012f, 0.004f, D - 0.012f), felt, fp);
+        Part(PrimitiveType.Cube, root, new Vector3(0, -H / 2, D / 2 + 0.018f), new Vector3(0.1f, 0.018f, 0.018f), edge, fp);       // handle
+        foreach (float x in new[] { -0.11f, 0.11f })
+            Part(PrimitiveType.Cube, root, new Vector3(x, -0.012f, D / 2 + 0.004f), new Vector3(0.03f, 0.018f, 0.008f), edge, fp);   // latches
+        var mats2 = BlockyCharacter.RuntimeMaterials();
+        for (int row = 0; row < Colors.Length; row++)                                                                                // one colour per row, chips on edge
+        {
+            var rowMat = mats2("Chip" + Names[row], Colors[row]);
+            var spotMat = mats2("ChipEdge" + Names[row], row == 0 ? new Color(0.2f, 0.35f, 0.8f) : new Color(0.96f, 0.96f, 0.94f));
+            float x = -W / 2 + 0.04f + row * (W - 0.08f) / (Colors.Length - 1);
+            for (int n = 0; n < 12; n++)
+            {
+                var chip = Part(PrimitiveType.Cylinder, root, new Vector3(x, 0.02f, -D / 2 + 0.03f + n * 0.0155f), new Vector3(0.04f, 0.0035f, 0.04f), n % 4 == 3 ? spotMat : rowMat, true, new Vector3(90f, 0, 0));
+                if (!fp) chip.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            }
+        }
+        top = new GameObject("Top").transform; top.SetParent(root, false); top.localPosition = new Vector3(0.1f, 0.04f, 0.02f);
         return root;
     }
 
-    void Recolor()
-    {
-        EnsureMats();
-        foreach (var r in chipRenderers) if (r) r.sharedMaterial = chipMat;
-        foreach (var r in spotRenderers) if (r) r.sharedMaterial = edgeMat;
-    }
+    void Recolor() { }                                                   // the case keeps a row of every colour; thrown chips use your level's
 
     protected override Transform BuildFirstPersonModel()
     {
         if (!arms.LeftHand) return null;
-        var c = Case(arms.LeftHand, true, out fpCaseTop);
-        c.localPosition = new Vector3(0.02f, 0.03f, 0.03f); c.localRotation = Quaternion.Euler(0, -20f, 0);
+        var c = Case(arms.LeftHand, true, out fpCaseTop);                // resting on the hand, tipped toward you so you see the rows
+        c.localPosition = new Vector3(0.08f, 0.04f, 0.02f); c.localRotation = Quaternion.Euler(-28f, -20f, 0);
         return c;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
         if (!body.handL) return null;
-        var c = Case(body.handL, false, out _);
-        c.localPosition = new Vector3(0, -0.06f, 0.06f); c.localScale = Vector3.one * 1.1f;
+        var c = Case(body.handL, false, out _);                          // carried flat on the forearm (placed every frame)
         return c;
     }
 }
