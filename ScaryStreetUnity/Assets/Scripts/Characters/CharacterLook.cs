@@ -123,7 +123,7 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "nathan":                                                  // from Nathan's photo: all black, dark brown cap over curls
-                displayName = "Nathan"; height = 1.8f; realisticBody = true; simpleClothes = false;
+                displayName = "Nathan"; height = 1.75f; realisticBody = true; simpleClothes = false;
                 skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#1c1919"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
                 pants = Hex("#1d1713"); shorts = false; shoes = Hex("#1b1b1d");
