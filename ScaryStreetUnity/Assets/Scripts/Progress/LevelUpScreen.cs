@@ -53,7 +53,6 @@ public class LevelUpScreen : MonoBehaviour
         UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.55f)).rectTransform);
         var vig = UIKit.Panel(s.root, "Vignette", new Color(0.15f, 0.02f, 0.02f, 0.9f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        UIArt.Grain(s.root, 0.04f);
         SoundKit.Play(Sfx.LevelUp, 0.7f, 0f);
         s.NextPage();
     }

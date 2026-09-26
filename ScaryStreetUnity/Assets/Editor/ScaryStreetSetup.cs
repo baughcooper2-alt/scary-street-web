@@ -533,19 +533,20 @@ public static class ScaryStreetSetup
             var grade = Get<UnityEngine.Rendering.Universal.ColorAdjustments>(); grade.postExposure.Override(0.25f); grade.contrast.Override(14f); grade.saturation.Override(-6f);
             var wb = Get<UnityEngine.Rendering.Universal.WhiteBalance>(); wb.temperature.Override(6f); wb.tint.Override(2f);
             var vig = Get<UnityEngine.Rendering.Universal.Vignette>(); vig.intensity.Override(0.26f); vig.smoothness.Override(0.45f);
-            var grain = Get<UnityEngine.Rendering.Universal.FilmGrain>(); grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Thin1); grain.intensity.Override(0.18f); grain.response.Override(0.8f);
+            if (p.TryGet<UnityEngine.Rendering.Universal.FilmGrain>(out var grain)) grain.active = false;          // no grain: the user wants it clean
             var smh = Get<UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights>(); smh.shadows.Override(new Vector4(0.96f, 0.98f, 1.04f, -0.02f)); smh.highlights.Override(new Vector4(1.03f, 1.0f, 0.96f, 0f));
             if (p.TryGet<UnityEngine.Rendering.Universal.MotionBlur>(out var blur)) blur.active = false;
             EditorUtility.SetDirty(p);
         }
 
-        var rp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+        var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;   // the quality level's asset (PC_RPAsset); the default slot is empty
         if (rp)
         {
             var so = new SerializedObject(rp);
             void Set(string prop, int v) { var sp = so.FindProperty(prop); if (sp != null) sp.intValue = v; }
             void SetF(string prop, float v) { var sp = so.FindProperty(prop); if (sp != null) sp.floatValue = v; }
             Set("m_MSAA", 4); Set("m_MainLightShadowmapResolution", 4096); SetF("m_ShadowDistance", 45f); Set("m_SoftShadowsSupported", 1); Set("m_SoftShadowQuality", 3);
+            SetF("m_ShadowDepthBias", 1f); SetF("m_ShadowNormalBias", 1f);
             so.ApplyModifiedProperties();
         }
 
@@ -568,12 +569,13 @@ public static class ScaryStreetSetup
             var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(cam);
             Undo.RecordObject(data, "Improve Graphics");
             data.renderPostProcessing = true;
-            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // 4x MSAA handles edges
+            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;   // on top of 4x MSAA: texture and specular edges
+            data.antialiasingQuality = UnityEngine.Rendering.Universal.AntialiasingQuality.High;
             EditorUtility.SetDirty(data);
         }
         EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         AssetDatabase.SaveAssets();
-        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, grain, softer/higher-res shadows, 4x MSAA, warmer light with ambient and fog. Save the scene.", "OK");
+        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, softer/higher-res shadows, 4x MSAA + SMAA, warmer light with ambient and fog. Save the scene.", "OK");
     }
 
     // ---------- World detail ----------

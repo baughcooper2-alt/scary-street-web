@@ -34,7 +34,6 @@ public class TitleScreen : MonoBehaviour
         var shade = UIKit.Panel(root, "Shade", new Color(UIArt.Theme.Ink.r, UIArt.Theme.Ink.g, UIArt.Theme.Ink.b, 0.9f));
         shade.sprite = UIArt.HorizontalFade();
         UIKit.Place(shade.rectTransform, 0, 0, 1500, 1080);
-        UIArt.Grain(root, 0.045f);
 
         main = UIKit.Node("Main", root).gameObject;
         UIKit.Fill((RectTransform)main.transform);

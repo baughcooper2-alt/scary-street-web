@@ -87,6 +87,15 @@ public class FirstPersonController : MonoBehaviour
     void Start()
     {
         controls = PlayerControls.For(gameObject);
+        // clean edges: the pipeline's 4x MSAA for geometry plus SMAA for texture / highlight edges, post-processing on
+        var c = cam ? cam.GetComponent<Camera>() : null;
+        if (c)
+        {
+            var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(c);
+            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            data.antialiasingQuality = UnityEngine.Rendering.Universal.AntialiasingQuality.High;
+            data.renderPostProcessing = true;
+        }
         if (controls.useKeyboardMouse) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
     }
 

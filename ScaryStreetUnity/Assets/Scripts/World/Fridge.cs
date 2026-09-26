@@ -130,10 +130,12 @@ public class Fridge : MonoBehaviour, IInteractable
         float split = h * (1f - freezerShare);                          // top of the fridge section
         Transform P(string n, Vector3 pos, Vector3 scale, Material m, Transform parent = null)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube); go.name = n;
-            Destroy(go.GetComponent<Collider>());
+            // rounded edges (a real fridge has no knife-sharp corners)
+            var go = new GameObject(n, typeof(MeshFilter), typeof(MeshRenderer));
+            float r = Mathf.Min(0.012f, Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z)) * 0.45f);
+            go.GetComponent<MeshFilter>().sharedMesh = MeshKit.RoundedBox(scale, r, 3);
             go.transform.SetParent(parent ? parent : build, false);
-            go.transform.localPosition = pos; go.transform.localScale = scale;
+            go.transform.localPosition = pos;
             go.GetComponent<Renderer>().sharedMaterial = m;
             return go.transform;
         }

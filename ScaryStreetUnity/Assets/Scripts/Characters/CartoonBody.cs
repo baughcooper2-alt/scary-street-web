@@ -43,7 +43,7 @@ public static class CartoonBody
             BirdFoot(k, ankle);
             if (s < 0) { b.legL = hip; b.kneeL = knee; b.ankleL = ankle; } else { b.legR = hip; b.kneeR = knee; b.ankleR = ankle; }
         }
-        k.Mesh(MeshKit.Lathe("JayTail", new[] { new Vector2(0.03f, 0), new Vector2(0.045f, 0.06f), new Vector2(0.0f, 0.2f) }, 10), b.hips, "Tail",
+        k.Mesh(MeshKit.Lathe("JayTail", new[] { new Vector2(0.03f, 0), new Vector2(0.045f, 0.06f), new Vector2(0.0f, 0.2f) }, 24), b.hips, "Tail",
                new Vector3(-0.1f, 0.02f, -0.1f), new Vector3(1f, 1f, 0.5f), new Vector3(-120f, 25f, 0), "Blue", JayBlue);
 
         // body: a tall rounded block, pale front
@@ -64,10 +64,10 @@ public static class CartoonBody
             Eye(k, b.head, new Vector3(0.048f * s, 0.23f, 0.135f), 0.085f, new Vector3(0.012f * s, 0, 0));
         }
         // beak: a flattened wedge, slightly open
-        k.Mesh(MeshKit.Lathe("JayBeak", new[] { new Vector2(0.045f, 0), new Vector2(0.04f, 0.05f), new Vector2(0.015f, 0.12f), new Vector2(0.0f, 0.14f) }, 12), b.head, "Beak",
+        k.Mesh(MeshKit.Lathe("JayBeak", new[] { new Vector2(0.045f, 0), new Vector2(0.04f, 0.05f), new Vector2(0.015f, 0.12f), new Vector2(0.0f, 0.14f) }, 28), b.head, "Beak",
                new Vector3(0, 0.155f, 0.15f), new Vector3(1.3f, 1f, 0.55f), new Vector3(80f, 0, 0), "Beak", Beak);
         // crest: a tall cone leaning back
-        k.Mesh(MeshKit.Lathe("JayCrest", new[] { new Vector2(0.11f, 0), new Vector2(0.09f, 0.12f), new Vector2(0.04f, 0.28f), new Vector2(0.0f, 0.36f) }, 16), b.head, "Crest",
+        k.Mesh(MeshKit.Lathe("JayCrest", new[] { new Vector2(0.11f, 0), new Vector2(0.09f, 0.12f), new Vector2(0.04f, 0.28f), new Vector2(0.0f, 0.36f) }, 32), b.head, "Crest",
                new Vector3(0, 0.25f, -0.05f), new Vector3(0.75f, 1f, 1f), new Vector3(-16f, 0, 0), "Blue", JayBlue);
 
         // arms: long and thin, two white bands above the wrist, a three-fingered hand

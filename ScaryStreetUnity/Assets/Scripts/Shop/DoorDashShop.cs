@@ -176,7 +176,6 @@ public class DoorDashShop : MonoBehaviour
         UIKit.Fill(UIKit.Panel(root, "Dim", new Color(0, 0, 0, 0.5f)).rectTransform);
         var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.8f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        UIArt.Grain(root, 0.035f);
 
         // the "app": rounded card sliding up
         var bag = UIArt.RoundPanel(root, "Bag", Ink, 36);

@@ -191,7 +191,10 @@ public class GameFlow : MonoBehaviour
         else { camPos = defaultCameraPosition; camRot = Quaternion.LookRotation(defaultCameraLookAt - defaultCameraPosition); }
         menuCam.SetPositionAndRotation(camPos, camRot);
         go.GetComponent<Camera>().fieldOfView = 50f;
-        UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(go.GetComponent<Camera>()).renderPostProcessing = true;
+        var menuData = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(go.GetComponent<Camera>());
+        menuData.renderPostProcessing = true;
+        menuData.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+        menuData.antialiasingQuality = UnityEngine.Rendering.Universal.AntialiasingQuality.High;
     }
 
     void Update()

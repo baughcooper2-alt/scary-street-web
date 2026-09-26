@@ -39,6 +39,7 @@ public class WeaponInventory : MonoBehaviour
 
     void Start()
     {
+        int startSlot = 0;
         if (startWithCart) Add<CartWeapon>();
         if (startWithCharacterWeapon)
         {
@@ -51,9 +52,10 @@ public class WeaponInventory : MonoBehaviour
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Crutch) Add<CrutchWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Goldfish) Add<GoldfishWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.SixPack) Add<SixPackWeapon>();
-            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Skateboard) Add<SkateboardWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Skateboard)
+                startSlot = Mathf.Max(0, slots.IndexOf(Add<SkateboardWeapon>()));            // Isaiah starts the run already riding it
         }
-        Select(0);
+        Select(startSlot);
     }
 
     // Adds a weapon to the first empty slot; false if every slot is full.

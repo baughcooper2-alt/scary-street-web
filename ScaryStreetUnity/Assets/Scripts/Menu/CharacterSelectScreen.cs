@@ -156,7 +156,6 @@ public class CharacterSelectScreen : MonoBehaviour
         UIKit.Fill(bg.rectTransform);
         UIKit.Place(UIKit.Panel(root, "TopBand", UIArt.Theme.Ink2).rectTransform, 0, 0, 1920, 176);
         UIArt.Stripe((RectTransform)root, 0, 176, 1920, 10);
-        UIArt.Grain(root, 0.04f);
 
         titleText = UIKit.Label(root, "CHOOSE YOUR FIGHTER", 64, UIArt.Theme.Paper, TextAnchor.MiddleCenter);
         titleText.font = UIArt.Display;

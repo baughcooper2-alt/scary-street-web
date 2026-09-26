@@ -112,7 +112,6 @@ public class PauseMenu : MonoBehaviour
         UIKit.Fill(UIKit.Panel(root, "Dim", new Color(UIArt.Theme.Ink.r, UIArt.Theme.Ink.g, UIArt.Theme.Ink.b, 0.72f)).rectTransform);
         var vig = UIKit.Panel(root, "Vignette", new Color(0, 0, 0, 0.8f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        UIArt.Grain(root, 0.045f);
 
         main = UIKit.Node("Main", root).gameObject;
         var mt = UIKit.Fill((RectTransform)main.transform);
