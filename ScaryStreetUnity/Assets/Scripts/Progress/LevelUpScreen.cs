@@ -25,6 +25,7 @@ public class LevelUpScreen : MonoBehaviour
     Transform root;
     GameObject page;
     float prevTimeScale;
+    Button firstCard;
     bool prevFpc;
     CursorLockMode prevLock;
     bool prevCursorVisible;
@@ -52,7 +53,6 @@ public class LevelUpScreen : MonoBehaviour
         UIKit.Fill(UIKit.Panel(s.root, "Dim", new Color(0, 0, 0, 0.55f)).rectTransform);
         var vig = UIKit.Panel(s.root, "Vignette", new Color(0.15f, 0.02f, 0.02f, 0.9f)); vig.sprite = UIArt.Vignette();
         UIKit.Fill(vig.rectTransform);
-        UIArt.Grain(s.root, 0.04f);
         SoundKit.Play(Sfx.LevelUp, 0.7f, 0f);
         s.NextPage();
     }
@@ -73,7 +73,7 @@ public class LevelUpScreen : MonoBehaviour
         burst.gameObject.AddComponent<UISpin>();
 
         var who = Players.All.Count > 1 ? $"PLAYER {PlayerControls.For(stats.gameObject).playerIndex + 1}  " : "";   // co-op: whose pick
-        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - progress.PendingPicks + 1}!", 120, UIArt.Theme.Mustard, TextAnchor.MiddleCenter);
+        var title = UIKit.Label(t, $"{who}LEVEL {progress.Level - (progress.PendingPicks - 1) * progress.pickEvery}!", 120, UIArt.Theme.Mustard, TextAnchor.MiddleCenter);
         title.font = UIArt.Display;
         UIKit.Place(UIArt.Print(title, 8f).rectTransform, 0, 100, 1920, 140);
         UIArt.PopIn(title, 0f);
@@ -124,6 +124,7 @@ public class LevelUpScreen : MonoBehaviour
             if (!first) first = b;
         }
         if (EventSystem.current && first) EventSystem.current.SetSelectedGameObject(first.gameObject);
+        firstCard = first;
     }
 
     void RollChoices()
@@ -171,7 +172,7 @@ public class LevelUpScreen : MonoBehaviour
         PlayerStats.Stat.Luck => UIArt.Icon.Clover, PlayerStats.Stat.Defense => UIArt.Icon.Shield, _ => UIArt.Icon.Star,
     };
 
-    static UIArt.Icon WeaponIcon(Weapon w) => w is LawBookWeapon ? UIArt.Icon.Book : w is GuitarWeapon ? UIArt.Icon.Guitar : w is CartWeapon ? UIArt.Icon.Cart : UIArt.Icon.Fist;
+    static UIArt.Icon WeaponIcon(Weapon w) => w ? w.Icon : UIArt.Icon.Fist;
 
     void Take(Choice c)
     {
@@ -192,6 +193,7 @@ public class LevelUpScreen : MonoBehaviour
 
     void Update()
     {
+        UIKit.KeepSelected(firstCard);                               // controller: stick + A picks a card
         int pick = -1;
 #if ENABLE_INPUT_SYSTEM
         var kb = Keyboard.current;

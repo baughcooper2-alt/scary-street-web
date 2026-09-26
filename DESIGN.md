@@ -113,7 +113,7 @@ Eight base characters, each starting with a different weapon or perk.
 | --- | --- |
 | Cooper | Law Book |
 | Nathan | Guitar |
-| Isaiah | Skateboard (no weapon) |
+| Isaiah | Skateboard |
 | John | 6-pack of beer |
 | Will | No weapon; alcohol never makes him dizzy |
 | Piper | Crutch |
@@ -135,7 +135,6 @@ Each upgrade levels up without limit, but you can hold only 5 different upgrades
 | Cane's chicken | Higher max health |
 | To-go box | +5 upgrade slots (stacks) |
 | Backpack | +1 weapon slot (stacks) |
-| Skateboard | 2× speed, 1.5× jump height |
 
 ## Weapons
 
@@ -151,6 +150,7 @@ You start with 5 weapon slots; with nothing in hand you punch.
 | Crutch | Long-reach melee swing |
 | Box of Goldfish | Throwable |
 | 6-pack of beer | Drink, then throw the bottles or hit with them until they break; refill at the fridge; drinking boosts strength but makes you dizzy |
+| Skateboard | Ride it while it's out: 2× speed, 1.5× jump height, speed builds up and coasts. Every jump is a trick (kickflip, heelflip, 360 shove-it); landing one hits enemies close by. Push off to bowl enemies over. You can still punch. (Was an upgrade; moved to weapons.) |
 
 ## Locations and skins
 

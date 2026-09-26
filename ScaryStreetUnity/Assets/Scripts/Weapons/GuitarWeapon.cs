@@ -5,6 +5,7 @@ using UnityEngine;
 // 0.5 s between strums, 8 strums then 1.3 s "tuning the strings". Hold left click to keep strumming.
 public class GuitarWeapon : MagazineWeapon
 {
+    public override UIArt.Icon Icon => UIArt.Icon.Guitar;
     public float noteDamage = 12f;
     public float noteSpeed = 8f;
     public float noteLife = 2.4f;
@@ -83,7 +84,7 @@ public class GuitarWeapon : MagazineWeapon
         arms.rightEuler = new Vector3(20f * s, -10f, 10f);
     }
 
-    public override string Hint => Reloading ? "Tuning the strings…" : "Hold left click to strum: the notes chase the nearest worker · R to reload";
+    public override string Hint => Reloading ? "Tuning the strings…" : $"Hold {Key("left click", GamepadInfo.RT)} to strum: the notes chase the nearest worker · {Key("R", "d-pad ↓")} to reload";
 
     // ---------- models ----------
 

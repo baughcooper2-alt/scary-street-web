@@ -7,6 +7,7 @@ using UnityEngine;
 //                                                                              1 s, then click for a huge blast (5 s cooldown)
 public class CartWeapon : Weapon
 {
+    public override UIArt.Icon Icon => UIArt.Icon.Cart;
     [Header("Smoke")]
     public int maxPuffs = 6;
     public float inhaleRate = 5f;        // puffs per second while holding
@@ -55,7 +56,7 @@ public class CartWeapon : Weapon
     {
         base.Unequip();
         ShowModels(false);
-        if (arms) arms.raise = 0;
+        if (arms) { arms.raise = 0; if (arms.mouthTip == fpTip) arms.mouthTip = null; }
         holdFull = 0;
     }
 
@@ -83,13 +84,13 @@ public class CartWeapon : Weapon
             else if (Tier >= 3 && blinkCd <= 0 && !blinkReady && (holdFull += dt) >= blinkerHold)
             {
                 blinkReady = true;
-                inventory.Toast("Blinker loaded: left click to let it out", 1.6f);
+                inventory.Toast($"Blinker loaded: {Key("left click", GamepadInfo.RT)} to let it out", 1.6f);
+                Rumble(0.2f, 0.5f, 0.15f);
             }
-            inventory.haze = Mathf.Min(0.55f, inventory.haze + dt * 0.12f);
         }
         else holdFull = 0;
-        if (arms) arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f);
-        var anim = BodyAnim; if (anim) { anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
+        if (arms) { arms.mouthTip = fpTip; arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f); }
+        var anim = BodyAnim; if (anim) { anim.mouthItemTip = tpTip; anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
         glow = Mathf.MoveTowards(glow, inhaling || blinkReady ? 1f : 0f, dt * 8f);
         DrawScreen(maxPuffs > 0 ? lung / maxPuffs : 0f);
         if (ledMat) ledMat.color = Color.Lerp(new Color(0.18f, 0.42f, 0.28f), blinkReady ? new Color(1f, 0.35f, 0.12f) : new Color(1f, 0.7f, 0.28f), glow);
@@ -102,9 +103,9 @@ public class CartWeapon : Weapon
                 Shoot(SmokeShot.Kind.Blast);
                 SoundKit.Play(Sfx.Blinker, 0.9f);
                 blinkReady = false; lung = 0; blinkCd = blinkerCooldown; fireCd = 0.6f;
-                inventory.haze = 0.9f;
                 inventory.Toast("BLINKER", 1f);
                 if (arms) arms.Kick(1.6f);
+                Rumble(0.9f, 1f, 0.45f);
             }
             else if (lung >= 1f)
             {
@@ -113,10 +114,10 @@ public class CartWeapon : Weapon
                 if (Tier >= 2) ringT = ringDelay;
                 lung -= 1f; fireCd = fireCooldown;
                 oil = Mathf.Max(1f, oil - 0.4f);
-                inventory.haze = Mathf.Min(inventory.haze + 0.08f, 0.5f);
                 if (arms) arms.Kick();
+                Rumble(0.1f, 0.3f, 0.08f);
             }
-            else if (!warned) { warned = true; inventory.Toast("Out of smoke: hold right click (or E) to hit the cart", 1.6f); }
+            else if (!warned) { warned = true; inventory.Toast($"Out of smoke: hold {Key("right click (or E)", GamepadInfo.LT)} to hit the cart", 1.6f); }
         }
         if (!input.primaryHeld) warned = false;
 
@@ -148,8 +149,8 @@ public class CartWeapon : Weapon
         get
         {
             string lvl = Tier == 1 ? "Lv 1 · O-rings at Lv 2" : Tier == 2 ? "Lv 2 O-rings · Blinker at Lv 3"
-                       : blinkReady ? "Blinker loaded: left click" : blinkCd > 0 ? $"Blinker in {blinkCd:0.0}s" : "Blinker: keep holding when full";
-            return $"Hold right click (E) to hit it · Left click to blow · {lvl}";
+                       : blinkReady ? $"Blinker loaded: {Key("left click", GamepadInfo.RT)}" : blinkCd > 0 ? $"Blinker in {blinkCd:0.0}s" : "Blinker: keep holding when full";
+            return $"Hold {Key("right click (E)", GamepadInfo.LT)} to hit it · {Key("Left click", GamepadInfo.RT)} to blow · {lvl}";
         }
     }
 
@@ -180,8 +181,8 @@ public class CartWeapon : Weapon
         var root = new GameObject("Cart").transform;
         root.SetParent(hand, false);
         if (firstPerson) { root.localPosition = new Vector3(0, 0.03f, 0.01f); root.localRotation = Quaternion.Euler(-10f, 0, 0); }
-        else { root.localPosition = new Vector3(0, -0.08f, 0.03f); root.localRotation = Quaternion.Euler(-80f, 0, 0); }
-        root.localScale = Vector3.one * 0.55f;
+        else { root.localPosition = new Vector3(-0.02f, -0.08f, 0.02f); root.localRotation = Quaternion.Euler(90f, 0, 0); }   // in the fist, mouthpiece out the top
+        root.localScale = Vector3.one * (firstPerson ? 0.55f : 0.68f);
 
         var mats = BlockyCharacter.RuntimeMaterials();
         var shell = mats("CartShell", new Color(0.035f, 0.035f, 0.04f)); shell.SetFloat("_Smoothness", 0.7f);
@@ -190,6 +191,9 @@ public class CartWeapon : Weapon
         CartPart(PrimitiveType.Cube, root, Vector3.zero, new Vector3(W, H, D), shell, firstPerson);
         CartPart(PrimitiveType.Cube, root, new Vector3(-0.012f, H / 2 + 0.017f, 0), new Vector3(0.036f, 0.034f, 0.028f), matte, firstPerson);
         CartPart(PrimitiveType.Cube, root, new Vector3(-0.012f, H / 2 + 0.036f, 0), new Vector3(0.03f, 0.006f, 0.022f), matte, firstPerson);
+        var tip = new GameObject("MouthTip").transform;                    // what goes in your mouth when you hit it
+        tip.SetParent(root, false); tip.localPosition = new Vector3(-0.012f, H / 2 + 0.039f, 0);
+        if (firstPerson) fpTip = tip; else tpTip = tip;
         CartPart(PrimitiveType.Cube, root, new Vector3(0, H / 2 - 0.002f, 0), new Vector3(W + 0.002f, 0.006f, D + 0.002f), shell, firstPerson);   // top rim
 
         // label (left) and screen (right) on the front face
@@ -215,6 +219,7 @@ public class CartWeapon : Weapon
     }
 
     Material labelMat, screenMat; Texture2D screenTex; int shownLevel = -1;
+    Transform fpTip, tpTip;
 
     static void Face(Transform parent, Vector3 pos, Vector2 size, Material m, bool firstPerson)
     {

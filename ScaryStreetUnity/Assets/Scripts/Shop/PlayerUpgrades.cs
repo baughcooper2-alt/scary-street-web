@@ -6,7 +6,7 @@ using UnityEngine;
 // (the To-go box adds 5 more slots each). Put this on the Player; the shop (and later the level-up picks) call Add().
 public class PlayerUpgrades : MonoBehaviour
 {
-    public enum Id { EnergyDrink, Shooter, Pee, McDonaldsBag, CanesChicken, ToGoBox, Backpack, Skateboard }
+    public enum Id { EnergyDrink, Shooter, Pee, McDonaldsBag, CanesChicken, ToGoBox, Backpack }   // (the skateboard is a weapon now)
 
     public class Def
     {
@@ -23,7 +23,6 @@ public class PlayerUpgrades : MonoBehaviour
         new Def(Id.CanesChicken, "Cane's chicken", "+10 max health",                         35),
         new Def(Id.ToGoBox,      "To-go box",      "+5 upgrade slots",                       60),
         new Def(Id.Backpack,     "Backpack",       "+1 weapon slot",                         70),
-        new Def(Id.Skateboard,   "Skateboard",     "2× speed, 1.5× jump height",             80),
     };
 
     public static Def Get(Id id) => Array.Find(All, d => d.id == id);
@@ -85,12 +84,11 @@ public class PlayerUpgrades : MonoBehaviour
     public void ApplyMovement()
     {
         if (!fpc) return;
-        int skate = Level(Id.Skateboard);
-        float speed = (1f + 0.15f * Level(Id.EnergyDrink)) * (skate > 0 ? 2f + 0.1f * (skate - 1) : 1f)
+        float speed = (1f + 0.15f * Level(Id.EnergyDrink))
                     * (GetComponent<PlayerStats>() ? GetComponent<PlayerStats>().SpeedMultiplier : 1f);   // Speed stat
         fpc.walkSpeed = baseWalk * speed;
         fpc.crouchSpeed = baseCrouch * speed;
-        fpc.jumpHeight = baseJump * (skate > 0 ? 1.5f : 1f);
+        fpc.jumpHeight = baseJump;                                          // (riding the skateboard weapon: FirstPersonController.jumpMultiplier)
     }
 
     void Update()

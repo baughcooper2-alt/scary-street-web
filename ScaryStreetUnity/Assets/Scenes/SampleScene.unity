@@ -14,17 +14,17 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_Fog: 1
+  m_FogColor: {r: 0.62, g: 0.64, b: 0.68, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.01
+  m_FogDensity: 0.012
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
-  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
-  m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
+  m_AmbientSkyColor: {r: 0.58, g: 0.64, b: 0.74, a: 1}
+  m_AmbientEquatorColor: {r: 0.48, g: 0.45, b: 0.42, a: 1}
+  m_AmbientGroundColor: {r: 0.22, g: 0.19, b: 0.17, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   m_HaloStrength: 0.5
@@ -8184,8 +8184,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c47911db7efb44c98487b6a90b1e046, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameFlow
-  titleTop: BOOGIE DOWN
-  titleMain: SCARY STREET
+  titleIntro: BOOGYING DOWN ON
+  titleWord: SCARY
+  titleStruck: MAPLE
+  titleEnd: STREET
   tagline: Survive the waves. Beat the bosses. Master the fade.
   playableLooks:
   - {fileID: 11400000, guid: 3cdda25f2caf7467abe6f83aa6fe91c5, type: 2}
@@ -18240,7 +18242,7 @@ MonoBehaviour:
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
-  m_Antialiasing: 0
+  m_Antialiasing: 2
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -18279,6 +18281,7 @@ MonoBehaviour:
   visible: 1
   raise: 0
   mouthPosition: {x: 0.05, y: -0.1, z: 0.24}
+  mouthPoint: {x: 0, y: -0.085, z: 0.07}
 --- !u!1 &331155883 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7353793870983852345, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -22695,8 +22698,8 @@ Light:
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Color: {r: 1, g: 0.93, b: 0.82, a: 1}
+  m_Intensity: 1.35
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -22705,7 +22708,7 @@ Light:
     m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 1
+    m_Strength: 0.85
     m_Bias: 0.05
     m_NormalBias: 0.4
     m_NearPlane: 0.2
@@ -50635,6 +50638,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -614948040871919311, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 762341582551254802, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -70373,6 +70380,78 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 8654471701645702588, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &1041785790
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1041785793}
+  - component: {fileID: 1041785792}
+  - component: {fileID: 1041785791}
+  m_Layer: 0
+  m_Name: Kitchen Fridge
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1041785791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1041785790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40f6c2f6013ec459abab06333b684eac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fridge
+  size: {x: 0.85, y: 1.9, z: 0.9}
+  color: {r: 0.3250757, g: 0.3250757, b: 0.33910805, a: 1}
+  replaces: {fileID: 2143844020}
+  freezerShare: 0.3
+  hingeOnLeft: 0
+  maxOpen: 105
+--- !u!65 &1041785792
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1041785790}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.85, y: 1.9, z: 0.9}
+  m_Center: {x: 0, y: 0.95, z: 0}
+--- !u!4 &1041785793
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1041785790}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -4.02501, y: 0, z: 15.64999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1041848791 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5264310380304312973, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -79752,8 +79831,14 @@ MonoBehaviour:
   jumpHeight: 1
   gravity: -20
   mouseSensitivity: 0.12
-  stickSensitivity: 160
   maxLookAngle: 85
+  invertY: 0
+  stickSensitivity: 160
+  stickCurve: 1.8
+  stickVerticalScale: 0.7
+  aimAssistSlowdown: 0.55
+  aimAssistRange: 25
+  aimAssistRadius: 0.4
   standHeight: 1.8
   crouchHeight: 1.1
   eyeFromTop: 0.12
@@ -79840,6 +79925,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerProgress
   startingCash: 0
   xpPerLevel: 10
+  pickEvery: 5
 --- !u!114 &1225541002
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -79858,6 +79944,8 @@ MonoBehaviour:
   shoulderOffset: 0.45
   heightOffset: 0.25
   collisionRadius: 0.2
+  frontDistance: 2.1
+  frontHeight: 0.05
 --- !u!114 &1225541003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -99961,7 +100049,7 @@ MonoBehaviour:
     maxAlive: 18
     maxPackSize: 5
     bossAfter: Andique
-  startAtRound: 3
+  startAtRound: 1
   healBetweenRounds: 1
   minSpawnDistance: 10
   maxSpawnDistance: 40
@@ -126924,6 +127012,7 @@ MonoBehaviour:
   detailStrength: 1
   detailSize: 0.5
   variantKeeper: {fileID: 2100000, guid: c848e0d39bb204bfb8bb61e0190b4eb4, type: 2}
+  smoothAngle: 62
 --- !u!1 &2076538009 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -427775900869701934, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -130159,11 +130248,16 @@ MeshCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 8914579500733035561, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!23 &2143844020 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -614948040871919311, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+  m_PrefabInstance: {fileID: 906300555}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2143964555 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2114975935213193105, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -130338,3 +130432,4 @@ SceneRoots:
   - {fileID: 148457514}
   - {fileID: 75833924}
   - {fileID: 1922695530}
+  - {fileID: 1041785793}

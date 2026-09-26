@@ -12,6 +12,7 @@ public static class UIArt
     {
         Heart, Fist, Crosshair, Bolt, Clover, Shield, Star, Can, Glass, Drop, Bag, Drumstick, Box, Backpack,
         Board, Book, Guitar, Cart, Burger, Dice, Play, Gear, Gamepad, Coin,
+        Cards, Chip, Crutch, Fish, Bottle,                                  // add new ones at the end
     }
 
     // The look: a night-street poster. Ink and paper, mustard caution tape, blood red, a teal for stats;
@@ -341,6 +342,26 @@ public static class UIArt
             case Icon.Gamepad:
                 return Mathf.Max(Mathf.Min(Box(p, new Vector2(0.85f, 0.4f), 0.35f), Mathf.Min(Circle(p - new Vector2(-0.55f, -0.3f), 0.32f), Circle(p - new Vector2(0.55f, -0.3f), 0.32f))),
                                  -Mathf.Min(Box(p - new Vector2(-0.45f, 0.05f), new Vector2(0.2f, 0.06f), 0.02f), Box(p - new Vector2(-0.45f, 0.05f), new Vector2(0.06f, 0.2f), 0.02f)));
+            case Icon.Cards:   // two playing cards, fanned
+            {
+                Vector2 R(Vector2 q, float deg) { float c = Mathf.Cos(deg * Mathf.Deg2Rad), s = Mathf.Sin(deg * Mathf.Deg2Rad); return new Vector2(c * q.x + s * q.y, -s * q.x + c * q.y); }
+                return Mathf.Min(Box(R(p - new Vector2(-0.22f, -0.02f), 14f), new Vector2(0.4f, 0.58f), 0.08f),
+                                 Mathf.Max(Box(R(p - new Vector2(0.2f, 0.05f), -12f), new Vector2(0.4f, 0.58f), 0.08f), -Circle(p - new Vector2(0.2f, 0.05f), 0.14f)));
+            }
+            case Icon.Chip:    // poker chip: disc with edge notches and an inner ring
+            {
+                float a = Mathf.Atan2(p.y, p.x);
+                float notch = Mathf.Cos(a * 6f) > 0.6f ? Ring(p, 0.72f, 0.1f) : 9f;
+                return Mathf.Max(Mathf.Max(Circle(p, 0.85f), -notch), -Ring(p, 0.45f, 0.05f));
+            }
+            case Icon.Crutch:  // long pole, arm pad on top, hand grip part way down
+                return Mathf.Min(Segment(p, new Vector2(-0.45f, -0.85f), new Vector2(0.35f, 0.62f), 0.07f),
+                       Mathf.Min(Segment(p, new Vector2(0.12f, 0.8f), new Vector2(0.62f, 0.52f), 0.11f), Segment(p, new Vector2(-0.12f, 0.02f), new Vector2(0.2f, 0.2f), 0.07f)));
+            case Icon.Fish:    // cracker fish: oval body, tail, a smile cut out
+                return Mathf.Max(Mathf.Min(Box(p - new Vector2(0.15f, 0f), new Vector2(0.55f, 0.34f), 0.32f), Poly(p, new Vector2(-0.3f, 0f), new Vector2(-0.88f, 0.42f), new Vector2(-0.88f, -0.42f))),
+                                 -Circle(p - new Vector2(0.42f, 0.1f), 0.07f));
+            case Icon.Bottle:  // beer bottle
+                return Mathf.Min(Box(p - new Vector2(0, -0.3f), new Vector2(0.3f, 0.55f), 0.18f), Box(p - new Vector2(0, 0.52f), new Vector2(0.12f, 0.32f), 0.05f));
             default:   // Coin
                 return Mathf.Max(Circle(p, 0.85f), -Ring(p, 0.6f, 0.05f));
         }

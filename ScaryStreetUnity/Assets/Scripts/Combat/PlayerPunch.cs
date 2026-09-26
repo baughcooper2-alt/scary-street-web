@@ -53,6 +53,7 @@ public class PlayerPunch : MonoBehaviour
             {
                 target.TakeDamage(PlayerStats.MeleeDamage(damage, gameObject), PlayerUpgrades.KnockbackFor(gameObject));
                 SoundKit.PlayAt(Sfx.Punch, hit.point);
+                controls.Rumble(0.25f, 0.45f, 0.08f);
             }
         }
     }

@@ -19,6 +19,9 @@ public class GameFlow : MonoBehaviour
     static readonly List<CharacterLook> chosen = new List<CharacterLook>();
     static bool startImmediately;
     public static bool FreeRoam { get; private set; }
+    // set by the select screen: rounds keep coming after round 10 (scored on the Endless board)
+    public static bool Endless { get; set; }
+    public static string ChosenNames => string.Join(" & ", chosen.ConvertAll(l => l ? l.displayName : "?"));
 
     [Header("Title")]
     public string titleIntro = "BOOGYING DOWN ON";
@@ -45,7 +48,7 @@ public class GameFlow : MonoBehaviour
 
     // with "Enter Play Mode Options" (no domain reload) statics would survive between plays
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { chosen.Clear(); startImmediately = false; FreeRoam = false; }
+    static void ResetStatics() { chosen.Clear(); startImmediately = false; FreeRoam = false; Endless = false; }
 
     public static void Restart()
     {
@@ -81,7 +84,17 @@ public class GameFlow : MonoBehaviour
         SoundKit.PlayMusic(MusicTrack.Menu);
     }
 
-    public CharacterLook LookFor(string displayName) => playableLooks.Find(l => l && l.displayName == displayName);
+    // The scene's looks first; anyone else with a preset (Kenny, Isaiah, Mordecai, Rigby) is playable from the preset.
+    public CharacterLook LookFor(string displayName)
+    {
+        var l = playableLooks.Find(x => x && x.displayName == displayName);
+        if (l) return l;
+        if (presets.TryGetValue(displayName, out l)) return l;
+        var p = CharacterLook.Preset(displayName.ToLower().Replace(" ", ""));
+        presets[displayName] = l = p.displayName == displayName ? p : null;
+        return l;
+    }
+    readonly Dictionary<string, CharacterLook> presets = new Dictionary<string, CharacterLook>();
 
     public void ShowTitle() => Swap(TitleScreen.Create(this).gameObject);
     public void ShowCharacterSelect() => Swap(CharacterSelectScreen.Create(this).gameObject);
@@ -136,15 +149,14 @@ public class GameFlow : MonoBehaviour
         }
     }
 
-    // Put the chosen character on a player: first-person arms, third-person body, mouse sensitivity.
+    // Put the chosen character on a player: first-person arms, third-person body, look settings.
     static void Dress(GameObject p, CharacterLook look, int index)
     {
         var arms = p.GetComponentInChildren<FirstPersonArms>(true);
         if (arms) arms.look = look;
         var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
-        var fpc = p.GetComponent<FirstPersonController>();
-        if (fpc && index == 0) fpc.mouseSensitivity = PlayerPrefs.GetFloat(SensitivityKey, fpc.mouseSensitivity);
+        GameSettings.ApplyTo(p.GetComponent<FirstPersonController>(), index);
     }
 
     static void SetUpInput(GameObject p, int index, int count)
@@ -179,7 +191,10 @@ public class GameFlow : MonoBehaviour
         else { camPos = defaultCameraPosition; camRot = Quaternion.LookRotation(defaultCameraLookAt - defaultCameraPosition); }
         menuCam.SetPositionAndRotation(camPos, camRot);
         go.GetComponent<Camera>().fieldOfView = 50f;
-        UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(go.GetComponent<Camera>()).renderPostProcessing = true;
+        var menuData = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(go.GetComponent<Camera>());
+        menuData.renderPostProcessing = true;
+        menuData.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+        menuData.antialiasingQuality = UnityEngine.Rendering.Universal.AntialiasingQuality.High;
     }
 
     void Update()

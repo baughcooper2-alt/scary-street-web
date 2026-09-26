@@ -6,14 +6,15 @@ using UnityEngine;
 //   player   – jump / fall tuck and crouch from the FirstPersonController; head follows your aim
 //   idle     – breathing, weight shifts, glances around, blinking; heads look at their target
 //   holding  – guitar, law book, cart (and bringing it to the mouth), tray, nothing
-//   actions  – Punch (jab), Swing (overhead chop), Slam, Throw (overhand), Strum, Talk, Squat, Wave, Flinch
+//   actions  – Punch (jab), Swing (overhead chop), Sweep (across in front), Slam, Throw (overhand), Flick (take one
+//              from the left hand and whip it out), Toss (both hands lift a box), Strum, Talk, Squat, Wave, Flinch
 // Joint conventions (both bodies): limbs hang straight down at rest; −X swings a limb forward, knees bend +X,
 // elbows bend −X, +Z raises the right arm out to the side (−Z the left).
 [RequireComponent(typeof(BlockyCharacter))]
 public class CharacterAnimator : MonoBehaviour
 {
-    public enum Hold { None, Guitar, Book, Cart, Tray, Phone }
-    enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave }
+    public enum Hold { None, Guitar, Book, Cart, Tray, Phone, CarryLeft, HangLeft, Carton, Skate }   // add new ones at the end
+    enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave, Sweep, Flick, Toss }
 
     [Tooltip("Scales every stride (1 = the natural length for this speed).")]
     public float strideLength = 1.3f;
@@ -22,7 +23,11 @@ public class CharacterAnimator : MonoBehaviour
     [Tooltip("Head turns toward this (the target an enemy is chasing, for example).")]
     public Transform lookAt;
     [System.NonSerialized] public Hold hold;
-    [System.NonSerialized] public bool inhaling;                  // cart at the mouth
+    [System.NonSerialized] public bool inhaling;                  // cart (or a bottle) at the mouth
+    [System.NonSerialized] public float charge;                   // 0..1: the held item raised overhead (Law Book charging a slam)
+    [System.NonSerialized] public float skatePush = -1f;          // 0..1 through a push-kick while riding (Hold.Skate), -1 = none
+    [Tooltip("Riding a skateboard: how far the body is lifted to stand on the deck (model units).")]
+    public float skateLift = 0.05f;
 
     [Header("Personal style (enemies randomise these)")]
     [Range(0.8f, 1.2f)] public float strideScale = 1f;
@@ -85,9 +90,12 @@ public class CharacterAnimator : MonoBehaviour
     public void Throw(float duration = 0.55f, float release = 0.6f) => Play(Act.Throw, duration, release);
     public void Strum(float duration = 0.3f) => Play(Act.Strum, duration, 0.5f);
     public void Wave(float duration = 1.4f) => Play(Act.Wave, duration, 0.5f);
+    public void Sweep(float duration = 0.4f, float hitMoment = 0.4f) => Play(Act.Sweep, duration, hitMoment);
+    public void Flick(float duration = 0.3f) => Play(Act.Flick, duration, 0.55f);   // reach over, draw back, whip out (matches HandMotion.Flick)
+    public void Toss(float duration = 0.35f) => Play(Act.Toss, duration, 0.5f);
     public void Talk(float duration = 1.2f) => talkT = Mathf.Max(talkT, duration);
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
-    public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing) actT = -1f; }
+    public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing || act == Act.Sweep) actT = -1f; }
 
     // Gait curves: (cycle position, degrees) pairs; 0 = this foot's heel strike. From human gait data, simplified.
     // Hip is degrees forward of vertical; knee is bend. Walking: knee gives on landing, starts bending before the toes
@@ -165,7 +173,7 @@ public class CharacterAnimator : MonoBehaviour
 
     void LateUpdate()
     {
-        float dt = Time.deltaTime;
+        float dt = Application.isPlaying ? Time.deltaTime : 1f / 30f;           // (edit-mode previews step it by hand)
         if (dt <= 0) return;
         t += dt;
         if (dead) { Collapse(dt); return; }
@@ -211,21 +219,38 @@ public class CharacterAnimator : MonoBehaviour
         Vector3 tLgL = new Vector3(hipL, 0, -Mathf.Abs(s) * spread), tLgR = new Vector3(hipR, 0, Mathf.Abs(s) * spread);
         Vector3 tKnL = new Vector3(2f + kneeL, 0, 0), tKnR = new Vector3(2f + kneeR, 0, 0);
         Vector3 tAnL = new Vector3(ankL, 0, 0), tAnR = new Vector3(ankR, 0, 0);
+        // riding a skateboard: side-on (regular: left foot forward over the front bolts, right over the tail), knees soft;
+        // a push takes the back foot off to kick along beside the board and back
+        bool skating = hold == Hold.Skate;
+        float push = 0;
+        if (skating)
+        {
+            // the push: the back foot steps down beside the board by the front truck, sweeps back along the ground
+            // past the tail, and comes back on; the front knee bends to reach the ground
+            float pp = skatePush >= 0 ? Mathf.Clamp01(skatePush) : 0f;
+            push = skatePush >= 0 ? Mathf.Sin(pp * Mathf.PI) : 0f;
+            float sweep = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.15f, 0.75f, pp)) * (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.75f, 1f, pp)));
+            tLgL = new Vector3(-12f - 16f * push, 0, -11f); tLgR = new Vector3(-12f - 16f * push, 0, 11f - 8f * push + 34f * sweep);
+            tKnL = new Vector3(28f + 34f * push, 0, 0); tKnR = new Vector3(28f - 24f * push, 0, 0);
+            tAnL = new Vector3(-16f - 10f * push, 0, 0); tAnR = new Vector3(-16f + 18f * push, 0, 0);
+        }
         // jump tuck, crouch and squat all bend the legs (and the ankles keep the feet flat)
         float bend = Mathf.Max(air * 0.8f, Mathf.Max(crouch, squat));
         tLgL = Vector3.Lerp(tLgL, new Vector3(-55f, 0, -4f), bend); tLgR = Vector3.Lerp(tLgR, new Vector3(-55f, 0, 4f), bend);
         tKnL = Vector3.Lerp(tKnL, new Vector3(95f, 0, 0), bend); tKnR = Vector3.Lerp(tKnR, new Vector3(95f, 0, 0), bend);
         tAnL = Vector3.Lerp(tAnL, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend); tAnR = Vector3.Lerp(tAnR, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend);
+        if (skating && air > 0.05f) { tLgL.z = -11f; tLgR.z = 11f; }           // feet stay apart on the board in the air
 
         // ---------- pelvis: bob twice per stride (lowest as each heel lands), shift over the planted leg,
         // turn with the forward leg and dip on the swinging side ----------
-        float bobAmp = Mathf.Lerp(0.028f, 0.055f, run) * move;
+        float bobAmp = skating ? 0f : Mathf.Lerp(0.028f, 0.055f, run) * move;
         // walking is lowest just after each heel lands; running is lowest mid-stance and highest in the flight
         float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * (phase - run * 0.4f * Mathf.PI))) - bobAmp;
         float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
         float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
-        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);
+        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0) + (skating ? Vector3.up * (skateLift - 0.07f * push) : Vector3.zero);
         float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt * (1f + swagger), pelvisDrop = c * 4f * move * (1f + swagger * 1.5f);
+        if (skating) { pelvisYaw = 80f; pelvisDrop = 0; }                          // side-on to the board
         b.hips.localRotation = hipsR * Quaternion.Euler(0, pelvisYaw, pelvisDrop + Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
         float breathe = Mathf.Sin(t * 1.7f);
         // chest counter-rotates against the hips, leans into a run, and rocks a touch against the pelvis dip
@@ -245,12 +270,24 @@ public class CharacterAnimator : MonoBehaviour
         switch (hold)
         {
             case Hold.Guitar: tSL = new Vector3(-62f, 0, 4f); tEL = new Vector3(-75f, 0, 0); tSR = new Vector3(-22f, 0, 12f); tER = new Vector3(-70f, 0, 0); break;
-            case Hold.Book:   tSR = new Vector3(-22f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-85f, 0, 0); break;
+            case Hold.Book:   tSR = new Vector3(-16f, 0, 8f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-78f, 0, 0); break;   // forearm forward: the book by its spine, the crutch pointing out
             case Hold.Cart:   tSR = new Vector3(-14f, 0, 6f); tER = new Vector3(-95f, 0, 0); break;
             case Hold.Tray:   tSL = new Vector3(-48f, 0, 4f); tSR = new Vector3(-48f, 0, -4f); tEL = tER = new Vector3(-48f, 0, 0); break;
             case Hold.Phone:  tSR = new Vector3(-32f, 0, 14f); tER = new Vector3(-128f, 0, 0); tSpine.x += 6f; break;
+            case Hold.CarryLeft: tSL = new Vector3(-16f, 0, 16f); tEL = new Vector3(-96f, 0, 0); tSR = new Vector3(-18f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-60f, 0, 0); break;   // deck / chip case in the left hand
+            case Hold.HangLeft:  tSL = new Vector3(-4f, 0, -10f); tEL = new Vector3(-12f, 0, 0); tSR = new Vector3(-20f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-75f, 0, 0); break;  // 6-pack carrier at your side, bottle in the right
+            case Hold.Carton:    tSL = new Vector3(-40f, 0, 17f); tSR = new Vector3(-40f, 0, -17f); tEL = tER = new Vector3(-62f, 0, 0); break;   // a big box in both hands
         }
+        if (charge > 0) { tSR = Vector3.Lerp(tSR, new Vector3(-160f, 0, 12f), charge); tER = Vector3.Lerp(tER, new Vector3(-35f, 0, 0), charge); }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
+        if (skating)
+        {
+            // chest turned back toward where you're going, arms loose and out for balance
+            tSpine.y = -pelvisYaw * 0.55f; tSpine.x = 8f + air * 6f;
+            float wob = Mathf.Sin(t * 1.3f) * 6f;
+            tSL = new Vector3(-8f + wob, 0, -32f); tSR = new Vector3(-6f - wob, 0, 30f);
+            tEL = tER = new Vector3(-28f, 0, 0);
+        }
 
         if (talkT > 0)                                                  // Jack delivering a joke: hand gestures, head bobs
         {
@@ -264,8 +301,23 @@ public class CharacterAnimator : MonoBehaviour
             float p = Mathf.Clamp01(actT / actDur), wind = Mathf.SmoothStep(0, 1, Mathf.Clamp01(p / actHit));
             float back = p < actHit ? 0 : Mathf.SmoothStep(0, 1, Mathf.InverseLerp(actHit + (1 - actHit) * 0.35f, 1f, p));
             float hit = p < actHit ? 0 : 1f - back;                     // 0→1→0 over the follow-through
+            // the newer moves blend from the hold pose into the wind-up, snap to the hit and ease back to the hold
+            float into = p < actHit ? 0 : Mathf.SmoothStep(0, 1, (p - actHit) / Mathf.Max(0.01f, (1 - actHit) * 0.35f));
+            Vector3 Blend(Vector3 hold, Vector3 windPose, Vector3 hitPose) => Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(hold, windPose, wind), hitPose, into), hold, back);
             switch (act)
             {
+                case Act.Sweep:   // arm out to the right, then across in front of you (the item leads), chest turning with it
+                    tSR = Blend(tSR, new Vector3(-70f, 0, 55f), new Vector3(-80f, 0, -28f)); tER = Blend(tER, new Vector3(-50f, 0, 0), new Vector3(-15f, 0, 0));
+                    tSpine.y += Mathf.Lerp(22f * wind, -30f, into) * (1f - back);
+                    break;
+                case Act.Flick:   // right hand over to the left for one, then whip it out toward the aim
+                    tSR = Blend(tSR, new Vector3(-32f, 0, -24f), new Vector3(-78f, 0, 8f)); tER = Blend(tER, new Vector3(-105f, 0, 0), new Vector3(-12f, 0, 0));
+                    tSpine.y += Mathf.Lerp(-10f * wind, 10f, into) * (1f - back);
+                    break;
+                case Act.Toss:    // both hands lift the box up and forward
+                    float lift = Mathf.Sin(p * Mathf.PI);
+                    tSL.x -= 32f * lift; tSR.x -= 32f * lift; tEL.x += 22f * lift; tER.x += 22f * lift; tSpine.x -= 5f * lift;
+                    break;
                 case Act.Punch:   // wind up fist by the cheek, jab straight out, guard up
                     tSR = Vector3.Lerp(new Vector3(-40f * wind, 0, 6f), new Vector3(-88f, 0, 2f), hit); tER = Vector3.Lerp(new Vector3(-10f - 110f * wind, 0, 0), new Vector3(-5f, 0, 0), hit);
                     tSL = new Vector3(-45f, 0, -8f); tEL = new Vector3(-95f, 0, 0);
@@ -298,6 +350,7 @@ public class CharacterAnimator : MonoBehaviour
 
         // ---------- head: look at the target, or follow the player's aim; glances and talking ----------
         Vector3 tHead = new Vector3(-2f * move - flinch * 10f, s * 6f * stepAmt, 0);
+        if (skating) tHead.y = -pelvisYaw * 0.4f;                                 // eyes where the board is going
         if ((glanceT -= dt) <= 0) { glanceT = Random.Range(3f, 7f); glance = Random.Range(-35f, 35f); }
         float glanceNow = glance * Mathf.Clamp01(Mathf.Sin(Mathf.Clamp01((glanceT - 1f) / 1.5f) * Mathf.PI)) * idle;
         if (fpc) tHead.x += fpc.Pitch * 0.7f;
@@ -338,5 +391,124 @@ public class CharacterAnimator : MonoBehaviour
         b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
         if (b.ankleL) b.ankleL.localRotation = anLR * Quaternion.Euler(anL);
         if (b.ankleR) b.ankleR.localRotation = anRR * Quaternion.Euler(anR);
+
+        ReachMouth(dt);
+        Fingers(dt);
+    }
+
+    // ---------- hands: fingers curl round what they hold ----------
+
+    // Hold → how far each hand's fingers curl (0 relaxed … 1 closed round a handle).
+    [System.NonSerialized] public float gripOverrideR = -1f, gripOverrideL = -1f;   // weapons can force a grip (-1 = automatic)
+    [System.NonSerialized] public FirstPersonHand.Grip? fingersR;                     // or shape each finger (a card between two); cleared each frame
+    readonly float[] curlR = new float[5], curlL = new float[5];
+    Transform[][] fingR, fingL;                                                        // [finger][segment], thumb last
+
+    void FindFingers()
+    {
+        Transform[][] Find(string side)
+        {
+            var names = new[] { "Index", "Mid", "Ring", "Pinky", "Thumb" };
+            var list = new Transform[names.Length][];
+            for (int f = 0; f < names.Length; f++)
+            {
+                list[f] = new Transform[3];
+                for (int j = 0; j < 3; j++) list[f][j] = FindDeep(transform, $"CC_Base_{side}_{names[f]}{j + 1}");
+                if (!list[f][0]) return null;
+            }
+            return list;
+        }
+        fingR = Find("R"); fingL = Find("L");
+    }
+
+    static Transform FindDeep(Transform t, string name)
+    {
+        if (t.name == name) return t;
+        foreach (Transform c in t) { var r = FindDeep(c, name); if (r) return r; }
+        return null;
+    }
+
+    void Fingers(float dt)
+    {
+        if (fingR == null && fingL == null) { if (!triedFingers) { triedFingers = true; FindFingers(); } if (fingR == null) return; }
+        bool punching = act == Act.Punch && actT >= 0;
+        // how far each hand closes for what it's holding: a fist round handles and bottles, a hook over a book's edge,
+        // flat palms on a box, a loose supporting hand under a case
+        float wantR = gripOverrideR >= 0 ? gripOverrideR
+            : punching || inhaling ? 1f
+            : hold == Hold.Book ? 0.62f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : hold == Hold.CarryLeft ? 0.3f : hold == Hold.HangLeft ? 0.72f : hold == Hold.None ? 0.2f : 0.95f;
+        float wantL = gripOverrideL >= 0 ? gripOverrideL
+            : hold == Hold.HangLeft || hold == Hold.Guitar ? 1f : hold == Hold.CarryLeft ? 0.45f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : 0.2f;
+        float k = 1f - Mathf.Exp(-dt * 16f);
+        for (int f = 0; f < 5; f++)
+        {
+            curlR[f] = Mathf.Lerp(curlR[f], fingersR.HasValue ? fingersR.Value[f] : wantR, k);
+            curlL[f] = Mathf.Lerp(curlL[f], wantL, k);
+        }
+        fingersR = null;
+        Curl(fingR, curlR, -1f); Curl(fingL, curlL, 1f);
+    }
+    bool triedFingers;
+
+    // Fingers hang straight down at rest with the knuckles along Z; curling toward the palm is about Z
+    // (the right palm faces -X, so the right hand turns the other way).
+    static void Curl(Transform[][] hand, float[] curl, float sign)
+    {
+        if (hand == null) return;
+        float[] seg = { 72f, 95f, 60f };
+        for (int f = 0; f < 4; f++)
+        {
+            float g = curl[f];
+            for (int j = 0; j < 3; j++)
+                if (hand[f][j]) hand[f][j].localRotation = Quaternion.Euler(0, 0, sign * (8f + seg[j] * g) * (1f - 0.08f * f * (1f - g)));
+        }
+        var th = hand[4]; float gt = curl[4];                                          // thumb: across the front of the fingers
+        if (th[0]) th[0].localRotation = Quaternion.Euler(-25f * gt, 0, sign * 20f * gt);
+        if (th[1]) th[1].localRotation = Quaternion.Euler(0, 0, sign * 25f * gt);
+        if (th[2]) th[2].localRotation = Quaternion.Euler(0, 0, sign * 30f * gt);
+    }
+
+    // ---------- the cart to the mouth (third person) ----------
+
+    [Tooltip("What goes in the mouth while hitting the cart (its mouthpiece); set by the cart.")]
+    [System.NonSerialized] public Transform mouthItemTip;
+    float reach;
+    Quaternion handRRest; bool handRestSet;
+
+    // Two-bone reach for the right arm so the held item's tip ends up at the lips, elbow down and out.
+    void ReachMouth(float dt)
+    {
+        reach = Mathf.MoveTowards(reach, inhaling && mouthItemTip ? 1f : 0f, dt * 5f);
+        if (!b.handR || !b.head) return;
+        if (!handRestSet) { handRRest = b.handR.localRotation; handRestSet = true; }
+        b.handR.localRotation = handRRest;                                                // nothing else turns the hand: start from rest each frame
+        if (reach <= 0.001f || !mouthItemTip) return;
+        float s = transform.lossyScale.y;
+        Vector3 mouth = b.head.position + transform.forward * 0.1f * s + transform.up * 0.015f * s;
+        for (int iter = 0; iter < 2; iter++)
+        {
+            // where the hand has to be so the tip lands on the mouth (the item's tip → hand offset, kept)
+            Vector3 handTarget = mouth - (mouthItemTip.position - b.handR.position);
+            Solve(b.shoulderR, b.elbowR, b.handR, Vector3.Lerp(b.handR.position, handTarget, reach), transform.right * 0.6f - transform.up);
+            // turn the hand so the tip points at the mouth
+            Vector3 have = mouthItemTip.position - b.handR.position, want = mouth - b.handR.position;
+            b.handR.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(have, want), reach) * b.handR.rotation;
+        }
+    }
+
+    static void Solve(Transform shoulder, Transform elbow, Transform hand, Vector3 target, Vector3 pole)
+    {
+        Vector3 S = shoulder.position, E = elbow.position, H = hand.position;
+        float l1 = (E - S).magnitude, l2 = (H - E).magnitude;
+        Vector3 toT = target - S; float d = Mathf.Clamp(toT.magnitude, 0.05f, l1 + l2 - 0.001f);
+        float cosA = Mathf.Clamp((l1 * l1 + d * d - l2 * l2) / (2f * l1 * d), -1f, 1f);
+        Vector3 dir = toT.normalized;
+        Vector3 n = Vector3.Cross(dir, pole).normalized;
+        if (n.sqrMagnitude < 1e-6f) n = Vector3.Cross(dir, Vector3.up).normalized;
+        Vector3 upper = Quaternion.AngleAxis(Mathf.Acos(cosA) * Mathf.Rad2Deg, n) * dir;
+        if (Vector3.Dot(upper, pole) < 0) upper = Quaternion.AngleAxis(-Mathf.Acos(cosA) * Mathf.Rad2Deg, n) * dir;
+        shoulder.rotation = Quaternion.FromToRotation(E - S, upper) * shoulder.rotation;
+        Vector3 E2 = elbow.position, H2 = hand.position;
+        elbow.rotation = Quaternion.FromToRotation(H2 - E2, target - E2) * elbow.rotation;
     }
 }

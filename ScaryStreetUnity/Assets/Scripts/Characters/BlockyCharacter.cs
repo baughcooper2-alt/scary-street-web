@@ -15,7 +15,7 @@ public class BlockyCharacter : MonoBehaviour
     [Header("Joints (filled in by Build)")]
     public Transform hips;
     public Transform spine, neck, head;
-    public Transform shoulderL, shoulderR, elbowL, elbowR, handR;
+    public Transform shoulderL, shoulderR, elbowL, elbowR, handR, handL;
     public Transform legL, legR, kneeL, kneeR, ankleL, ankleR;
     public List<Renderer> skinParts = new List<Renderer>(), hairParts = new List<Renderer>();
 
@@ -52,7 +52,8 @@ public class BlockyCharacter : MonoBehaviour
 
     public static BlockyCharacter Build(CharacterLook look, Transform parent, MaterialSource mat)
     {
-        if (RealBody.CanBuild(look)) return RealBody.Build(look, parent, mat);     // Cooper, Nathan: the Blender-built bodies
+        if (CartoonBody.CanBuild(look)) return CartoonBody.Build(look, parent, mat); // Mordecai, Rigby (DLC)
+        if (RealBody.CanBuild(look)) return RealBody.Build(look, parent, mat);     // Cooper, Nathan, Kenny, Isaiah: the Blender-built bodies
         if (HumanBody.CanBuild(look)) return HumanBody.Build(look, parent, mat);   // web build's human (workers, Jack, courier)
         var root = new GameObject("Model").transform;
         root.SetParent(parent, false);
@@ -108,7 +109,7 @@ public class BlockyCharacter : MonoBehaviour
             Hair();
 
             // arms
-            b.shoulderL = Arm(-1, out b.elbowL, out _);
+            b.shoulderL = Arm(-1, out b.elbowL, out b.handL);
             b.shoulderR = Arm(1, out b.elbowR, out b.handR);
         }
 

@@ -55,6 +55,14 @@ public class McDonaldsWorker : MonoBehaviour
     // every living worker, for things that home in on enemies (Guitar notes)
     public static readonly System.Collections.Generic.List<McDonaldsWorker> All = new System.Collections.Generic.List<McDonaldsWorker>();
     public bool IsAlive => health && !health.IsDead;
+
+    // Stop in place for a while (the Goldfish box: they stop to snack).
+    public void Stun(float seconds)
+    {
+        staggerT = Mathf.Max(staggerT, seconds);
+        if (agent && agent.isOnNavMesh) agent.isStopped = true;
+        attackT = -1f;
+    }
     void OnEnable() => All.Add(this);
     void OnDisable() => All.Remove(this);
 

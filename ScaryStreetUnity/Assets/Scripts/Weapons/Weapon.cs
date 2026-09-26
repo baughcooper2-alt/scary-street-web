@@ -35,15 +35,20 @@ public abstract class Weapon : MonoBehaviour
     }
 
     public virtual void Equip() { Equipped = true; if (BodyAnim) BodyAnim.hold = HoldPose; }
-    public virtual void Unequip() { Equipped = false; if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.inhaling = false; } }
+    public virtual void Unequip() { Equipped = false; if (BodyAnim) { BodyAnim.hold = CharacterAnimator.Hold.None; BodyAnim.inhaling = false; BodyAnim.charge = 0; } }
 
     // How the third-person body holds this weapon.
     protected virtual CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.None;
     public abstract void Tick(WeaponInput input);
 
     // Short text under the slot (ammo, charge...) and a hint line while it's equipped.
+    public virtual UIArt.Icon Icon => UIArt.Icon.Fist;               // slot card, level-up card, shop tile
     public virtual string SlotStatus => "";
     public virtual string Hint => "";
+
+    // The owner's device decides the button names in hints ("Left click" vs "RT"), and gets the rumble.
+    protected string Key(string keyboard, string gamepad) => inventory ? PlayerControls.For(inventory.gameObject).Prompt(keyboard, gamepad) : keyboard;
+    protected void Rumble(float low, float high, float seconds) { if (inventory) PlayerControls.For(inventory.gameObject).Rumble(low, high, seconds); }
 
     // ---------- levels (level-up picks) ----------
 
@@ -59,6 +64,8 @@ public abstract class Weapon : MonoBehaviour
 
     protected bool ThirdPerson => tpv && tpv.IsThirdPerson;
     protected CharacterAnimator BodyAnim => inventory.GetComponentInChildren<CharacterAnimator>();
+
+    public void DestroyModels() { if (fpModel) Destroy(fpModel.gameObject); if (tpModel) Destroy(tpModel.gameObject); }
 
     // Build the model under `parent`; `firstPerson` models shouldn't cast shadows.
     protected virtual Transform BuildFirstPersonModel() => null;
@@ -97,6 +104,24 @@ public abstract class Weapon : MonoBehaviour
         if (noShadow) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return t;
     }
+
+    // A part from a procedural mesh (MeshKit), in real size.
+    protected static Transform MeshPart(Mesh mesh, Transform parent, Vector3 pos, Material m, bool noShadow, Vector3 euler = default, string name = "Part")
+    {
+        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+        var t = go.transform;
+        t.SetParent(parent, false);
+        t.localPosition = pos; t.localRotation = Quaternion.Euler(euler);
+        go.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var r = go.GetComponent<MeshRenderer>();
+        if (m) r.sharedMaterial = m;
+        if (noShadow) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return t;
+    }
+
+    // A box with rounded edges (smoother than a cube primitive).
+    protected static Transform Rounded(Transform parent, Vector3 pos, Vector3 size, float radius, Material m, bool noShadow, Vector3 euler = default)
+        => MeshPart(MeshKit.RoundedBox(size, radius), parent, pos, m, noShadow, euler, "Rounded");
 
     // Eye point of the player (the camera may be behind us in third person).
     protected Vector3 Eye

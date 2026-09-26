@@ -3,7 +3,9 @@
 # Layout: "SSRB" int32 version | height | bones: count, (name, parent, head xyz) | parts: count, each:
 #   name, material count + names, vertex count, pos xyz, normal xyz, uv xy, 4x(bone int, weight float),
 #   submesh count, each (index count, indices) | blendshapes: count, each (name, delta xyz per vertex)
-import bpy, sys, struct, numpy as np
+# v2 adds, after the parts, the first-person hand rigs: count, each: part name, bone count, each (bone index,
+#   head xyz relative to the fist, curl axis xyz). FP_* parts are skinned to those bones (open hand; fingers curl at runtime).
+import bpy, sys, struct, json, numpy as np
 W=sys.argv[-3]; who=sys.argv[-2]; out=sys.argv[-1]; sys.path.append(W)
 from cclib import *
 bpy.ops.wm.open_mainfile(filepath=W+f'/stage5_{who}.blend')
@@ -20,12 +22,12 @@ for b in arm.data.bones:
 bidx={b.name:i for i,b in enumerate(order)}
 f=open(out,'wb')
 def S(s): b=s.encode(); f.write(struct.pack('<i',len(b))); f.write(b)
-f.write(b'SSRB'); f.write(struct.pack('<i',1))
+f.write(b'SSRB'); f.write(struct.pack('<i',2))
 body=O['CC_Base_Body']; f.write(struct.pack('<f', float(mesh_co(body)[:,2].max())))
 f.write(struct.pack('<i',len(order)))
 for b in order:
     S(b.name); f.write(struct.pack('<i', bidx[b.parent.name] if b.parent else -1)); f.write(struct.pack('<3f',*U(b.head_local)))
-names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','Curls','Cap','Wristband','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, unskinned)
+names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','Glasses','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, own finger rig)
 parts=[O[n] for n in names if n in O]
 f.write(struct.pack('<i',len(parts)))
 for o in parts:
@@ -35,7 +37,7 @@ for o in parts:
     gname={g.index:g.name for g in o.vertex_groups}
     vw=[]
     for v in me.vertices:
-        ws=[(g.weight,bidx[gname[g.group]]) for g in v.groups if gname[g.group] in bidx and g.weight>0.0005]
+        ws=[(g.weight,bidx[gname[g.group]]) for g in v.groups if gname.get(g.group) in bidx and g.weight>0.0005]
         ws.sort(reverse=True); ws=ws[:4]; t=sum(w for w,_ in ws) or 1
         ws=[(bi,w/t) for w,bi in ws]+[(0,0.0)]*(4-len(ws)); vw.append(ws)
     keys=me.shape_keys.key_blocks if me.shape_keys else []
@@ -67,5 +69,12 @@ for o in parts:
         S(k.name); d=(co-kco[0])[SRC]; d=np.column_stack([-d[:,0],d[:,2],-d[:,1]])
         f.write(d.astype(np.float32).tobytes())
     print('PART',o.name,'verts',len(P),'tris',sum(len(v) for v in subs.values())//3,'mats',mats,'shapes',max(0,len(kco)-1))
+fps=[o for o in parts if o.name.startswith('FP_') and 'fp_rig' in o]
+f.write(struct.pack('<i',len(fps)))
+for o in fps:
+    rig=json.loads(o['fp_rig']); S(o.name); f.write(struct.pack('<i',len(rig)))
+    for name,h,ax in rig:
+        f.write(struct.pack('<i',bidx[name])); f.write(struct.pack('<3f',*h)); f.write(struct.pack('<3f',*ax))
+    print('FP RIG',o.name,len(rig),'bones')
 f.close()
 import os; print('WROTE',out,os.path.getsize(out)//1024,'KB')

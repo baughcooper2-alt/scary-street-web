@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 // The player's money and XP for this run (DESIGN.md: XP fills your level bar; each level grants one upgrade pick).
-// Each level adds a pick to PendingPicks; LevelUpScreen (opened by PlayerStats) spends them.
+// Every PickEvery-th level (5, 10, 15…) adds a pick to PendingPicks; LevelUpScreen (opened by PlayerStats) spends them.
 public class PlayerProgress : MonoBehaviour
 {
     [Tooltip("Thorton starts with $100 (DESIGN.md); everyone else 0.")]
@@ -14,6 +14,8 @@ public class PlayerProgress : MonoBehaviour
     public int Xp { get; private set; }            // XP into the current level
     public int Level { get; private set; } = 1;
     public int PendingPicks { get; private set; }
+    [Tooltip("A level-up pick every this many levels.")] public int pickEvery = 5;
+    public int NextPickLevel => (Level / Mathf.Max(1, pickEvery) + 1) * Mathf.Max(1, pickEvery);
     public int XpToNext => xpPerLevel * Level;
     public float XpFraction => (float)Xp / XpToNext;
 
@@ -43,7 +45,7 @@ public class PlayerProgress : MonoBehaviour
         {
             Xp -= XpToNext;
             Level++;
-            PendingPicks++;
+            if (Level % Mathf.Max(1, pickEvery) == 0) PendingPicks++;
             LevelUp?.Invoke(Level);
         }
     }

@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Rebuilds Cooper and Nathan's real bodies (Resources/RealBody/*.bytes) with Blender in the background.
+# Rebuilds the real bodies (Cooper, Nathan, Kenny, Isaiah: Resources/RealBody/*.bytes) with Blender in the background,
+# and their face textures (eyebrows, Nathan's stubble) with face_textures.py (needs a Python with Pillow + numpy: PY).
 # Put the source files in WORK first (they are not in the repo):
 #   WORK/Unity/unity.Fbx (+ Unity/unity.fbm textures)   Character Creator base body export
 #   WORK/UrbanOutfit/Export OBJ/Beanie_Outfit_V01.obj    sweater, pants, beanie (Marvelous Designer)
@@ -18,9 +19,12 @@ cd $WORK
 $B -b -P stage1.py -- $WORK          # import, fix axes, keep blink/mouth shapes, A-pose rest
 $B -b -P stage2.py -- $WORK          # arms down (our rest pose), slimmer build
 $B -b -P garments_prep.py -- $WORK   # garments to metres, decimate, split by material
-for who in cooper nathan; do
+PY=${PY:-python3}
+TEX=$HERE/../../ScaryStreetUnity/Assets/Resources/RealBody/Tex
+for who in cooper nathan kenny isaiah; do
   $B -b -P stage3.py -- $WORK $who urban    # fit + skin the clothes, cut Cooper's sleeves
   $B -b -P stage4.py -- $WORK $who          # face shape, hair (+ Nathan's 3D curls), cap, wristband, shoes, hide covered skin
   $B -b -P stage5.py -- $WORK $who          # first-person arms: fist pose, cut forearm + hand, centre on the fist
   $B -b -P export_ssrb.py -- $WORK $who $OUT/${(C)who}.bytes
+  [ $who = cooper ] || $PY $HERE/face_textures.py $WORK $who $TEX   # Cooper's brows were painted by hand
 done

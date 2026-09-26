@@ -20,13 +20,43 @@ public class FirstPersonArms : MonoBehaviour
     public Vector3 mouthPosition = new Vector3(0.05f, -0.1f, 0.24f);
 
     public Transform RightHand => rightGrip;
+    public Transform LeftHand => leftGrip;
+    public Transform RightFist => right;                                            // the arm itself: origin in the middle of the fist
+    public Transform LeftFist => left;
+
+    // The body's hand (arm hanging, bone unrotated) and this fist hold things the same way once the hand frame is
+    // turned back 110° about X: the first-person forearm points ahead where the real one hangs down. Weapons pass
+    // the same hand-local offset they use in third person, so an item sits in the fist the same way in both views.
+    static readonly Quaternion FromHand = Quaternion.Euler(-110f, 0, 0);
+    float fistScale = 1f;
+    public void HoldLikeHand(Transform item, bool leftHand, Vector3 handPos, Quaternion handRot)
+    {
+        var fist = leftHand ? left : right;
+        if (!fist) return;
+        item.SetParent(fist, false);
+        var centre = new Vector3(leftHand ? 0.02f : -0.02f, -0.08f, 0);            // the body's fist, in hand space
+        item.localPosition = FromHand * (handPos - centre) * fistScale;
+        item.localRotation = FromHand * handRot;
+        item.localScale *= fistScale;
+    }
+
+    [Tooltip("The part of the held item that goes in your mouth (the cart's mouthpiece). With it set, raise brings that part to mouthPoint.")]
+    [System.NonSerialized] public Transform mouthTip;
+    public Vector3 mouthPoint = new Vector3(0f, -0.085f, 0.07f);                  // camera space: just under your eyes
 
     // Weapons can take over a hand for the frame: set the override flag, a camera-space position and a rotation.
     // (The walking bob is still added.) Clear the flags on Unequip.
     [System.NonSerialized] public bool overrideRight, overrideLeft;
     [System.NonSerialized] public Vector3 rightTarget, leftTarget, rightEuler, leftEuler;
 
-    Transform right, left, rightGrip;
+    // How each hand's fingers close (real bodies have posable first-person fingers). Weapons set these every frame
+    // for what they hold; they go back to a fist on their own otherwise.
+    [System.NonSerialized] public FirstPersonHand.Grip rightFingers = FirstPersonHand.Grip.Fist, leftFingers = FirstPersonHand.Grip.Fist;
+    FirstPersonHand fingersR, fingersL;
+    public FirstPersonHand RightFingers => fingersR;
+    public FirstPersonHand LeftFingers => fingersL;
+
+    Transform right, left, rightGrip, leftGrip;
     float kick;
     Vector3 lastPlayerPos;
     Transform player;
@@ -40,12 +70,17 @@ public class FirstPersonArms : MonoBehaviour
         if (!look) look = CharacterLook.Preset("cooper");
         var mats = BlockyCharacter.RuntimeMaterials();
         right = BuildArm("RightArm", 1, mats);
+        if (right.childCount > 0 && right.GetChild(0).name == "FP_R") fistScale = right.GetChild(0).localScale.x;   // the real arm is sized to the character
         left = BuildArm("LeftArm", -1, mats);
         int layer = PlayerLayers.Arms(PlayerLayers.IndexOf(this));    // only this player's camera draws them
         PlayerLayers.Set(right.gameObject, layer); PlayerLayers.Set(left.gameObject, layer);
         rightGrip = new GameObject("Grip").transform;                 // where held items go: in the curl of the fist
         rightGrip.SetParent(right, false);
         rightGrip.localPosition = new Vector3(-0.01f, 0.035f, 0.01f);
+        fingersR = right.GetComponentInChildren<FirstPersonHand>(); fingersL = left.GetComponentInChildren<FirstPersonHand>();
+        leftGrip = new GameObject("Grip").transform;
+        leftGrip.SetParent(left, false);
+        leftGrip.localPosition = new Vector3(0.01f, 0.035f, 0.01f);
 
         var punch = GetComponentInParent<PlayerPunch>();
         if (punch) punch.Punched += () => punchT = 0f;
@@ -114,11 +149,34 @@ public class FirstPersonArms : MonoBehaviour
         }
         kick = Mathf.MoveTowards(kick, 0, dt * 6f);
         float r = Mathf.SmoothStep(0, 1, raise);
-        right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
-        right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
+        // where the right hand is without the raise: a weapon's pose, or resting (with the jab)
+        Vector3 kickBack = new Vector3(0, 0.01f, -0.05f) * kick;
+        Vector3 basePos = overrideRight ? rightTarget + bob + kickBack : rest + jab + kickBack;
+        Quaternion baseRot = overrideRight ? Quaternion.Euler(rightEuler) : Quaternion.Euler(-12f * kick, 0, 0);
+        if (mouthTip && r > 0)
+        {
+            // tip the hand back so the mouthpiece points at you and lands right at your mouth
+            var q = Quaternion.Euler(-100f, -12f, 0);
+            Vector3 tip = right.InverseTransformPoint(mouthTip.position);
+            right.localPosition = Vector3.Lerp(basePos, mouthPoint - q * tip, r) + kickBack;
+            right.localRotation = Quaternion.Slerp(baseRot, q, r);
+        }
+        else
+        {
+            right.localPosition = Vector3.Lerp(basePos, mouthPosition, r);
+            right.localRotation = Quaternion.Slerp(baseRot, Quaternion.Euler(-35f - 12f * kick, -20f, 0), r);
+        }
         left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
         left.localRotation = Quaternion.identity;
-        if (overrideRight) { right.localPosition = rightTarget + bob + new Vector3(0, 0.01f, -0.05f) * kick; right.localRotation = Quaternion.Euler(rightEuler); }
         if (overrideLeft) { left.localPosition = leftTarget + bob * 0.5f; left.localRotation = Quaternion.Euler(leftEuler); }
+        PoseFingers(dt);
+    }
+
+    // curl the fingers to this frame's grips, then fall back to fists unless a weapon asks again next frame
+    public void PoseFingers(float dt)
+    {
+        if (fingersR) fingersR.Pose(rightFingers, dt);
+        if (fingersL) fingersL.Pose(leftFingers, dt);
+        rightFingers = leftFingers = FirstPersonHand.Grip.Fist;
     }
 }

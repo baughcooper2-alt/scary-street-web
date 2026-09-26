@@ -44,7 +44,7 @@ public static class HumanBody
         Transform B(string n) => t[HumanBase.Index(n)];
         b.hips = hips;
         b.spine = B("Bone.001"); b.neck = B("Bone.004"); b.head = B("Bone.005");
-        b.shoulderL = B("Bone.002_L.002"); b.elbowL = B("Bone.002_L.003");
+        b.shoulderL = B("Bone.002_L.002"); b.elbowL = B("Bone.002_L.003"); b.handL = B("Bone.002_L.004");
         b.shoulderR = B("Bone.002_R.002"); b.elbowR = B("Bone.002_R.003"); b.handR = B("Bone.002_R.004");
         b.legL = B("Bone_L.002"); b.kneeL = B("Bone_L.003");
         b.legR = B("Bone_R.002"); b.kneeR = B("Bone_R.003");

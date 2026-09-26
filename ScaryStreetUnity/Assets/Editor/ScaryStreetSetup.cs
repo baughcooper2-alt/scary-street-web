@@ -386,6 +386,98 @@ public static class ScaryStreetSetup
         return m;
     }
 
+    // ---------- Fridge (refills the 6-pack) ----------
+
+    // The kitchen fridge in the house model is a plain dark block with the microwave on top: find it by shape
+    // (a 0.85 x 1.9 x 0.9 m block with a thin window just above it), hide it, and put an openable Fridge there.
+    [MenuItem("Tools/Scary Street/Set Up Kitchen Fridge")]
+    static void SetUpKitchenFridge()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var rends = world.GetComponentsInChildren<MeshRenderer>(true);
+        MeshRenderer block = null; Vector3 front = Vector3.zero;
+        foreach (var r in rends)
+        {
+            var b = r.bounds; var sz = b.size;
+            bool fridgeSized = sz.y > 1.7f && sz.y < 2.1f && Mathf.Min(sz.x, sz.z) > 0.7f && Mathf.Max(sz.x, sz.z) < 1.05f;
+            if (!fridgeSized) continue;
+            foreach (var m in rends)                                   // the microwave's window: thin, just above the block
+            {
+                var mb = m.bounds; var ms = mb.size;
+                if (Mathf.Min(ms.x, ms.z) > 0.03f || ms.y < 0.12f || ms.y > 0.35f) continue;
+                if (mb.center.y < b.max.y || mb.center.y > b.max.y + 0.45f) continue;
+                if (Mathf.Abs(mb.center.x - b.center.x) > sz.x * 0.7f || Mathf.Abs(mb.center.z - b.center.z) > sz.z * 0.7f) continue;
+                block = r;
+                Vector3 off = mb.center - b.center; off.y = 0;
+                front = ms.x < ms.z ? new Vector3(Mathf.Sign(off.x), 0, 0) : new Vector3(0, 0, Mathf.Sign(off.z));   // the window faces the same way
+                break;
+            }
+            if (block) break;
+        }
+        if (!block) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find the kitchen fridge block (the one the microwave sits on). Use Add Fridge and place it by hand.", "OK"); return; }
+
+        foreach (var old in Object.FindObjectsByType<Fridge>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (old.replaces == block) Undo.DestroyObjectImmediate(old.gameObject);
+        var bb = block.bounds;
+        // the model's microwave faces the counter; the fridge door goes a quarter turn round, toward the open floor
+        {
+            Vector3 side = Vector3.Cross(Vector3.up, front).normalized;
+            float Open(Vector3 dir)
+            {
+                float half = Mathf.Abs(dir.x) > 0.5f ? bb.extents.x : bb.extents.z;
+                Vector3 from = bb.center + Vector3.down * (bb.extents.y - 1f) + dir * (half + 0.05f);
+                return Physics.Raycast(from, dir, out var hit, 4f) ? hit.distance : 4f;
+            }
+            float a = Open(side), b2 = Open(-side);
+            Debug.Log($"Scary Street: fridge sides open {a:0.00} m / {b2:0.00} m (microwave faced {front})");
+            front = a >= b2 ? side : -side;
+        }
+        var go = new GameObject("Kitchen Fridge", typeof(BoxCollider), typeof(Fridge));
+        Undo.RegisterCreatedObjectUndo(go, "Set Up Kitchen Fridge");
+        go.transform.position = new Vector3(bb.center.x, bb.min.y, bb.center.z);
+        go.transform.rotation = Quaternion.LookRotation(front);
+        var f = go.GetComponent<Fridge>();
+        bool alongX = Mathf.Abs(front.x) > 0.5f;
+        f.size = new Vector3(alongX ? bb.size.z : bb.size.x, bb.size.y, alongX ? bb.size.x : bb.size.z);
+        var mat = block.sharedMaterial;
+        if (mat) f.color = mat.HasProperty("baseColorFactor") ? mat.GetColor("baseColorFactor") : mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color;
+        f.replaces = block;
+        // hinge the door on the side away from the counter: look for something right beside each side, low down
+        float Space(Vector3 dir)
+        {
+            Vector3 from = go.transform.position + Vector3.up * 0.6f + dir * (f.size.x / 2 + 0.03f);
+            return Physics.Raycast(from, dir, out var hit, 1.2f) ? hit.distance : 1.2f;
+        }
+        var bc = go.GetComponent<BoxCollider>(); bc.size = f.size; bc.center = new Vector3(0, f.size.y / 2, 0);
+        float leftSpace = Space(go.transform.right), rightSpace = Space(-go.transform.right);      // facing it: its +X is your left
+        f.hingeOnLeft = leftSpace >= rightSpace;
+        Undo.RecordObject(block, "Set Up Kitchen Fridge");
+        block.enabled = false;
+        var col = block.GetComponent<Collider>();
+        if (col) { Undo.RecordObject(col, "Set Up Kitchen Fridge"); col.enabled = false; }
+        f.FitToRoom(false);                                               // turn to the open floor, door on the side with room
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        EditorUtility.DisplayDialog("Scary Street", "The kitchen fridge now opens (turned to face the open floor): F opens and closes it and refills your 6-pack. Save the scene; press Play to see it.", "OK");
+    }
+
+    [MenuItem("Tools/Scary Street/Add Fridge")]
+    static void AddFridge()
+    {
+        // where you're looking in the Scene view, dropped onto the floor below
+        var view = SceneView.lastActiveSceneView;
+        Vector3 at = view ? view.pivot : Vector3.zero;
+        if (Physics.Raycast(at + Vector3.up * 1.5f, Vector3.down, out var hit, 10f)) at = hit.point;
+        var go = new GameObject("Fridge", typeof(BoxCollider), typeof(Fridge));
+        go.transform.position = at;
+        if (view) { var f = view.camera.transform.forward; f.y = 0; if (f.sqrMagnitude > 0.01f) go.transform.rotation = Quaternion.LookRotation(-f.normalized); }
+        Undo.RegisterCreatedObjectUndo(go, "Add Fridge");
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        EditorUtility.DisplayDialog("Scary Street", "Fridge added where the Scene view is looking, facing the camera. Move it into the kitchen (W to move, E to rotate), then save the scene. Its look is built when you press Play.", "OK");
+    }
+
     // ---------- Mirrors ----------
 
     // The web build's mirrors (three.js coordinates): centre x, y, z, width, height; all face +X in the web build.
@@ -441,19 +533,20 @@ public static class ScaryStreetSetup
             var grade = Get<UnityEngine.Rendering.Universal.ColorAdjustments>(); grade.postExposure.Override(0.25f); grade.contrast.Override(14f); grade.saturation.Override(-6f);
             var wb = Get<UnityEngine.Rendering.Universal.WhiteBalance>(); wb.temperature.Override(6f); wb.tint.Override(2f);
             var vig = Get<UnityEngine.Rendering.Universal.Vignette>(); vig.intensity.Override(0.26f); vig.smoothness.Override(0.45f);
-            var grain = Get<UnityEngine.Rendering.Universal.FilmGrain>(); grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Thin1); grain.intensity.Override(0.18f); grain.response.Override(0.8f);
+            if (p.TryGet<UnityEngine.Rendering.Universal.FilmGrain>(out var grain)) grain.active = false;          // no grain: the user wants it clean
             var smh = Get<UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights>(); smh.shadows.Override(new Vector4(0.96f, 0.98f, 1.04f, -0.02f)); smh.highlights.Override(new Vector4(1.03f, 1.0f, 0.96f, 0f));
             if (p.TryGet<UnityEngine.Rendering.Universal.MotionBlur>(out var blur)) blur.active = false;
             EditorUtility.SetDirty(p);
         }
 
-        var rp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+        var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;   // the quality level's asset (PC_RPAsset); the default slot is empty
         if (rp)
         {
             var so = new SerializedObject(rp);
             void Set(string prop, int v) { var sp = so.FindProperty(prop); if (sp != null) sp.intValue = v; }
             void SetF(string prop, float v) { var sp = so.FindProperty(prop); if (sp != null) sp.floatValue = v; }
             Set("m_MSAA", 4); Set("m_MainLightShadowmapResolution", 4096); SetF("m_ShadowDistance", 45f); Set("m_SoftShadowsSupported", 1); Set("m_SoftShadowQuality", 3);
+            SetF("m_ShadowDepthBias", 1f); SetF("m_ShadowNormalBias", 1f);
             so.ApplyModifiedProperties();
         }
 
@@ -476,12 +569,13 @@ public static class ScaryStreetSetup
             var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(cam);
             Undo.RecordObject(data, "Improve Graphics");
             data.renderPostProcessing = true;
-            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // 4x MSAA handles edges
+            data.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;   // on top of 4x MSAA: texture and specular edges
+            data.antialiasingQuality = UnityEngine.Rendering.Universal.AntialiasingQuality.High;
             EditorUtility.SetDirty(data);
         }
         EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         AssetDatabase.SaveAssets();
-        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, grain, softer/higher-res shadows, 4x MSAA, warmer light with ambient and fog. Save the scene.", "OK");
+        EditorUtility.DisplayDialog("Scary Street", "Graphics improved: filmic colour, bloom, grading, softer/higher-res shadows, 4x MSAA + SMAA, warmer light with ambient and fog. Save the scene.", "OK");
     }
 
     // ---------- World detail ----------

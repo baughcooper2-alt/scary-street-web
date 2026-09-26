@@ -10,6 +10,9 @@ using UnityEngine.InputSystem;
 // and levels, heal, god mode, open every door. Added by GameFlow when a free-roam run starts.
 public class SandboxMenu : MonoBehaviour
 {
+    public static bool IsOpen => current && current.panel && current.panel.activeSelf;
+    static SandboxMenu current;
+
     GameObject panel;
     Text status;
     bool god;
@@ -18,6 +21,7 @@ public class SandboxMenu : MonoBehaviour
 
     void Start()
     {
+        current = this;
         var p = Players.Nearest(Vector3.zero, out _);
         player = p ? p.gameObject : GameObject.FindWithTag("Player");
         fpc = player ? player.GetComponent<FirstPersonController>() : null;
@@ -56,6 +60,7 @@ public class SandboxMenu : MonoBehaviour
         Row("SPAWN JACK", () => { if (rounds) rounds.SpawnJack(); }, "CLEAR ENEMIES", () => { if (rounds) rounds.ClearEnemies(); Say("Cleared"); });
         Row("CALL DOORDASH", () => { if (rounds) rounds.CallDoorDash(); Close(); }, "OPEN ALL DOORS", OpenDoors);
         Row("+$100", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddCash(100); Say("+$100"); }, "+1 LEVEL", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddXp(pr.XpToNext - pr.Xp); Close(); });
+        Row("GIVE WEAPONS", GiveWeapons, "FILL AMMO", () => { var inv = Get<WeaponInventory>(); if (inv) { var d = inv.Get<DeckOfCardsWeapon>(); if (d) d.NewDeck(); var p = inv.Get<SixPackWeapon>(); if (p) p.Refill(); var c = inv.Get<PokerChipsWeapon>(); if (c) c.Restock(); } Say("Restocked"); });
         Row("HEAL", () => { var h = Get<Health>(); if (h) { if (h.IsDead) h.ResetHealth(h.maxHealth); else h.Heal(h.maxHealth); } Say("Healed"); }, "GOD MODE", ToggleGod);
 
         status = UIKit.Label(rt, "", 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -65,6 +70,15 @@ public class SandboxMenu : MonoBehaviour
     }
 
     T Get<T>() where T : Component => player ? player.GetComponent<T>() : null;
+
+    // every weapon, adding slots as needed (for trying them out)
+    void GiveWeapons()
+    {
+        var inv = Get<WeaponInventory>(); if (!inv) return;
+        void Give<T>() where T : Weapon { if (inv.Get<T>()) return; if (inv.FreeSlots == 0) inv.AddSlot(); inv.Add<T>(); }
+        Give<DeckOfCardsWeapon>(); Give<PokerChipsWeapon>(); Give<CrutchWeapon>(); Give<GoldfishWeapon>(); Give<SixPackWeapon>(); Give<SkateboardWeapon>();
+        Say("All weapons: 1-9 or the scroll wheel to switch");
+    }
 
     void Spawn(int level, int count)
     {
@@ -108,14 +122,20 @@ public class SandboxMenu : MonoBehaviour
 
     void Update()
     {
-        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen) return;
-        bool toggle;
+        if (LevelUpScreen.IsOpen || DoorDashShop.IsOpen || PauseMenu.IsPaused) return;
+        bool toggle, back = false;
 #if ENABLE_INPUT_SYSTEM
         toggle = (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame) ||
                  (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame);
+        back = (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) ||
+               (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame);
 #else
         toggle = Input.GetKeyDown(KeyCode.Tab);
 #endif
         if (toggle) { if (panel.activeSelf) Close(); else Open(); }
+        else if (panel.activeSelf && back) Close();                   // Esc / B closes it too (PauseMenu waits while it's open)
+        if (panel.activeSelf) UIKit.KeepSelected(panel.GetComponentInChildren<Button>());
     }
+
+    void OnDestroy() { if (current == this) current = null; }
 }

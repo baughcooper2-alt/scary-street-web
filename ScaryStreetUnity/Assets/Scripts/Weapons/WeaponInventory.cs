@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 // The player's weapon slots (DESIGN.md: start with 5; the Backpack upgrade adds one each).
 // An empty slot means fists, so PlayerPunch only listens while an empty slot is selected.
-// Switch with 1–5, the mouse wheel, or the controller bumpers. Also draws the slot bar and the smoke haze.
+// Switch with 1–5, the mouse wheel, or the controller bumpers.
 public class WeaponInventory : MonoBehaviour
 {
     [Min(1)] public int capacity = 5;
@@ -21,7 +21,6 @@ public class WeaponInventory : MonoBehaviour
     public Weapon Current => Selected < slots.Count ? slots[Selected] : null;
     public IReadOnlyList<Weapon> Slots => slots;
 
-    [System.NonSerialized] public float haze;   // screen smoke, 0..1; weapons add to it, it clears on its own
 
     readonly List<Weapon> slots = new List<Weapon>();
     PlayerPunch fists;
@@ -40,6 +39,7 @@ public class WeaponInventory : MonoBehaviour
 
     void Start()
     {
+        int startSlot = 0;
         if (startWithCart) Add<CartWeapon>();
         if (startWithCharacterWeapon)
         {
@@ -49,8 +49,13 @@ public class WeaponInventory : MonoBehaviour
             var entry = look ? CharacterRoster.Find(look.displayName) : null;
             if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.LawBook) Add<LawBookWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Guitar) Add<GuitarWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Crutch) Add<CrutchWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Goldfish) Add<GoldfishWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.SixPack) Add<SixPackWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Skateboard)
+                startSlot = Mathf.Max(0, slots.IndexOf(Add<SkateboardWeapon>()));            // Isaiah starts the run already riding it
         }
-        Select(0);
+        Select(startSlot);
     }
 
     // Adds a weapon to the first empty slot; false if every slot is full.
@@ -67,6 +72,21 @@ public class WeaponInventory : MonoBehaviour
 
     public void AddSlot() { capacity++; slots.Add(null); }   // Backpack upgrade
 
+    public T Get<T>() where T : Weapon { foreach (var w in slots) if (w is T t) return t; return null; }
+    public int FreeSlots { get { int n = 0; foreach (var w in slots) if (!w) n++; return n; } }
+
+    // Take a weapon out of its slot (a used-up deck of cards).
+    public void Remove(Weapon w)
+    {
+        int i = slots.IndexOf(w);
+        if (i < 0) return;
+        if (w.Equipped) w.Unequip();
+        w.DestroyModels();
+        slots[i] = null;
+        Destroy(w);
+        if (i == Selected) Select(i);
+    }
+
     public void Select(int index)
     {
         if (index < 0 || index >= slots.Count) return;
@@ -82,7 +102,6 @@ public class WeaponInventory : MonoBehaviour
 
     void Update()
     {
-        haze = Mathf.MoveTowards(haze, 0, Time.deltaTime * 0.18f);
         toastT -= Time.deltaTime;
         if (health && health.IsDead) { if (Current && Current.Equipped) Current.Unequip(); return; }
 

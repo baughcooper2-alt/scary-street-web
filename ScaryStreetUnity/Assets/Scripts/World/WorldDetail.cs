@@ -6,7 +6,11 @@ using UnityEngine;
 //   • a normal map baked from its own texture (brick mortar, plank seams, siding and plaster get real relief)
 //   • a fine detail layer picked by what the surface looks like: wood grain, plaster stipple, concrete speckle,
 //     fabric weave, grass blades, or plain grain (the house UVs are in metres, so it tiles every 0.5 m)
-//   • a sensible finish: floors, wood and tiles a little glossy, walls and fabric matte.
+//   • a sensible finish: floors, wood and tiles a little glossy, walls and fabric matte
+//   • smooth shading on faceted round things (the trees' low-poly balls, rounded furniture, bevels on the cars):
+//     faces meeting at less than `smoothAngle` share a normal, sharper corners stay crisp
+//   • sharper textures at grazing angles (anisotropic filtering).
+// Kept subtle on purpose: strong relief and detail noise made plaster and concrete look grainy.
 // Put this on the world root (Tools > Scary Street > Add World Detail).
 public class WorldDetail : MonoBehaviour
 {
@@ -18,6 +22,8 @@ public class WorldDetail : MonoBehaviour
     public float detailSize = 0.5f;
     [Tooltip("A saved material with normal + detail maps switched on, so player builds keep those shader variants.")]
     public Material variantKeeper;
+    [Tooltip("Faces meeting at less than this share a normal (smooth shading); 0 = leave the model's normals.")]
+    [Range(0, 80)] public float smoothAngle = 50f;
 
     static readonly Dictionary<Texture, Texture2D> normals = new Dictionary<Texture, Texture2D>();
     static readonly Dictionary<Surface, (Texture2D albedo, Texture2D normal)> details = new Dictionary<Surface, (Texture2D, Texture2D)>();
@@ -43,6 +49,117 @@ public class WorldDetail : MonoBehaviour
             }
             if (changed) r.sharedMaterials = mats;
         }
+        if (smoothAngle > 0)
+        {
+            var smoothed = new Dictionary<Mesh, Mesh>();
+            int n = 0;
+            foreach (var f in GetComponentsInChildren<MeshFilter>(true))
+            {
+                var src = f.sharedMesh;
+                if (!src) continue;
+                if (!smoothed.TryGetValue(src, out var sm)) { smoothed[src] = sm = Smoothed(src, smoothAngle); if (sm != src) n++; }
+                if (sm != src) f.sharedMesh = sm;                           // (the colliders keep the original)
+            }
+            Debug.Log($"WorldDetail: smooth shading on {n} faceted meshes");
+        }
+    }
+
+    // A copy with smooth normals where neighbouring faces meet at a shallow angle, or the mesh itself if nothing
+    // changes (flat walls and boxes). glTF flat shading splits every corner, so corners are matched by position.
+    static Mesh Smoothed(Mesh src, float angle)
+    {
+        if (!src.isReadable || src.vertexCount < 12 || src.vertexCount > 60000) return src;
+        var v = src.vertices; var nrm = src.normals;
+        if (nrm == null || nrm.Length != v.Length) return src;
+        float cos = Mathf.Cos(angle * Mathf.Deg2Rad);
+        var groups = new Dictionary<Vector3Int, List<int>>();
+        for (int i = 0; i < v.Length; i++)
+        {
+            var key = new Vector3Int(Mathf.RoundToInt(v[i].x * 2000f), Mathf.RoundToInt(v[i].y * 2000f), Mathf.RoundToInt(v[i].z * 2000f));
+            if (!groups.TryGetValue(key, out var l)) groups[key] = l = new List<int>();
+            l.Add(i);
+        }
+        var outN = (Vector3[])nrm.Clone();
+        var smoothV = new bool[v.Length];                                        // this corner has one normal (not on a crease)
+        bool changed = false;
+        foreach (var l in groups.Values)
+        {
+            if (l.Count < 2) continue;
+            // faces at this corner that chain together at shallow angles share one normal (all the way round a
+            // low-poly ball); a real crease (a box's 90°) splits them into separate sets
+            int cnt = l.Count; var set = new int[cnt];
+            for (int k = 0; k < cnt; k++) set[k] = k;
+            int Root(int k) { while (set[k] != k) k = set[k] = set[set[k]]; return k; }
+            for (int x = 0; x < cnt; x++)
+                for (int y = x + 1; y < cnt; y++)
+                    if (Vector3.Dot(nrm[l[x]], nrm[l[y]]) >= cos) set[Root(x)] = Root(y);
+            var sums = new Dictionary<int, Vector3>();
+            for (int k = 0; k < cnt; k++) { int r = Root(k); sums[r] = (sums.TryGetValue(r, out var sv) ? sv : Vector3.zero) + nrm[l[k]]; }
+            for (int k = 0; k < cnt; k++)
+            {
+                var s = sums[Root(k)].normalized; int i = l[k];
+                if (s != Vector3.zero && Vector3.Dot(s, nrm[i]) < 0.9999f) { outN[i] = s; changed = true; }
+            }
+            bool one = true;
+            for (int k = 1; k < l.Count; k++) if (Vector3.Dot(outN[l[0]], outN[l[k]]) < 0.999f) { one = false; break; }
+            if (one) foreach (int i in l) smoothV[i] = true;
+        }
+        if (!changed) return src;
+        var m = Object.Instantiate(src); m.name = src.name + " (smooth)";
+        m.normals = outN;
+        // round the outline of the smooth parts (the trees' low-poly balls) with curved (PN) triangles
+        if (src.subMeshCount == 1 && src.vertexCount <= 4000 && src.GetTopology(0) == MeshTopology.Triangles) Curve(m, 3, smoothV);
+        else if (src.GetTopology(0) == MeshTopology.Triangles && m.tangents != null && m.tangents.Length == v.Length) m.RecalculateTangents();
+        return m;
+    }
+
+    // Curved point-normal triangles (Vlachos et al. 2001): each triangle becomes a cubic patch through its corners,
+    // bulging to match their normals, cut into level² smaller triangles. An edge only curves when both its corners are
+    // smooth (the same from either side, so no cracks open along creases); triangles with no curved edge stay as they are.
+    static void Curve(Mesh m, int level, bool[] smoothV)
+    {
+        var P = m.vertices; var N = m.normals; var UV = m.uv; var tri = m.triangles;
+        bool hasUV = UV != null && UV.Length == P.Length;
+        var v = new List<Vector3>(); var n = new List<Vector3>(); var uv = new List<Vector2>(); var t = new List<int>();
+        for (int f = 0; f < tri.Length; f += 3)
+        {
+            int a = tri[f], b = tri[f + 1], c = tri[f + 2];
+            bool e12 = smoothV[a] && smoothV[b], e23 = smoothV[b] && smoothV[c], e31 = smoothV[c] && smoothV[a];
+            if (!e12 && !e23 && !e31) { int s0 = v.Count; foreach (int k in new[] { a, b, c }) { v.Add(P[k]); n.Add(N[k]); uv.Add(hasUV ? UV[k] : Vector2.zero); } t.Add(s0); t.Add(s0 + 1); t.Add(s0 + 2); continue; }
+            Vector3 p1 = P[a], p2 = P[b], p3 = P[c], n1 = N[a], n2 = N[b], n3 = N[c];
+            float W(Vector3 pi, Vector3 pj, Vector3 ni, bool curved) => curved ? Vector3.Dot(pj - pi, ni) : 0f;
+            Vector3 b210 = (2 * p1 + p2 - W(p1, p2, n1, e12) * n1) / 3, b120 = (2 * p2 + p1 - W(p2, p1, n2, e12) * n2) / 3;
+            Vector3 b021 = (2 * p2 + p3 - W(p2, p3, n2, e23) * n2) / 3, b012 = (2 * p3 + p2 - W(p3, p2, n3, e23) * n3) / 3;
+            Vector3 b102 = (2 * p3 + p1 - W(p3, p1, n3, e31) * n3) / 3, b201 = (2 * p1 + p3 - W(p1, p3, n1, e31) * n1) / 3;
+            Vector3 e = (b210 + b120 + b021 + b012 + b102 + b201) / 6, ctr = (p1 + p2 + p3) / 3, b111 = e + (e - ctr) / 2;
+            Vector3 Nq(Vector3 pi, Vector3 pj, Vector3 ni, Vector3 nj)
+            {
+                Vector3 d = pj - pi; float vv = 2f * Vector3.Dot(d, ni + nj) / Mathf.Max(1e-8f, Vector3.Dot(d, d));
+                return (ni + nj - vv * d).normalized;
+            }
+            Vector3 n110 = Nq(p1, p2, n1, n2), n011 = Nq(p2, p3, n2, n3), n101 = Nq(p3, p1, n3, n1);
+            int start = v.Count;
+            for (int i = 0; i <= level; i++)
+                for (int j = 0; j <= level - i; j++)
+                {
+                    float uu = i / (float)level, vw = j / (float)level, w = 1f - uu - vw;       // w: p1, uu: p2, vw: p3
+                    v.Add(p1 * (w * w * w) + p2 * (uu * uu * uu) + p3 * (vw * vw * vw) + b210 * (3 * w * w * uu) + b120 * (3 * w * uu * uu)
+                          + b201 * (3 * w * w * vw) + b021 * (3 * uu * uu * vw) + b102 * (3 * w * vw * vw) + b012 * (3 * uu * vw * vw) + b111 * (6 * w * uu * vw));
+                    n.Add((n1 * (w * w) + n2 * (uu * uu) + n3 * (vw * vw) + n110 * (w * uu) + n011 * (uu * vw) + n101 * (w * vw)).normalized);
+                    uv.Add(hasUV ? UV[a] * w + UV[b] * uu + UV[c] * vw : Vector2.zero);
+                }
+            int Idx(int i, int j) { int k = 0; for (int r = 0; r < i; r++) k += level + 1 - r; return start + k + j; }
+            for (int i = 0; i < level; i++)
+                for (int j = 0; j < level - i; j++)
+                {
+                    t.Add(Idx(i, j)); t.Add(Idx(i + 1, j)); t.Add(Idx(i, j + 1));
+                    if (j < level - i - 1) { t.Add(Idx(i + 1, j)); t.Add(Idx(i + 1, j + 1)); t.Add(Idx(i, j + 1)); }
+                }
+        }
+        m.Clear();
+        m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        m.SetVertices(v); m.SetNormals(n); m.SetUVs(0, uv); m.SetTriangles(t, 0);
+        m.RecalculateBounds(); m.RecalculateTangents();
     }
 
     Material Upgrade(Material src, Shader lit)
@@ -59,6 +176,7 @@ public class WorldDetail : MonoBehaviour
         var kind = Classify(color, tex, metal);
 
         var m = new Material(lit) { name = src.name + " (detail)" };
+        if (tex) { tex.anisoLevel = Mathf.Max(tex.anisoLevel, 8); if (tex.filterMode == FilterMode.Bilinear) tex.filterMode = FilterMode.Trilinear; }
         m.SetColor("_BaseColor", color);
         if (tex) { m.SetTexture("_BaseMap", tex); m.SetTextureScale("_BaseMap", scale); m.SetTextureOffset("_BaseMap", offset); }
         m.SetFloat("_Metallic", metal);
@@ -68,7 +186,7 @@ public class WorldDetail : MonoBehaviour
         if (tex && bumpStrength > 0)
         {
             var n = NormalFrom(tex, kind);
-            if (n) { m.SetTexture("_BumpMap", n); m.SetFloat("_BumpScale", bumpStrength); m.EnableKeyword("_NORMALMAP"); }
+            if (n) { m.SetTexture("_BumpMap", n); m.SetFloat("_BumpScale", bumpStrength * Relief(kind)); m.EnableKeyword("_NORMALMAP"); }
         }
         // fine detail on top (UVs are in metres)
         if (detailStrength > 0)
@@ -78,7 +196,7 @@ public class WorldDetail : MonoBehaviour
             m.SetTexture("_DetailNormalMap", d.normal);
             m.SetTextureScale("_DetailAlbedoMap", Vector2.one / Mathf.Max(0.05f, detailSize));
             m.SetFloat("_DetailAlbedoMapScale", detailStrength);
-            m.SetFloat("_DetailNormalMapScale", detailStrength * (kind == Surface.Grass || kind == Surface.Fabric ? 1f : 0.6f));
+            m.SetFloat("_DetailNormalMapScale", detailStrength * DetailRelief(kind));
             m.SetTexture("_DetailMask", Texture2D.whiteTexture);
             m.EnableKeyword(Mathf.Approximately(detailStrength, 1f) ? "_DETAIL_MULX2" : "_DETAIL_SCALED");
         }
@@ -97,6 +215,18 @@ public class WorldDetail : MonoBehaviour
         if (s < 0.15f) return Surface.Concrete;
         return tex ? Surface.Plain : Surface.Fabric;
     }
+
+    // how much the texture-made relief and the fine detail's relief show, per surface (walls stay smooth)
+    static float Relief(Surface k) => k switch
+    {
+        Surface.Plaster => 0.25f, Surface.Concrete => 0.4f, Surface.Metal => 0.3f, Surface.Plain => 0.5f,
+        Surface.Wood => 0.7f, Surface.Fabric => 0.6f, _ => 0.8f,
+    };
+    static float DetailRelief(Surface k) => k switch
+    {
+        Surface.Plaster => 0.08f, Surface.Concrete => 0.15f, Surface.Metal => 0.1f, Surface.Plain => 0.15f,
+        Surface.Wood => 0.3f, Surface.Brick => 0.3f, _ => 0.45f,
+    };
 
     static float Finish(Surface k, float gltfSmooth) => k switch
     {
@@ -189,7 +319,8 @@ public class WorldDetail : MonoBehaviour
 
         var albedo = new Texture2D(n, n, TextureFormat.RGBA32, true, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 4, name = kind + "_detail" };
         var cols = new Color[n * n];
-        float contrast = kind == Surface.Metal ? 0.3f : 0.6f;
+        // low-contrast detail: a hint of grain up close, no speckle across the room
+        float contrast = kind switch { Surface.Plaster => 0.12f, Surface.Concrete => 0.2f, Surface.Metal => 0.15f, Surface.Plain => 0.18f, Surface.Wood => 0.35f, _ => 0.4f };
         for (int i = 0; i < cols.Length; i++) { float g = 0.5f + (hgt[i] - 0.5f) * contrast; cols[i] = new Color(g, g, g, 1); }
         albedo.SetPixels(cols); albedo.Apply(true);
         var normal = ToNormalMap(hgt, n, n, kind == Surface.Grass || kind == Surface.Fabric ? 6f : 3f);
