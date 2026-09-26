@@ -157,8 +157,6 @@ public class GameFlow : MonoBehaviour
         var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
         GameSettings.ApplyTo(p.GetComponent<FirstPersonController>(), index);
-        if (look && look.displayName == "Isaiah" && !p.GetComponent<StartingItems>())   // DESIGN.md: Isaiah starts on a skateboard
-            p.AddComponent<StartingItems>().upgrades = new[] { PlayerUpgrades.Id.Skateboard };
     }
 
     static void SetUpInput(GameObject p, int index, int count)

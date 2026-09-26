@@ -13,7 +13,7 @@ using UnityEngine;
 [RequireComponent(typeof(BlockyCharacter))]
 public class CharacterAnimator : MonoBehaviour
 {
-    public enum Hold { None, Guitar, Book, Cart, Tray, Phone, CarryLeft, HangLeft, Carton }   // add new ones at the end
+    public enum Hold { None, Guitar, Book, Cart, Tray, Phone, CarryLeft, HangLeft, Carton, Skate }   // add new ones at the end
     enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave, Sweep, Flick, Toss }
 
     [Tooltip("Scales every stride (1 = the natural length for this speed).")]
@@ -25,6 +25,9 @@ public class CharacterAnimator : MonoBehaviour
     [System.NonSerialized] public Hold hold;
     [System.NonSerialized] public bool inhaling;                  // cart (or a bottle) at the mouth
     [System.NonSerialized] public float charge;                   // 0..1: the held item raised overhead (Law Book charging a slam)
+    [System.NonSerialized] public float skatePush = -1f;          // 0..1 through a push-kick while riding (Hold.Skate), -1 = none
+    [Tooltip("Riding a skateboard: how far the body is lifted to stand on the deck (model units).")]
+    public float skateLift = 0.05f;
 
     [Header("Personal style (enemies randomise these)")]
     [Range(0.8f, 1.2f)] public float strideScale = 1f;
@@ -216,21 +219,38 @@ public class CharacterAnimator : MonoBehaviour
         Vector3 tLgL = new Vector3(hipL, 0, -Mathf.Abs(s) * spread), tLgR = new Vector3(hipR, 0, Mathf.Abs(s) * spread);
         Vector3 tKnL = new Vector3(2f + kneeL, 0, 0), tKnR = new Vector3(2f + kneeR, 0, 0);
         Vector3 tAnL = new Vector3(ankL, 0, 0), tAnR = new Vector3(ankR, 0, 0);
+        // riding a skateboard: side-on (regular: left foot forward over the front bolts, right over the tail), knees soft;
+        // a push takes the back foot off to kick along beside the board and back
+        bool skating = hold == Hold.Skate;
+        float push = 0;
+        if (skating)
+        {
+            // the push: the back foot steps down beside the board by the front truck, sweeps back along the ground
+            // past the tail, and comes back on; the front knee bends to reach the ground
+            float pp = skatePush >= 0 ? Mathf.Clamp01(skatePush) : 0f;
+            push = skatePush >= 0 ? Mathf.Sin(pp * Mathf.PI) : 0f;
+            float sweep = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.15f, 0.75f, pp)) * (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.75f, 1f, pp)));
+            tLgL = new Vector3(-12f - 16f * push, 0, -11f); tLgR = new Vector3(-12f - 16f * push, 0, 11f - 8f * push + 34f * sweep);
+            tKnL = new Vector3(28f + 34f * push, 0, 0); tKnR = new Vector3(28f - 24f * push, 0, 0);
+            tAnL = new Vector3(-16f - 10f * push, 0, 0); tAnR = new Vector3(-16f + 18f * push, 0, 0);
+        }
         // jump tuck, crouch and squat all bend the legs (and the ankles keep the feet flat)
         float bend = Mathf.Max(air * 0.8f, Mathf.Max(crouch, squat));
         tLgL = Vector3.Lerp(tLgL, new Vector3(-55f, 0, -4f), bend); tLgR = Vector3.Lerp(tLgR, new Vector3(-55f, 0, 4f), bend);
         tKnL = Vector3.Lerp(tKnL, new Vector3(95f, 0, 0), bend); tKnR = Vector3.Lerp(tKnR, new Vector3(95f, 0, 0), bend);
         tAnL = Vector3.Lerp(tAnL, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend); tAnR = Vector3.Lerp(tAnR, new Vector3(air > 0.5f ? 25f : -40f, 0, 0), bend);
+        if (skating && air > 0.05f) { tLgL.z = -11f; tLgR.z = 11f; }           // feet stay apart on the board in the air
 
         // ---------- pelvis: bob twice per stride (lowest as each heel lands), shift over the planted leg,
         // turn with the forward leg and dip on the swinging side ----------
-        float bobAmp = Mathf.Lerp(0.028f, 0.055f, run) * move;
+        float bobAmp = skating ? 0f : Mathf.Lerp(0.028f, 0.055f, run) * move;
         // walking is lowest just after each heel lands; running is lowest mid-stance and highest in the flight
         float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * (phase - run * 0.4f * Mathf.PI))) - bobAmp;
         float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
         float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
-        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0);
+        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0) + (skating ? Vector3.up * (skateLift - 0.07f * push) : Vector3.zero);
         float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt * (1f + swagger), pelvisDrop = c * 4f * move * (1f + swagger * 1.5f);
+        if (skating) { pelvisYaw = 80f; pelvisDrop = 0; }                          // side-on to the board
         b.hips.localRotation = hipsR * Quaternion.Euler(0, pelvisYaw, pelvisDrop + Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
         float breathe = Mathf.Sin(t * 1.7f);
         // chest counter-rotates against the hips, leans into a run, and rocks a touch against the pelvis dip
@@ -260,6 +280,14 @@ public class CharacterAnimator : MonoBehaviour
         }
         if (charge > 0) { tSR = Vector3.Lerp(tSR, new Vector3(-160f, 0, 12f), charge); tER = Vector3.Lerp(tER, new Vector3(-35f, 0, 0), charge); }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
+        if (skating)
+        {
+            // chest turned back toward where you're going, arms loose and out for balance
+            tSpine.y = -pelvisYaw * 0.55f; tSpine.x = 8f + air * 6f;
+            float wob = Mathf.Sin(t * 1.3f) * 6f;
+            tSL = new Vector3(-8f + wob, 0, -32f); tSR = new Vector3(-6f - wob, 0, 30f);
+            tEL = tER = new Vector3(-28f, 0, 0);
+        }
 
         if (talkT > 0)                                                  // Jack delivering a joke: hand gestures, head bobs
         {
@@ -322,6 +350,7 @@ public class CharacterAnimator : MonoBehaviour
 
         // ---------- head: look at the target, or follow the player's aim; glances and talking ----------
         Vector3 tHead = new Vector3(-2f * move - flinch * 10f, s * 6f * stepAmt, 0);
+        if (skating) tHead.y = -pelvisYaw * 0.4f;                                 // eyes where the board is going
         if ((glanceT -= dt) <= 0) { glanceT = Random.Range(3f, 7f); glance = Random.Range(-35f, 35f); }
         float glanceNow = glance * Mathf.Clamp01(Mathf.Sin(Mathf.Clamp01((glanceT - 1f) / 1.5f) * Mathf.PI)) * idle;
         if (fpc) tHead.x += fpc.Pitch * 0.7f;

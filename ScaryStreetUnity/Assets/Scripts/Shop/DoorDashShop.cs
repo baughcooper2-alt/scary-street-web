@@ -109,6 +109,7 @@ public class DoorDashShop : MonoBehaviour
             Offer<CrutchWeapon>("Crutch", "Long-reach swing and poke with a big shove", 45);
             Offer<GoldfishWeapon>("Box of Goldfish", "Cracker spray, or lob the box and they stop to snack", 35);
             Offer<SixPackWeapon>("6-Pack", "Bash, throw, or drink for strength (and dizziness)", 45);
+            Offer<SkateboardWeapon>("Skateboard", "Ride it: 2× speed, higher jumps, a trick on every jump; push to bowl them over", 80);
             var deck = weapons.Get<DeckOfCardsWeapon>();
             if (deck) list.Add(new Item { category = "Weapon", name = "New deck", desc = "A fresh 64 cards", price = Cost(20), buy = () => deck.NewDeck() });
             var pack = weapons.Get<SixPackWeapon>();

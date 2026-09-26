@@ -51,6 +51,7 @@ public class WeaponInventory : MonoBehaviour
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Crutch) Add<CrutchWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Goldfish) Add<GoldfishWeapon>();
             else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.SixPack) Add<SixPackWeapon>();
+            else if (entry != null && entry.weapon == CharacterRoster.StartingWeapon.Skateboard) Add<SkateboardWeapon>();
         }
         Select(0);
     }

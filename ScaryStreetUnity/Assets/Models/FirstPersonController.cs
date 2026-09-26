@@ -77,6 +77,12 @@ public class FirstPersonController : MonoBehaviour
     // Set by attacks like Jack's jokes: stunned = can't move or jump; slowed = half speed.
     [System.NonSerialized] public float stunnedUntil, slowedUntil;
     [System.NonSerialized] public float dizzy;                    // 0..1: the camera sways (beer); wears off on its own
+    // riding a skateboard: faster and higher, speed builds up and coasts (glide), and a push adds a shove that fades
+    [System.NonSerialized] public float speedMultiplier = 1f, jumpMultiplier = 1f;
+    [System.NonSerialized] public bool glide;
+    [System.NonSerialized] public Vector3 shove;
+    Vector3 planar;
+    public Vector3 Velocity => planar + shove + Vector3.up * verticalVel;
 
     void Start()
     {
@@ -119,13 +125,21 @@ public class FirstPersonController : MonoBehaviour
         // walk + gravity + jump
         move = Vector2.ClampMagnitude(move, 1f);
         Vector3 dir = transform.right * move.x + transform.forward * move.y;
-        float speed = crouching ? crouchSpeed : walkSpeed;
+        float speed = (crouching ? crouchSpeed : walkSpeed) * speedMultiplier;
         if (Time.time < stunnedUntil) { dir = Vector3.zero; jump = false; }
         else if (Time.time < slowedUntil) speed *= 0.5f;
         if (cc.isGrounded && verticalVel < 0) verticalVel = -2f;
-        if (jump && cc.isGrounded && !crouching) verticalVel = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        if (jump && cc.isGrounded && !crouching) verticalVel = Mathf.Sqrt(jumpHeight * jumpMultiplier * -2f * gravity);
         verticalVel += gravity * Time.deltaTime;
-        cc.Move((dir * speed + Vector3.up * verticalVel) * Time.deltaTime);
+        Vector3 want = dir * speed;
+        // on foot you go where you steer at once; on wheels speed builds up, and it coasts when you let go
+        float accel = !glide ? 1000f : want.sqrMagnitude > planar.sqrMagnitude ? 9f : (cc.isGrounded ? 2.5f : 0.5f);
+        planar = Vector3.MoveTowards(planar, want, accel * Time.deltaTime);
+        if (glide && want.sqrMagnitude > 0.01f && planar.sqrMagnitude > 0.01f)          // carve toward where you steer
+            planar = Vector3.RotateTowards(planar, want, 4f * Time.deltaTime, 0f);
+        shove = Vector3.MoveTowards(shove, Vector3.zero, 10f * Time.deltaTime);
+        var hit = cc.Move((planar + shove + Vector3.up * verticalVel) * Time.deltaTime);
+        if ((hit & CollisionFlags.Sides) != 0 && glide) { planar *= 0.5f; shove *= 0.3f; }    // bumped into something
     }
 
     // Right stick → degrees this frame: response curve, slower vertical, slowed down over enemies.

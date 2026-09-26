@@ -76,7 +76,7 @@ public class SandboxMenu : MonoBehaviour
     {
         var inv = Get<WeaponInventory>(); if (!inv) return;
         void Give<T>() where T : Weapon { if (inv.Get<T>()) return; if (inv.FreeSlots == 0) inv.AddSlot(); inv.Add<T>(); }
-        Give<DeckOfCardsWeapon>(); Give<PokerChipsWeapon>(); Give<CrutchWeapon>(); Give<GoldfishWeapon>(); Give<SixPackWeapon>();
+        Give<DeckOfCardsWeapon>(); Give<PokerChipsWeapon>(); Give<CrutchWeapon>(); Give<GoldfishWeapon>(); Give<SixPackWeapon>(); Give<SkateboardWeapon>();
         Say("All weapons: 1-9 or the scroll wheel to switch");
     }
 

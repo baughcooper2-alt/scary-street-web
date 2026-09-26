@@ -2,7 +2,7 @@
 // A character is playable when GameFlow has a CharacterLook whose displayName matches.
 public static class CharacterRoster
 {
-    public enum StartingWeapon { None, LawBook, Guitar, Crutch, Goldfish, SixPack }
+    public enum StartingWeapon { None, LawBook, Guitar, Crutch, Goldfish, SixPack, Skateboard }
 
     public class Entry
     {
@@ -19,7 +19,7 @@ public static class CharacterRoster
     {
         new Entry("Cooper", "Law Book", weapon: StartingWeapon.LawBook),
         new Entry("Nathan", "Guitar", weapon: StartingWeapon.Guitar),
-        new Entry("Isaiah", "Skateboard (no weapon)"),
+        new Entry("Isaiah", "Skateboard", weapon: StartingWeapon.Skateboard),
         new Entry("John", "6-pack of beer", weapon: StartingWeapon.SixPack),
         new Entry("Will", "No weapon; alcohol never makes him dizzy"),
         new Entry("Piper", "Crutch", weapon: StartingWeapon.Crutch),

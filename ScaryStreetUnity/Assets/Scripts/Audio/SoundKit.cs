@@ -7,7 +7,7 @@ public enum Sfx
     Punch, Hit, Whoosh, Puff, Inhale, Ring, Blinker, Strum, Ding, Slam, Objection,
     DoorOpen, DoorClose, Xp, Cash, LevelUp, Hurt, EnemyDown, Knock, Doorbell,
     Throw, Splat, Blah, WahWah, Fart, BigFart, RoundStart, RoundClear, Boss, Click, Buy,
-    Card, Chip, Glass, Gulp, Crunch,
+    Card, Chip, Glass, Gulp, Crunch, Clack,
 }
 
 public enum MusicTrack { None, Menu, Fight }
@@ -131,6 +131,7 @@ public static class SoundKit
             Sfx.Boss => Mix(Sweep(1.2f, 70, 40, 0.8f, square: true), Delay(Arp(new[] { 233f, 220f, 208f }, 0.3f, 0.35f, square: true), 0.1f)),
             Sfx.Click => Tone(0.04f, 1500, 0.25f, 60f, false),
             Sfx.Card => Mix(Noise(0.06f, 0.35f, 0.9f), Tone(0.03f, 2400, 0.12f, 60f, false)),
+            Sfx.Clack => Mix(Mix(Sweep(0.09f, 190, 70, 0.9f), Noise(0.05f, 0.55f, 0.75f)), Delay(Noise(0.06f, 0.3f, 0.5f), 0.04f)),   // skateboard landing: wood + wheels
             Sfx.Chip => Mix(Tone(0.12f, 2600, 0.35f, 30f, true), Delay(Tone(0.1f, 3100, 0.25f, 35f, true), 0.05f)),
             Sfx.Glass => Mix(Noise(0.35f, 0.6f, 0.95f), Arp(new[] { 2800f, 3500f, 2200f }, 0.03f, 0.3f)),
             Sfx.Gulp => Mix(Sweep(0.12f, 300, 160, 0.5f), Delay(Sweep(0.12f, 280, 150, 0.45f), 0.22f)),

@@ -102,6 +102,60 @@ public static class MeshKit
         return m;
     }
 
+    // A popsicle skateboard deck (real size, metres): length along Z, width along X, the nose (+Z) and tail kicked up,
+    // a slight concave, rounded ends. Submesh 0 is the top (grip tape), 1 the bottom and edges.
+    public static Mesh SkateDeck(float length = 0.825f, float width = 0.21f, float thick = 0.012f, float kick = 0.055f)
+    {
+        return Get($"SkateDeck_{length}_{width}_{thick}_{kick}", () => MakeSkateDeck(length, width, thick, kick));
+    }
+
+    static Mesh MakeSkateDeck(float L, float W, float T, float K)
+    {
+        const int N = 56, M = 10;                                              // along, across
+        float r = W / 2, flat = 0.2f;                                          // kicks start just past the trucks
+        float Half(float z) { float e = Mathf.Abs(z) - (L / 2 - r); return e <= 0 ? r : Mathf.Sqrt(Mathf.Max(0, r * r - e * e)); }
+        float Lift(float z)
+        {
+            float e = (Mathf.Abs(z) - flat) / (L / 2 - flat);
+            return e <= 0 ? 0 : K * (z > 0 ? 1.08f : 1f) * Mathf.Pow(e, 1.7f);            // the nose a touch steeper
+        }
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var top = new List<int>(); var rest = new List<int>();
+        Vector3 P(int i, int j, float side)
+        {
+            float z = -L / 2 + L * i / N, sx = -1f + 2f * j / M, x = sx * Half(z);
+            float y = Lift(z) + 0.004f * sx * sx * (Mathf.Abs(z) < flat ? 1 : 0.4f);        // concave: edges up
+            return new Vector3(x, y + side * T / 2, z);
+        }
+        int grid(int side)                                                     // one surface; returns its first index
+        {
+            int start = v.Count;
+            for (int i = 0; i <= N; i++) for (int j = 0; j <= M; j++) { v.Add(P(i, j, side)); uv.Add(new Vector2((float)j / M, (float)i / N)); }
+            return start;
+        }
+        int t0 = grid(1), b0 = grid(-1), C = M + 1;
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < M; j++)
+            {
+                int a = i * C + j, b = a + C, c = b + 1, d = a + 1;
+                top.AddRange(new[] { t0 + a, t0 + b, t0 + c, t0 + a, t0 + c, t0 + d });
+                rest.AddRange(new[] { b0 + a, b0 + c, b0 + b, b0 + a, b0 + d, b0 + c });
+            }
+        // the edge all round: its own vertices so the rim has a crisp normal
+        foreach (int j in new[] { 0, M })
+            for (int i = 0; i < N; i++)
+            {
+                int s0 = v.Count;
+                v.Add(P(i, j, 1)); v.Add(P(i + 1, j, 1)); v.Add(P(i + 1, j, -1)); v.Add(P(i, j, -1));
+                for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
+                if (j == M) rest.AddRange(new[] { s0, s0 + 1, s0 + 2, s0, s0 + 2, s0 + 3 });
+                else rest.AddRange(new[] { s0, s0 + 2, s0 + 1, s0, s0 + 3, s0 + 2 });
+            }
+        var m = new Mesh { name = "SkateDeck", subMeshCount = 2 };
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(top, 0); m.SetTriangles(rest, 1);
+        m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+
     // A turned (lathe) shape round Y from a profile of (radius, height) points, bottom to top, closed with caps.
     // Smooth normals from the profile's slope.
     public static Mesh Lathe(string key, Vector2[] profile, int sides = 28)
