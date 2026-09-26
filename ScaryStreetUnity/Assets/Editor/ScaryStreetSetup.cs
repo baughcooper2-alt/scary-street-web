@@ -456,6 +456,7 @@ public static class ScaryStreetSetup
         block.enabled = false;
         var col = block.GetComponent<Collider>();
         if (col) { Undo.RecordObject(col, "Set Up Kitchen Fridge"); col.enabled = false; }
+        f.FitToRoom(false);                                               // turn to the open floor, door on the side with room
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);
         EditorUtility.DisplayDialog("Scary Street", "The kitchen fridge now opens (turned to face the open floor): F opens and closes it and refills your 6-pack. Save the scene; press Play to see it.", "OK");

@@ -4,6 +4,9 @@ using UnityEngine;
 // beer and a 6-pack inside) and grabs you a fresh 6-pack if yours isn't full; F again closes it.
 // Tools > Scary Street > Set Up Kitchen Fridge swaps the kitchen's solid block (the one the microwave sits on) for
 // this, sized and coloured to match; Add Fridge drops a plain one wherever you like. Builds its own look on Awake.
+// On Start it checks what's round it (walls, counters): if it's facing something (the kitchen one faced the end of
+// the counter) it turns to face the open floor, hinges the door on whichever side lets it swing furthest, and stops
+// it short of anything in the way.
 // Local space: origin on the floor in the middle, the front faces +Z.
 public class Fridge : MonoBehaviour, IInteractable
 {
@@ -17,6 +20,8 @@ public class Fridge : MonoBehaviour, IInteractable
     [Range(0.2f, 0.45f)] public float freezerShare = 0.3f;
     [Tooltip("Hinge on the left as you face it (the door swings out on that side). Set Up Kitchen Fridge picks the side away from the counter.")]
     public bool hingeOnLeft = true;
+    [Tooltip("How far the door opens (degrees). On Start it's cut back so the door stops before any wall or counter.")]
+    public float maxOpen = 105f;
 
     Transform door;
     Light lamp;
@@ -36,6 +41,79 @@ public class Fridge : MonoBehaviour, IInteractable
         var box = GetComponent<BoxCollider>() ? GetComponent<BoxCollider>() : gameObject.AddComponent<BoxCollider>();
         box.size = new Vector3(size.x, size.y, size.z - 0.06f); box.center = new Vector3(0, size.y / 2, -0.03f);
         if (!transform.Find("Build")) Build();
+    }
+
+    // Swing the door through its arc on both sides; keep the side that opens widest and stop short of the first thing hit.
+    void Start() => FitToRoom(true);
+
+    // Face the open floor and hinge the door where it swings furthest (Set Up Kitchen Fridge calls this too, without
+    // the rebuild, so the editor shows the same thing Play does).
+    public void FitToRoom(bool rebuild)
+    {
+        Physics.SyncTransforms();
+        // try the four facings (the footprint is near square): open floor in front first, then the widest door swing;
+        // a small bonus keeps the placed facing when it's as good
+        Quaternion placed = transform.rotation, best = placed;
+        float bestScore = float.MinValue, bestAngle = 0; bool bestLeft = hingeOnLeft;
+        for (int k = 0; k < 4; k++)
+        {
+            transform.rotation = placed * Quaternion.Euler(0, 90f * k, 0);
+            float l = FreeAngle(true), r = FreeAngle(false);
+            bool left = l > r + 10f || (l >= r - 10f && hingeOnLeft);
+            float swing = left ? l : r;
+            float score = (FrontClear() ? 1000f : 0f) + swing + (k == 0 ? 5f : 0f);
+            if (score > bestScore) { bestScore = score; best = transform.rotation; bestAngle = swing; bestLeft = left; }
+        }
+        transform.rotation = best;
+        if (bestLeft != hingeOnLeft)
+        {
+            hingeOnLeft = bestLeft;
+            if (!rebuild) { maxOpen = Mathf.Clamp(bestAngle, 40f, 105f); return; }
+            var old = transform.Find("Build");
+            if (old) { old.name = "Build (old)"; old.gameObject.SetActive(false); Destroy(old.gameObject); }
+            Build();
+        }
+        maxOpen = Mathf.Clamp(bestAngle, 40f, 105f);
+        Physics.SyncTransforms();
+    }
+
+    // room to stand in front of it (a body's width, 0.8 m out)
+    bool FrontClear()
+    {
+        Vector3 centre = transform.TransformPoint(new Vector3(0, 0.95f, size.z / 2 + 0.4f));
+        Vector3 half = Vector3.Scale(new Vector3(size.x / 2 - 0.12f, 0.7f, 0.3f), transform.lossyScale);
+        foreach (var c in Physics.OverlapBox(centre, half, transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+            if (Solid(c)) return false;
+        return true;
+    }
+
+    bool Solid(Collider c)
+    {
+        if (!c.enabled || c.transform.IsChildOf(transform) || c.attachedRigidbody) return false;
+        if (replaces && c.transform == replaces.transform) return false;
+        return !(c.GetComponentInParent<CharacterController>() || c.GetComponentInParent<Health>() || c.GetComponentInParent<Door>());
+    }
+
+    float FreeAngle(bool left)
+    {
+        const float limit = 105f;
+        for (float a = 5f; a <= limit; a += 5f)
+            if (DoorBlocked(left, a)) return a - 5f;
+        return limit;
+    }
+
+    // Is anything solid (not the fridge, not people or doors) where the door would be at this angle?
+    bool DoorBlocked(bool left, float angle)
+    {
+        float w = size.x, d = size.z, split = size.y * (1f - freezerShare), hs = left ? 1f : -1f;
+        var hinge = new Vector3(hs * w / 2, 0, d / 2);
+        var turn = Quaternion.Euler(0, left ? angle : -angle, 0);
+        // the door panel, less a few cm at each end (the hinge corner hardly moves, and the fridge sits flush to walls)
+        Vector3 centre = transform.TransformPoint(hinge + turn * new Vector3(-hs * w / 2, split / 2 + 0.04f, -0.02f));
+        Vector3 half = Vector3.Scale(new Vector3(w - 0.14f, split - 0.14f, 0.06f) * 0.5f, transform.lossyScale);
+        foreach (var c in Physics.OverlapBox(centre, half, transform.rotation * turn, ~0, QueryTriggerInteraction.Ignore))
+            if (Solid(c)) return true;
+        return false;
     }
 
     void Build()
@@ -108,7 +186,7 @@ public class Fridge : MonoBehaviour, IInteractable
 
     void Update()
     {
-        angle = Mathf.MoveTowards(angle, open ? 105f : 0f, Time.deltaTime * 320f);
+        angle = Mathf.MoveTowards(angle, open ? maxOpen : 0f, Time.deltaTime * 320f);
         if (door) door.localRotation = Quaternion.Euler(0, hingeOnLeft ? angle : -angle, 0);   // always swings out toward you
         if (lamp) lamp.intensity = Mathf.MoveTowards(lamp.intensity, open ? 1.6f : 0f, Time.deltaTime * 8f);
     }
