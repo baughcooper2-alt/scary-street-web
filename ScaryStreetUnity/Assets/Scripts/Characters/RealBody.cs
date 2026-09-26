@@ -116,7 +116,7 @@ public static class RealBody
         }
         Transform B(string n) { for (int i = 0; i < d.bones.Length; i++) if (d.bones[i].name == "CC_Base_" + n) return t[i]; return null; }
         b.hips = B("Hip"); b.spine = B("Waist"); b.neck = B("NeckTwist01"); b.head = B("Head");
-        b.shoulderL = B("L_Upperarm"); b.elbowL = B("L_Forearm");
+        b.shoulderL = B("L_Upperarm"); b.elbowL = B("L_Forearm"); b.handL = B("L_Hand");
         b.shoulderR = B("R_Upperarm"); b.elbowR = B("R_Forearm"); b.handR = B("R_Hand");
         b.legL = B("L_Thigh"); b.kneeL = B("L_Calf"); b.ankleL = B("L_Foot");
         b.legR = B("R_Thigh"); b.kneeR = B("R_Calf"); b.ankleR = B("R_Foot");

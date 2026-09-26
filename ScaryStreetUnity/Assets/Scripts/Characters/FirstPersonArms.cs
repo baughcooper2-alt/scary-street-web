@@ -20,13 +20,18 @@ public class FirstPersonArms : MonoBehaviour
     public Vector3 mouthPosition = new Vector3(0.05f, -0.1f, 0.24f);
 
     public Transform RightHand => rightGrip;
+    public Transform LeftHand => leftGrip;
+
+    [Tooltip("The part of the held item that goes in your mouth (the cart's mouthpiece). With it set, raise brings that part to mouthPoint.")]
+    [System.NonSerialized] public Transform mouthTip;
+    public Vector3 mouthPoint = new Vector3(0f, -0.085f, 0.07f);                  // camera space: just under your eyes
 
     // Weapons can take over a hand for the frame: set the override flag, a camera-space position and a rotation.
     // (The walking bob is still added.) Clear the flags on Unequip.
     [System.NonSerialized] public bool overrideRight, overrideLeft;
     [System.NonSerialized] public Vector3 rightTarget, leftTarget, rightEuler, leftEuler;
 
-    Transform right, left, rightGrip;
+    Transform right, left, rightGrip, leftGrip;
     float kick;
     Vector3 lastPlayerPos;
     Transform player;
@@ -46,6 +51,9 @@ public class FirstPersonArms : MonoBehaviour
         rightGrip = new GameObject("Grip").transform;                 // where held items go: in the curl of the fist
         rightGrip.SetParent(right, false);
         rightGrip.localPosition = new Vector3(-0.01f, 0.035f, 0.01f);
+        leftGrip = new GameObject("Grip").transform;
+        leftGrip.SetParent(left, false);
+        leftGrip.localPosition = new Vector3(0.01f, 0.035f, 0.01f);
 
         var punch = GetComponentInParent<PlayerPunch>();
         if (punch) punch.Punched += () => punchT = 0f;
@@ -114,8 +122,19 @@ public class FirstPersonArms : MonoBehaviour
         }
         kick = Mathf.MoveTowards(kick, 0, dt * 6f);
         float r = Mathf.SmoothStep(0, 1, raise);
-        right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
-        right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
+        if (mouthTip && r > 0)
+        {
+            // tip the hand back so the mouthpiece points at you and lands right at your mouth
+            var q = Quaternion.Euler(-100f, -12f, 0);
+            Vector3 tip = right.InverseTransformPoint(mouthTip.position);
+            right.localPosition = Vector3.Lerp(rest + jab, mouthPoint - q * tip, r) + new Vector3(0, 0.01f, -0.05f) * kick;
+            right.localRotation = Quaternion.Slerp(Quaternion.Euler(-12f * kick, 0, 0), q, r);
+        }
+        else
+        {
+            right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
+            right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
+        }
         left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
         left.localRotation = Quaternion.identity;
         if (overrideRight) { right.localPosition = rightTarget + bob + new Vector3(0, 0.01f, -0.05f) * kick; right.localRotation = Quaternion.Euler(rightEuler); }

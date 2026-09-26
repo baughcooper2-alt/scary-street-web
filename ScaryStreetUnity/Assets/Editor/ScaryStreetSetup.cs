@@ -388,6 +388,66 @@ public static class ScaryStreetSetup
 
     // ---------- Fridge (refills the 6-pack) ----------
 
+    // The kitchen fridge in the house model is a plain dark block with the microwave on top: find it by shape
+    // (a 0.85 x 1.9 x 0.9 m block with a thin window just above it), hide it, and put an openable Fridge there.
+    [MenuItem("Tools/Scary Street/Set Up Kitchen Fridge")]
+    static void SetUpKitchenFridge()
+    {
+        var world = FindWorld();
+        if (!world) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find scary-street-world in the open scene.", "OK"); return; }
+        var rends = world.GetComponentsInChildren<MeshRenderer>(true);
+        MeshRenderer block = null; Vector3 front = Vector3.zero;
+        foreach (var r in rends)
+        {
+            var b = r.bounds; var sz = b.size;
+            bool fridgeSized = sz.y > 1.7f && sz.y < 2.1f && Mathf.Min(sz.x, sz.z) > 0.7f && Mathf.Max(sz.x, sz.z) < 1.05f;
+            if (!fridgeSized) continue;
+            foreach (var m in rends)                                   // the microwave's window: thin, just above the block
+            {
+                var mb = m.bounds; var ms = mb.size;
+                if (Mathf.Min(ms.x, ms.z) > 0.03f || ms.y < 0.12f || ms.y > 0.35f) continue;
+                if (mb.center.y < b.max.y || mb.center.y > b.max.y + 0.45f) continue;
+                if (Mathf.Abs(mb.center.x - b.center.x) > sz.x * 0.7f || Mathf.Abs(mb.center.z - b.center.z) > sz.z * 0.7f) continue;
+                block = r;
+                Vector3 off = mb.center - b.center; off.y = 0;
+                front = ms.x < ms.z ? new Vector3(Mathf.Sign(off.x), 0, 0) : new Vector3(0, 0, Mathf.Sign(off.z));   // the window faces the same way
+                break;
+            }
+            if (block) break;
+        }
+        if (!block) { EditorUtility.DisplayDialog("Scary Street", "Couldn't find the kitchen fridge block (the one the microwave sits on). Use Add Fridge and place it by hand.", "OK"); return; }
+
+        foreach (var old in Object.FindObjectsByType<Fridge>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (old.replaces == block) Undo.DestroyObjectImmediate(old.gameObject);
+        var bb = block.bounds;
+        var go = new GameObject("Kitchen Fridge", typeof(BoxCollider), typeof(Fridge));
+        Undo.RegisterCreatedObjectUndo(go, "Set Up Kitchen Fridge");
+        go.transform.position = new Vector3(bb.center.x, bb.min.y, bb.center.z);
+        go.transform.rotation = Quaternion.LookRotation(front);
+        var f = go.GetComponent<Fridge>();
+        bool alongX = Mathf.Abs(front.x) > 0.5f;
+        f.size = new Vector3(alongX ? bb.size.z : bb.size.x, bb.size.y, alongX ? bb.size.x : bb.size.z);
+        var mat = block.sharedMaterial;
+        if (mat) f.color = mat.HasProperty("baseColorFactor") ? mat.GetColor("baseColorFactor") : mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color;
+        f.replaces = block;
+        // hinge the door on the side away from the counter: look for something right beside each side, low down
+        float Space(Vector3 dir)
+        {
+            Vector3 from = go.transform.position + Vector3.up * 0.6f + dir * (f.size.x / 2 + 0.03f);
+            return Physics.Raycast(from, dir, out var hit, 1.2f) ? hit.distance : 1.2f;
+        }
+        var bc = go.GetComponent<BoxCollider>(); bc.size = f.size; bc.center = new Vector3(0, f.size.y / 2, 0);
+        float leftSpace = Space(go.transform.right), rightSpace = Space(-go.transform.right);      // facing it: its +X is your left
+        f.hingeOnLeft = leftSpace >= rightSpace;
+        Undo.RecordObject(block, "Set Up Kitchen Fridge");
+        block.enabled = false;
+        var col = block.GetComponent<Collider>();
+        if (col) { Undo.RecordObject(col, "Set Up Kitchen Fridge"); col.enabled = false; }
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        EditorUtility.DisplayDialog("Scary Street", "The kitchen fridge now opens: F opens and closes it (and refills your 6-pack). Save the scene; press Play to see it.", "OK");
+    }
+
     [MenuItem("Tools/Scary Street/Add Fridge")]
     static void AddFridge()
     {

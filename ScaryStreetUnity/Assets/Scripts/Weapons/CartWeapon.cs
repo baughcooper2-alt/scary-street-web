@@ -56,7 +56,7 @@ public class CartWeapon : Weapon
     {
         base.Unequip();
         ShowModels(false);
-        if (arms) arms.raise = 0;
+        if (arms) { arms.raise = 0; if (arms.mouthTip == fpTip) arms.mouthTip = null; }
         holdFull = 0;
     }
 
@@ -89,7 +89,7 @@ public class CartWeapon : Weapon
             }
         }
         else holdFull = 0;
-        if (arms) arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f);
+        if (arms) { arms.mouthTip = fpTip; arms.raise = Mathf.MoveTowards(arms.raise, inhaling ? 1f : 0f, dt * 6f); }
         var anim = BodyAnim; if (anim) { anim.inhaling = inhaling; if (anim.hold != CharacterAnimator.Hold.Cart) anim.hold = CharacterAnimator.Hold.Cart; }
         glow = Mathf.MoveTowards(glow, inhaling || blinkReady ? 1f : 0f, dt * 8f);
         DrawScreen(maxPuffs > 0 ? lung / maxPuffs : 0f);
@@ -191,6 +191,9 @@ public class CartWeapon : Weapon
         CartPart(PrimitiveType.Cube, root, Vector3.zero, new Vector3(W, H, D), shell, firstPerson);
         CartPart(PrimitiveType.Cube, root, new Vector3(-0.012f, H / 2 + 0.017f, 0), new Vector3(0.036f, 0.034f, 0.028f), matte, firstPerson);
         CartPart(PrimitiveType.Cube, root, new Vector3(-0.012f, H / 2 + 0.036f, 0), new Vector3(0.03f, 0.006f, 0.022f), matte, firstPerson);
+        var tip = new GameObject("MouthTip").transform;                    // what goes in your mouth when you hit it
+        tip.SetParent(root, false); tip.localPosition = new Vector3(-0.012f, H / 2 + 0.039f, 0);
+        if (firstPerson) fpTip = tip;
         CartPart(PrimitiveType.Cube, root, new Vector3(0, H / 2 - 0.002f, 0), new Vector3(W + 0.002f, 0.006f, D + 0.002f), shell, firstPerson);   // top rim
 
         // label (left) and screen (right) on the front face
@@ -216,6 +219,7 @@ public class CartWeapon : Weapon
     }
 
     Material labelMat, screenMat; Texture2D screenTex; int shownLevel = -1;
+    Transform fpTip;
 
     static void Face(Transform parent, Vector3 pos, Vector2 size, Material m, bool firstPerson)
     {

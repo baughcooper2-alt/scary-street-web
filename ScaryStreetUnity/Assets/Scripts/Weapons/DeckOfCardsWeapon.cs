@@ -1,6 +1,7 @@
 using UnityEngine;
 
 // Deck of Cards (DESIGN.md): throw cards; 64 per deck, and the deck is gone when it's empty.
+// The deck sits in your left hand; the right hand pinches a card off the top and whips it out.
 // Hold left click to flick cards fast and straight (6 damage each); right click throws a fan of 5.
 // Level ups: +30% damage; from Lv 3 each card cuts through one extra enemy.
 public class DeckOfCardsWeapon : Weapon
@@ -9,20 +10,24 @@ public class DeckOfCardsWeapon : Weapon
     public const int DeckSize = 64;
     public float cardDamage = 6f;
     public float cardSpeed = 24f;
-    public float flickCooldown = 0.14f;
+    public float flickCooldown = 0.16f;
     public float fanCooldown = 0.7f;
+
+    // first person: where the hands sit (camera space)
+    static readonly Vector3 LeftHold = new Vector3(-0.1f, -0.2f, 0.42f), LeftEuler = new Vector3(-25f, 25f, 15f);
+    static readonly Vector3 RightRest = new Vector3(0.17f, -0.23f, 0.44f);
 
     int cards = DeckSize;
     float cooldown;
     bool wasSecondary;
-    readonly HandMotion hand = new HandMotion();
+    readonly HandMotion hand = new HandMotion { rest = RightRest, restEuler = new Vector3(0, -10f, 0) };
     static Material face, back;
 
-    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
+    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.CarryLeft;
 
     public override void Init(WeaponInventory inv) { base.Init(inv); displayName = "Deck of Cards"; }
     public override void Equip() { base.Equip(); SyncModels(); }
-    public override void Unequip() { base.Unequip(); hand.Release(arms); SyncModels(); }
+    public override void Unequip() { base.Unequip(); hand.Release(arms); if (arms) arms.overrideLeft = false; SyncModels(); }
 
     public void NewDeck() { cards = DeckSize; }
     public override string LevelUpText => level == 2 ? "+30% damage, and cards cut through an extra enemy" : "+30% damage";
@@ -37,10 +42,13 @@ public class DeckOfCardsWeapon : Weapon
         bool fan = input.secondaryHeld && !wasSecondary;
         wasSecondary = input.secondaryHeld;
 
+        if (arms) { arms.overrideLeft = true; arms.leftTarget = LeftHold; arms.leftEuler = LeftEuler; }
+        if (fpModel) hand.pickFrom = cam.InverseTransformPoint(fpModel.position);
+
         if (cooldown <= 0 && cards > 0)
         {
-            if (fan) { for (int i = -2; i <= 2; i++) Throw(i * 9f); cooldown = fanCooldown; hand.Play(HandMotion.Move.Throw, 0.3f); if (BodyAnim) BodyAnim.Throw(0.35f); }
-            else if (input.primaryHeld) { Throw(Random.Range(-1.5f, 1.5f)); cooldown = flickCooldown; hand.Play(HandMotion.Move.Throw, 0.16f); }
+            if (fan) { for (int i = -2; i <= 2; i++) Throw(i * 9f); cooldown = fanCooldown; hand.Play(HandMotion.Move.Flick, 0.32f); if (BodyAnim) BodyAnim.Throw(0.35f); }
+            else if (input.primaryHeld) { Throw(Random.Range(-1.5f, 1.5f)); cooldown = flickCooldown; hand.Play(HandMotion.Move.Flick, 0.16f); if (BodyAnim) BodyAnim.Throw(0.2f, 0.5f); }
         }
         hand.Apply(arms, dt);
 
@@ -73,7 +81,7 @@ public class DeckOfCardsWeapon : Weapon
         if (!back) back = mats("CardBack", new Color(0.72f, 0.1f, 0.12f));
     }
 
-    // a deck in your hand: red back, white edges
+    // a deck: red back on top, white edges
     Transform Deck(Transform parent, bool fp)
     {
         Look();
@@ -86,15 +94,17 @@ public class DeckOfCardsWeapon : Weapon
 
     protected override Transform BuildFirstPersonModel()
     {
-        var d = Deck(arms.RightHand, true);
-        d.localPosition = new Vector3(0, 0.02f, 0.03f); d.localRotation = Quaternion.Euler(-60f, 0, 10f);
+        if (!arms.LeftHand) return null;
+        var d = Deck(arms.LeftHand, true);
+        d.localPosition = new Vector3(0.01f, 0.03f, 0.02f); d.localRotation = Quaternion.Euler(-15f, 0, -10f);   // on the fingers, face up
         return d;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
-        var d = Deck(body.handR, false);
-        d.localPosition = new Vector3(0, -0.08f, 0.03f); d.localRotation = Quaternion.Euler(0, 0, 90f);
+        if (!body.handL) return null;
+        var d = Deck(body.handL, false);
+        d.localPosition = new Vector3(0, -0.07f, 0.04f);
         return d;
     }
 }

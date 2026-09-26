@@ -15,7 +15,7 @@ public class BlockyCharacter : MonoBehaviour
     [Header("Joints (filled in by Build)")]
     public Transform hips;
     public Transform spine, neck, head;
-    public Transform shoulderL, shoulderR, elbowL, elbowR, handR;
+    public Transform shoulderL, shoulderR, elbowL, elbowR, handR, handL;
     public Transform legL, legR, kneeL, kneeR, ankleL, ankleR;
     public List<Renderer> skinParts = new List<Renderer>(), hairParts = new List<Renderer>();
 
@@ -108,7 +108,7 @@ public class BlockyCharacter : MonoBehaviour
             Hair();
 
             // arms
-            b.shoulderL = Arm(-1, out b.elbowL, out _);
+            b.shoulderL = Arm(-1, out b.elbowL, out b.handL);
             b.shoulderR = Arm(1, out b.elbowR, out b.handR);
         }
 

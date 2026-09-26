@@ -1,11 +1,13 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // 6-pack of beer (DESIGN.md, John's weapon): drink, then throw the bottles or hit with them until they break;
 // refill at the fridge; drinking boosts strength but makes you dizzy (Will never gets dizzy).
-//   left click: bash with the bottle in your hand (15 damage); it breaks on the 3rd hit
-//   right click, tap: throw a bottle (20 damage, shatters with a small splash)
-//   right click, hold: drink one (+20% melee damage for 25 s, stacks to +60%; the screen sways)
-// Empty? Press F at the fridge (or it refills at the end of the round if there's no fridge).
+// You carry the carrier in your left hand (it shows what's left) and a bottle in your right:
+//   left click: bash with the bottle (15 damage); it breaks on the 3rd hit
+//   right click, tap: throw it (20 damage, shatters with a small splash), then grab the next from the carrier
+//   right click, hold: drink it (+20% melee damage for 25 s, stacks to +60%; the screen sways)
+// Empty? Open the fridge (F) for a fresh pack; with no fridge in the scene it refills at the end of the round.
 public class SixPackWeapon : Weapon
 {
     public override UIArt.Icon Icon => UIArt.Icon.Bottle;
@@ -14,13 +16,18 @@ public class SixPackWeapon : Weapon
     public float throwDamage = 20f, throwSpeed = 14f;
     public float drinkTime = 0.9f, drinkBoost = 0.2f, boostSeconds = 25f, dizzyPerDrink = 0.35f;
 
+    static readonly Vector3 LeftHold = new Vector3(-0.2f, -0.2f, 0.42f), LeftEuler = new Vector3(10f, 15f, 0f);
+
     int bottles = PackSize, bashes;
-    float cooldown, secondaryT = -1f;
-    readonly HandMotion hand = new HandMotion();
-    static Material glass, label, cap;
+    float cooldown, secondaryT = -1f, grabT = -1f;
+    readonly HandMotion hand = new HandMotion { restEuler = new Vector3(-10f, 0, 0) };
+    static Material glass, label, cap, card, cardDark;
+    Transform fpBottle, tpBottle, fpCarrier;
+    readonly List<GameObject> fpSlots = new List<GameObject>(), tpSlots = new List<GameObject>();
+    int shown = -1;
 
     public int Bottles => bottles;
-    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.Book;
+    protected override CharacterAnimator.Hold HoldPose => CharacterAnimator.Hold.HangLeft;
 
     public override void Init(WeaponInventory inv)
     {
@@ -31,14 +38,14 @@ public class SixPackWeapon : Weapon
     void OnDestroy() { if (RoundManager.Instance) RoundManager.Instance.RoundEnded -= OnRoundEnded; }
     void OnRoundEnded(int round) { if (!Fridge.Any && bottles < PackSize) { Refill(); inventory.Toast("Fresh 6-pack for the next round", 2f); } }
 
-    public void Refill() { bottles = PackSize; bashes = 0; SyncModels(); }
+    public void Refill() { bottles = PackSize; bashes = 0; shown = -1; }
 
     public override void Equip() { base.Equip(); SyncModels(); }
-    public override void Unequip() { base.Unequip(); hand.Release(arms); secondaryT = -1f; SyncModels(); }
+    public override void Unequip() { base.Unequip(); hand.Release(arms); if (arms) arms.overrideLeft = false; secondaryT = -1f; SyncModels(); }
     public override string LevelUpText => "+30% damage";
     public override string SlotStatus => bottles > 0 ? $"{bottles} / {PackSize}" : "Empty";
     public override string Hint => bottles <= 0
-        ? (Fridge.Any ? "Empty: grab more at the fridge (F)" : "Empty: you'll get a fresh 6-pack after the round")
+        ? (Fridge.Any ? "Empty: open the fridge (F) for a fresh 6-pack" : "Empty: you'll get a fresh 6-pack after the round")
         : $"{Key("left click", GamepadInfo.RT)} to bash · tap {Key("right click", GamepadInfo.LT)} to throw · hold it to drink (stronger, but dizzy)";
 
     bool Immune => arms && arms.look && arms.look.displayName == "Will";         // alcohol never makes him dizzy
@@ -48,8 +55,11 @@ public class SixPackWeapon : Weapon
         float dt = Time.deltaTime;
         SyncModels();
         cooldown -= dt;
-        if (fpModel) fpModel.gameObject.SetActive(fpModel.gameObject.activeSelf && bottles > 0);
-        if (tpModel) tpModel.gameObject.SetActive(tpModel.gameObject.activeSelf && bottles > 0);
+        if (arms) { arms.overrideLeft = true; arms.leftTarget = LeftHold; arms.leftEuler = LeftEuler; }
+        if (fpCarrier) hand.pickFrom = cam.InverseTransformPoint(fpCarrier.position + Vector3.up * 0.1f);
+
+        // after a throw the right hand goes back to the carrier for the next one
+        if (grabT >= 0 && (grabT -= dt) < 0 && bottles > 0) hand.Play(HandMotion.Move.Grab, 0.35f);
 
         // right click: tap to throw, hold to drink
         if (input.secondaryHeld && bottles > 0 && cooldown <= 0)
@@ -66,6 +76,20 @@ public class SixPackWeapon : Weapon
         }
         else if (input.primaryPressed && bottles > 0 && cooldown <= 0) Bash();
         hand.Apply(arms, dt);
+        ShowBottles();
+    }
+
+    // the bottle in your hand (hidden right after a throw until you grab the next) and the ones left in the carrier
+    void ShowBottles()
+    {
+        bool inHand = bottles > 0 && grabT < 0;
+        if (fpBottle) fpBottle.gameObject.SetActive(inHand);
+        if (tpBottle) tpBottle.gameObject.SetActive(inHand);
+        int left = Mathf.Max(0, bottles - 1);
+        if (left == shown) return;
+        shown = left;
+        for (int i = 0; i < fpSlots.Count; i++) if (fpSlots[i]) fpSlots[i].SetActive(i < left);
+        for (int i = 0; i < tpSlots.Count; i++) if (tpSlots[i]) tpSlots[i].SetActive(i < left);
     }
 
     void Bash()
@@ -86,13 +110,13 @@ public class SixPackWeapon : Weapon
         best.TakeDamage(PlayerStats.MeleeDamage(bashDamage * LevelDamage, inventory.gameObject), 0.4f + PlayerUpgrades.KnockbackFor(inventory.gameObject));
         SoundKit.PlayAt(Sfx.Hit, best.transform.position + Vector3.up, 0.9f);
         Rumble(0.3f, 0.5f, 0.1f);
-        if (++bashes >= 3) { bashes = 0; bottles--; SoundKit.PlayAt(Sfx.Glass, best.transform.position + Vector3.up, 0.9f); inventory.Toast("The bottle broke", 1f); }
+        if (++bashes >= 3) { bashes = 0; bottles--; grabT = 0.2f; SoundKit.PlayAt(Sfx.Glass, best.transform.position + Vector3.up, 0.9f); inventory.Toast("The bottle broke", 1f); }
     }
 
     void ThrowBottle()
     {
-        bottles--; bashes = 0; cooldown = 0.45f;
-        hand.Play(HandMotion.Move.Throw, 0.3f);
+        bottles--; bashes = 0; cooldown = 0.6f; grabT = 0.28f;
+        hand.Play(HandMotion.Move.Throw, 0.28f);
         if (BodyAnim) BodyAnim.Throw(0.4f, 0.55f);
         SoundKit.Play(Sfx.Throw, 0.6f);
         var p = Projectile.Spawn("Bottle", Eye + cam.forward * 0.5f, (cam.forward + Vector3.up * 0.12f).normalized * throwSpeed, inventory.gameObject);
@@ -105,7 +129,7 @@ public class SixPackWeapon : Weapon
 
     void Drink()
     {
-        bottles--; bashes = 0; cooldown = 0.3f;
+        bottles--; bashes = 0; cooldown = 0.3f; grabT = 0.5f;
         hand.Play(HandMotion.Move.Drink, 0.5f);
         SoundKit.Play(Sfx.Gulp, 0.7f, 0f);
         var stats = inventory.GetComponent<PlayerStats>();
@@ -121,9 +145,11 @@ public class SixPackWeapon : Weapon
         if (!glass) { glass = mats("BeerGlass", new Color(0.42f, 0.24f, 0.08f)); glass.SetFloat("_Smoothness", 0.85f); }
         if (!label) label = mats("BeerLabel", new Color(0.92f, 0.86f, 0.62f));
         if (!cap) cap = mats("BeerCap", new Color(0.78f, 0.1f, 0.1f));
+        if (!card) card = mats("SixPackCard", new Color(0.72f, 0.12f, 0.1f));
+        if (!cardDark) cardDark = mats("SixPackCardDark", new Color(0.35f, 0.06f, 0.05f));
     }
 
-    // brown bottle: body, label, shoulder, neck, red cap
+    // brown bottle: body, label, shoulder, neck, red cap (origin at the bottom of the body)
     static Transform Bottle(Transform parent, bool fp)
     {
         Mats();
@@ -137,17 +163,60 @@ public class SixPackWeapon : Weapon
         return root;
     }
 
+    // cardboard carrier: open box in two rows of three, a tall centre panel with a hand hole; the handle is in your fist
+    Transform Carrier(Transform parent, bool fp, List<GameObject> slots)
+    {
+        Mats();
+        var root = new GameObject("SixPack").transform;
+        root.SetParent(parent, false);
+        Part(PrimitiveType.Cube, root, new Vector3(0, -0.2f, 0), new Vector3(0.19f, 0.09f, 0.13f), card, fp);       // the box
+        Part(PrimitiveType.Cube, root, new Vector3(0, -0.1f, 0), new Vector3(0.19f, 0.2f, 0.006f), card, fp);        // centre panel up to the handle
+        Part(PrimitiveType.Cube, root, new Vector3(0, -0.02f, 0), new Vector3(0.07f, 0.025f, 0.008f), cardDark, fp); // hand hole
+        slots.Clear();
+        for (int i = 0; i < 5; i++)                                                                                    // bottles left (one's in your other hand)
+        {
+            int row = i % 2, col = i / 2;
+            var b = Bottle(root, fp);
+            b.localPosition = new Vector3(-0.058f + col * 0.058f, -0.24f, row == 0 ? -0.035f : 0.035f);
+            slots.Add(b.gameObject);
+        }
+        shown = -1;
+        return root;
+    }
+
     protected override Transform BuildFirstPersonModel()
     {
-        var b = Bottle(arms.RightHand, true);
-        b.localPosition = new Vector3(0, 0.0f, 0.02f); b.localRotation = Quaternion.Euler(-20f, 0, 0);
-        return b;
+        if (!arms.LeftHand) return null;
+        var root = new GameObject("SixPackFP").transform;
+        root.SetParent(arms.RightHand, false);
+        fpBottle = Bottle(root, true);
+        fpBottle.localPosition = new Vector3(0, -0.02f, 0.02f); fpBottle.localRotation = Quaternion.Euler(-20f, 0, 0);
+        fpCarrier = Carrier(arms.LeftHand, true, fpSlots);
+        fpCarrier.localPosition = new Vector3(0, 0.02f, 0); fpCarrier.localRotation = Quaternion.Euler(0, 90f, 0);   // hangs from the left hand (shown with the weapon in LateUpdate)
+        return root;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
-        var b = Bottle(body.handR, false);
-        b.localPosition = new Vector3(0, -0.1f, 0.03f);
-        return b;
+        var root = new GameObject("SixPackTP").transform;
+        root.SetParent(body.handR, false);
+        tpBottle = Bottle(root, false);
+        tpBottle.localPosition = new Vector3(0, -0.1f, 0.03f);
+        if (body.handL)
+        {
+            var carrier = Carrier(body.handL, false, tpSlots);
+            carrier.localPosition = new Vector3(0, -0.02f, 0.02f); carrier.localRotation = Quaternion.Euler(0, 90f, 0);
+            tpCarrierObj = carrier.gameObject;
+        }
+        return root;
+    }
+
+    GameObject tpCarrierObj;
+
+    void LateUpdate()
+    {
+        // the carriers live under the other hand, so show / hide them with the weapon
+        if (fpCarrier) fpCarrier.gameObject.SetActive(fpModel && fpModel.gameObject.activeSelf && bottles > 0);
+        if (tpCarrierObj) tpCarrierObj.SetActive(tpModel && tpModel.gameObject.activeSelf && bottles > 0);
     }
 }

@@ -12,7 +12,7 @@ using UnityEngine;
 [RequireComponent(typeof(BlockyCharacter))]
 public class CharacterAnimator : MonoBehaviour
 {
-    public enum Hold { None, Guitar, Book, Cart, Tray, Phone }
+    public enum Hold { None, Guitar, Book, Cart, Tray, Phone, CarryLeft, HangLeft, Carton }   // add new ones at the end
     enum Act { None, Punch, Swing, Slam, Throw, Strum, Wave }
 
     [Tooltip("Scales every stride (1 = the natural length for this speed).")]
@@ -249,6 +249,9 @@ public class CharacterAnimator : MonoBehaviour
             case Hold.Cart:   tSR = new Vector3(-14f, 0, 6f); tER = new Vector3(-95f, 0, 0); break;
             case Hold.Tray:   tSL = new Vector3(-48f, 0, 4f); tSR = new Vector3(-48f, 0, -4f); tEL = tER = new Vector3(-48f, 0, 0); break;
             case Hold.Phone:  tSR = new Vector3(-32f, 0, 14f); tER = new Vector3(-128f, 0, 0); tSpine.x += 6f; break;
+            case Hold.CarryLeft: tSL = new Vector3(-28f, 0, -8f); tEL = new Vector3(-88f, 0, 0); tSR = new Vector3(-18f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-60f, 0, 0); break;   // deck / chip case in the left hand
+            case Hold.HangLeft:  tSL = new Vector3(-4f, 0, -10f); tEL = new Vector3(-12f, 0, 0); tSR = new Vector3(-20f, 0, 6f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-75f, 0, 0); break;  // 6-pack carrier at your side, bottle in the right
+            case Hold.Carton:    tSL = new Vector3(-45f, 0, 12f); tSR = new Vector3(-45f, 0, -12f); tEL = tER = new Vector3(-55f, 0, 0); break;   // a big box in both hands
         }
         if (inhaling) { tSR = new Vector3(-38f, 0, 18f); tER = new Vector3(-145f, 0, 0); }
 
