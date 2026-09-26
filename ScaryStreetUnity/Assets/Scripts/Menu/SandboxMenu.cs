@@ -60,7 +60,7 @@ public class SandboxMenu : MonoBehaviour
         Row("SPAWN JACK", () => { if (rounds) rounds.SpawnJack(); }, "CLEAR ENEMIES", () => { if (rounds) rounds.ClearEnemies(); Say("Cleared"); });
         Row("CALL DOORDASH", () => { if (rounds) rounds.CallDoorDash(); Close(); }, "OPEN ALL DOORS", OpenDoors);
         Row("+$100", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddCash(100); Say("+$100"); }, "+1 LEVEL", () => { var pr = Get<PlayerProgress>(); if (pr) pr.AddXp(pr.XpToNext - pr.Xp); Close(); });
-        Row("GIVE WEAPONS", GiveWeapons, "FILL AMMO", () => { var inv = Get<WeaponInventory>(); if (inv) { var d = inv.Get<DeckOfCardsWeapon>(); if (d) d.NewDeck(); var p = inv.Get<SixPackWeapon>(); if (p) p.Refill(); } Say("Restocked"); });
+        Row("GIVE WEAPONS", GiveWeapons, "FILL AMMO", () => { var inv = Get<WeaponInventory>(); if (inv) { var d = inv.Get<DeckOfCardsWeapon>(); if (d) d.NewDeck(); var p = inv.Get<SixPackWeapon>(); if (p) p.Refill(); var c = inv.Get<PokerChipsWeapon>(); if (c) c.Restock(); } Say("Restocked"); });
         Row("HEAL", () => { var h = Get<Health>(); if (h) { if (h.IsDead) h.ResetHealth(h.maxHealth); else h.Heal(h.maxHealth); } Say("Healed"); }, "GOD MODE", ToggleGod);
 
         status = UIKit.Label(rt, "", 22, UIArt.Theme.Mustard, TextAnchor.MiddleLeft, FontStyle.Bold);
