@@ -88,7 +88,7 @@ public class CharacterAnimator : MonoBehaviour
     public void Strum(float duration = 0.3f) => Play(Act.Strum, duration, 0.5f);
     public void Wave(float duration = 1.4f) => Play(Act.Wave, duration, 0.5f);
     public void Sweep(float duration = 0.4f, float hitMoment = 0.4f) => Play(Act.Sweep, duration, hitMoment);
-    public void Flick(float duration = 0.3f) => Play(Act.Flick, duration, 0.35f);
+    public void Flick(float duration = 0.3f) => Play(Act.Flick, duration, 0.55f);   // reach over, draw back, whip out (matches HandMotion.Flick)
     public void Toss(float duration = 0.35f) => Play(Act.Toss, duration, 0.5f);
     public void Talk(float duration = 1.2f) => talkT = Mathf.Max(talkT, duration);
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
@@ -250,7 +250,7 @@ public class CharacterAnimator : MonoBehaviour
         switch (hold)
         {
             case Hold.Guitar: tSL = new Vector3(-62f, 0, 4f); tEL = new Vector3(-75f, 0, 0); tSR = new Vector3(-22f, 0, 12f); tER = new Vector3(-70f, 0, 0); break;
-            case Hold.Book:   tSR = new Vector3(-10f, 0, 7f) + new Vector3(s * armSwing * 0.4f, 0, 0); tER = new Vector3(-28f, 0, 0); break;   // carried at your side by the top edge
+            case Hold.Book:   tSR = new Vector3(-16f, 0, 8f) + new Vector3(s * armSwing * 0.3f, 0, 0); tER = new Vector3(-78f, 0, 0); break;   // forearm forward: the book by its spine, the crutch pointing out
             case Hold.Cart:   tSR = new Vector3(-14f, 0, 6f); tER = new Vector3(-95f, 0, 0); break;
             case Hold.Tray:   tSL = new Vector3(-48f, 0, 4f); tSR = new Vector3(-48f, 0, -4f); tEL = tER = new Vector3(-48f, 0, 0); break;
             case Hold.Phone:  tSR = new Vector3(-32f, 0, 14f); tER = new Vector3(-128f, 0, 0); tSpine.x += 6f; break;
@@ -371,7 +371,8 @@ public class CharacterAnimator : MonoBehaviour
 
     // Hold → how far each hand's fingers curl (0 relaxed … 1 closed round a handle).
     [System.NonSerialized] public float gripOverrideR = -1f, gripOverrideL = -1f;   // weapons can force a grip (-1 = automatic)
-    float gripR, gripL;
+    [System.NonSerialized] public FirstPersonHand.Grip? fingersR;                     // or shape each finger (a card between two); cleared each frame
+    readonly float[] curlR = new float[5], curlL = new float[5];
     Transform[][] fingR, fingL;                                                        // [finger][segment], thumb last
 
     void FindFingers()
@@ -406,28 +407,36 @@ public class CharacterAnimator : MonoBehaviour
         // flat palms on a box, a loose supporting hand under a case
         float wantR = gripOverrideR >= 0 ? gripOverrideR
             : punching || inhaling ? 1f
-            : hold == Hold.Book ? 0.55f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : hold == Hold.CarryLeft ? 0.3f : hold == Hold.None ? 0.2f : 0.95f;
+            : hold == Hold.Book ? 0.62f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : hold == Hold.CarryLeft ? 0.3f : hold == Hold.HangLeft ? 0.72f : hold == Hold.None ? 0.2f : 0.95f;
         float wantL = gripOverrideL >= 0 ? gripOverrideL
             : hold == Hold.HangLeft || hold == Hold.Guitar ? 1f : hold == Hold.CarryLeft ? 0.45f : hold == Hold.Carton ? 0.25f : hold == Hold.Tray ? 0.3f : 0.2f;
         float k = 1f - Mathf.Exp(-dt * 16f);
-        gripR = Mathf.Lerp(gripR, wantR, k); gripL = Mathf.Lerp(gripL, wantL, k);
-        Curl(fingR, gripR, -1f); Curl(fingL, gripL, 1f);
+        for (int f = 0; f < 5; f++)
+        {
+            curlR[f] = Mathf.Lerp(curlR[f], fingersR.HasValue ? fingersR.Value[f] : wantR, k);
+            curlL[f] = Mathf.Lerp(curlL[f], wantL, k);
+        }
+        fingersR = null;
+        Curl(fingR, curlR, -1f); Curl(fingL, curlL, 1f);
     }
     bool triedFingers;
 
     // Fingers hang straight down at rest with the knuckles along Z; curling toward the palm is about Z
     // (the right palm faces -X, so the right hand turns the other way).
-    static void Curl(Transform[][] hand, float g, float sign)
+    static void Curl(Transform[][] hand, float[] curl, float sign)
     {
         if (hand == null) return;
         float[] seg = { 72f, 95f, 60f };
         for (int f = 0; f < 4; f++)
+        {
+            float g = curl[f];
             for (int j = 0; j < 3; j++)
                 if (hand[f][j]) hand[f][j].localRotation = Quaternion.Euler(0, 0, sign * (8f + seg[j] * g) * (1f - 0.08f * f * (1f - g)));
-        var th = hand[4];                                                              // thumb: across the front of the fingers
-        if (th[0]) th[0].localRotation = Quaternion.Euler(-25f * g, 0, sign * 20f * g);
-        if (th[1]) th[1].localRotation = Quaternion.Euler(0, 0, sign * 25f * g);
-        if (th[2]) th[2].localRotation = Quaternion.Euler(0, 0, sign * 30f * g);
+        }
+        var th = hand[4]; float gt = curl[4];                                          // thumb: across the front of the fingers
+        if (th[0]) th[0].localRotation = Quaternion.Euler(-25f * gt, 0, sign * 20f * gt);
+        if (th[1]) th[1].localRotation = Quaternion.Euler(0, 0, sign * 25f * gt);
+        if (th[2]) th[2].localRotation = Quaternion.Euler(0, 0, sign * 30f * gt);
     }
 
     // ---------- the cart to the mouth (third person) ----------

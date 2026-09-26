@@ -11,7 +11,8 @@ public static class RealBody
 {
     class Bone { public string name; public int parent; public Vector3 head; }
     class Part { public string name; public string[] mats; public Mesh mesh; }
-    class Data { public float height; public int size; public Bone[] bones; public List<Part> parts = new List<Part>(); }
+    class FpRig { public int[] bone; public Vector3[] head, axis; }                    // first-person hand: bones, heads rel. to the fist, curl axes
+    class Data { public float height; public int size; public Bone[] bones; public List<Part> parts = new List<Part>(); public Dictionary<string, FpRig> fp = new Dictionary<string, FpRig>(); }
 
     static readonly Dictionary<string, Data> cache = new Dictionary<string, Data>();
 
@@ -40,7 +41,9 @@ public static class RealBody
     {
         using (var r = new BinaryReader(new MemoryStream(bytes)))
         {
-            if (new string(r.ReadChars(4)) != "SSRB" || r.ReadInt32() != 1) return null;
+            if (new string(r.ReadChars(4)) != "SSRB") return null;
+            int version = r.ReadInt32();
+            if (version < 1 || version > 2) return null;
             var d = new Data { height = r.ReadSingle() };
             d.bones = new Bone[r.ReadInt32()];
             for (int i = 0; i < d.bones.Length; i++) d.bones[i] = new Bone { name = Str(r), parent = r.ReadInt32(), head = V3(r) };
@@ -84,9 +87,28 @@ public static class RealBody
                 }
                 mesh.RecalculateTangents();                                          // normal maps
                 mesh.RecalculateBounds();
-                part.mesh = MeshKit.Persist != null ? MeshKit.Persist(mesh.name, mesh) : mesh;
+                part.mesh = mesh;
                 d.parts.Add(part);
             }
+            if (version >= 2)
+            {
+                int rigs = r.ReadInt32();
+                for (int k = 0; k < rigs; k++)
+                {
+                    string pn = Str(r); int n = r.ReadInt32();
+                    var rig = new FpRig { bone = new int[n], head = new Vector3[n], axis = new Vector3[n] };
+                    for (int i = 0; i < n; i++) { rig.bone[i] = r.ReadInt32(); rig.head[i] = V3(r); rig.axis[i] = V3(r); }
+                    d.fp[pn] = rig;
+                    // the first-person part binds to its own little skeleton (the hand is the rig's first bone)
+                    var part = d.parts.Find(p => p.name == pn);
+                    if (part == null) continue;
+                    var fpBind = new Matrix4x4[d.bones.Length];
+                    for (int i = 0; i < fpBind.Length; i++) fpBind[i] = Matrix4x4.Translate(-rig.head[0]);
+                    for (int i = 0; i < n; i++) fpBind[rig.bone[i]] = Matrix4x4.Translate(-rig.head[i]);
+                    part.mesh.bindposes = fpBind;
+                }
+            }
+            foreach (var part in d.parts) if (MeshKit.Persist != null) part.mesh = MeshKit.Persist(part.mesh.name, part.mesh);
             return d;
         }
     }
@@ -154,12 +176,38 @@ public static class RealBody
         var go = new GameObject(part.name);
         go.transform.SetParent(parent, false);
         go.transform.localScale = Vector3.one * (look.height / d.height);
-        go.AddComponent<MeshFilter>().sharedMesh = part.mesh;
-        var mr = go.AddComponent<MeshRenderer>();
         var mats = new Material[part.mats.Length];
         for (int m = 0; m < mats.Length; m++) mats[m] = Dress(part.mats[m], look, mat, model);
-        mr.sharedMaterials = mats;
-        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        if (!d.fp.TryGetValue(part.name, out var rig))                                   // older files: a baked fist
+        {
+            go.AddComponent<MeshFilter>().sharedMesh = part.mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterials = mats;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return go.transform;
+        }
+        // open hand with its own finger bones; FirstPersonHand curls them to fit what the weapon holds
+        var map = new Dictionary<int, Transform>(); var headOf = new Dictionary<int, Vector3>();
+        for (int i = 0; i < rig.bone.Length; i++)
+        {
+            int bi = rig.bone[i], anc = d.bones[bi].parent;
+            while (anc >= 0 && !map.ContainsKey(anc)) anc = d.bones[anc].parent;           // nearest bone that's in the rig
+            var t = new GameObject(d.bones[bi].name).transform;
+            t.SetParent(anc >= 0 ? map[anc] : go.transform, false);
+            t.localPosition = rig.head[i] - (anc >= 0 ? headOf[anc] : Vector3.zero);
+            map[bi] = t; headOf[bi] = rig.head[i];
+        }
+        var hand = map[rig.bone[0]];
+        var bones = new Transform[d.bones.Length];
+        for (int i = 0; i < bones.Length; i++) bones[i] = map.TryGetValue(i, out var bt) ? bt : hand;
+        var smr = go.AddComponent<SkinnedMeshRenderer>();
+        smr.sharedMesh = part.mesh; smr.bones = bones; smr.rootBone = hand;
+        smr.localBounds = new Bounds(Vector3.zero, Vector3.one * 0.8f);
+        smr.updateWhenOffscreen = true;
+        smr.sharedMaterials = mats;
+        smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var fh = go.AddComponent<FirstPersonHand>();
+        fh.Init(rig.bone, rig.axis, map, i => d.bones[i].name);
         return go.transform;
     }
 

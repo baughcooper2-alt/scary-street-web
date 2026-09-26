@@ -49,6 +49,13 @@ public class FirstPersonArms : MonoBehaviour
     [System.NonSerialized] public bool overrideRight, overrideLeft;
     [System.NonSerialized] public Vector3 rightTarget, leftTarget, rightEuler, leftEuler;
 
+    // How each hand's fingers close (real bodies have posable first-person fingers). Weapons set these every frame
+    // for what they hold; they go back to a fist on their own otherwise.
+    [System.NonSerialized] public FirstPersonHand.Grip rightFingers = FirstPersonHand.Grip.Fist, leftFingers = FirstPersonHand.Grip.Fist;
+    FirstPersonHand fingersR, fingersL;
+    public FirstPersonHand RightFingers => fingersR;
+    public FirstPersonHand LeftFingers => fingersL;
+
     Transform right, left, rightGrip, leftGrip;
     float kick;
     Vector3 lastPlayerPos;
@@ -70,6 +77,7 @@ public class FirstPersonArms : MonoBehaviour
         rightGrip = new GameObject("Grip").transform;                 // where held items go: in the curl of the fist
         rightGrip.SetParent(right, false);
         rightGrip.localPosition = new Vector3(-0.01f, 0.035f, 0.01f);
+        fingersR = right.GetComponentInChildren<FirstPersonHand>(); fingersL = left.GetComponentInChildren<FirstPersonHand>();
         leftGrip = new GameObject("Grip").transform;
         leftGrip.SetParent(left, false);
         leftGrip.localPosition = new Vector3(0.01f, 0.035f, 0.01f);
@@ -141,22 +149,34 @@ public class FirstPersonArms : MonoBehaviour
         }
         kick = Mathf.MoveTowards(kick, 0, dt * 6f);
         float r = Mathf.SmoothStep(0, 1, raise);
+        // where the right hand is without the raise: a weapon's pose, or resting (with the jab)
+        Vector3 kickBack = new Vector3(0, 0.01f, -0.05f) * kick;
+        Vector3 basePos = overrideRight ? rightTarget + bob + kickBack : rest + jab + kickBack;
+        Quaternion baseRot = overrideRight ? Quaternion.Euler(rightEuler) : Quaternion.Euler(-12f * kick, 0, 0);
         if (mouthTip && r > 0)
         {
             // tip the hand back so the mouthpiece points at you and lands right at your mouth
             var q = Quaternion.Euler(-100f, -12f, 0);
             Vector3 tip = right.InverseTransformPoint(mouthTip.position);
-            right.localPosition = Vector3.Lerp(rest + jab, mouthPoint - q * tip, r) + new Vector3(0, 0.01f, -0.05f) * kick;
-            right.localRotation = Quaternion.Slerp(Quaternion.Euler(-12f * kick, 0, 0), q, r);
+            right.localPosition = Vector3.Lerp(basePos, mouthPoint - q * tip, r) + kickBack;
+            right.localRotation = Quaternion.Slerp(baseRot, q, r);
         }
         else
         {
-            right.localPosition = Vector3.Lerp(rest + jab, mouthPosition, r) + new Vector3(0, 0.01f, -0.05f) * kick;
-            right.localRotation = Quaternion.Euler(-35f * r - 12f * kick, -20f * r, 0);
+            right.localPosition = Vector3.Lerp(basePos, mouthPosition, r);
+            right.localRotation = Quaternion.Slerp(baseRot, Quaternion.Euler(-35f - 12f * kick, -20f, 0), r);
         }
         left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
         left.localRotation = Quaternion.identity;
-        if (overrideRight) { right.localPosition = rightTarget + bob + new Vector3(0, 0.01f, -0.05f) * kick; right.localRotation = Quaternion.Euler(rightEuler); }
         if (overrideLeft) { left.localPosition = leftTarget + bob * 0.5f; left.localRotation = Quaternion.Euler(leftEuler); }
+        PoseFingers(dt);
+    }
+
+    // curl the fingers to this frame's grips, then fall back to fists unless a weapon asks again next frame
+    public void PoseFingers(float dt)
+    {
+        if (fingersR) fingersR.Pose(rightFingers, dt);
+        if (fingersL) fingersL.Pose(leftFingers, dt);
+        rightFingers = leftFingers = FirstPersonHand.Grip.Fist;
     }
 }

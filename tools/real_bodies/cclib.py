@@ -122,6 +122,35 @@ def delete_verts(o, mask):
     bmesh.ops.delete(bm, geom=[bm.verts[i] for i in np.nonzero(mask)[0]], context='VERTS')
     bm.to_mesh(o.data); bm.free(); o.data.update()
 
+def clean_cut(o, face_ok, co, no, hem=0.0, inward=None):
+    """Cut the faces face_ok(bm_face) picks along the plane (co, no) and delete their part on the +no side, so the
+    edge is a straight line instead of a row of whole triangles. hem > 0 then folds the new edge under: a strip
+    `hem` wide back against no, pulled 3 mm toward inward(point) (the inside), so the garment edge has a thickness."""
+    import bmesh
+    co=mathutils.Vector(co); no=mathutils.Vector(no).normalized()
+    bm=bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
+    tag=bm.faces.layers.int.new('cutregion')
+    region=[f for f in bm.faces if face_ok(f)]
+    for f in region: f[tag]=1
+    geom=list({v for f in region for v in f.verts})+list({e for f in region for e in f.edges})+region
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no, dist=1e-6)
+    gone=[f for f in bm.faces if f[tag]==1 and (f.calc_center_median()-co).dot(no)>1e-6]
+    bmesh.ops.delete(bm, geom=gone, context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    n_edge=0
+    if hem>0:
+        edge=[e for e in bm.edges if e.is_boundary and all(abs((v.co-co).dot(no))<1e-4 for v in e.verts)]
+        n_edge=len(edge)
+        new=bmesh.ops.extrude_edge_only(bm, edges=edge)['geom']
+        for v in new:
+            if isinstance(v, bmesh.types.BMVert):
+                d=inward(v.co) if inward else mathutils.Vector()
+                if d.length>1e-6: d=d.normalized()
+                v.co=v.co-no*hem+d*0.003
+    bm.faces.layers.int.remove(tag)
+    bm.to_mesh(o.data); bm.free(); o.data.update()
+    print('  clean cut',o.name,'region faces',len(region),'removed',len(gone),'hem edges',n_edge)
+
 def join(objs, name):
     sel(objs[0])
     for o in objs[1:]: o.select_set(True)

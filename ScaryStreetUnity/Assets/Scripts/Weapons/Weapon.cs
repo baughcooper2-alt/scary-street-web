@@ -105,6 +105,24 @@ public abstract class Weapon : MonoBehaviour
         return t;
     }
 
+    // A part from a procedural mesh (MeshKit), in real size.
+    protected static Transform MeshPart(Mesh mesh, Transform parent, Vector3 pos, Material m, bool noShadow, Vector3 euler = default, string name = "Part")
+    {
+        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+        var t = go.transform;
+        t.SetParent(parent, false);
+        t.localPosition = pos; t.localRotation = Quaternion.Euler(euler);
+        go.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var r = go.GetComponent<MeshRenderer>();
+        if (m) r.sharedMaterial = m;
+        if (noShadow) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return t;
+    }
+
+    // A box with rounded edges (smoother than a cube primitive).
+    protected static Transform Rounded(Transform parent, Vector3 pos, Vector3 size, float radius, Material m, bool noShadow, Vector3 euler = default)
+        => MeshPart(MeshKit.RoundedBox(size, radius), parent, pos, m, noShadow, euler, "Rounded");
+
     // Eye point of the player (the camera may be behind us in third person).
     protected Vector3 Eye
     {

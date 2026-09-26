@@ -1,6 +1,6 @@
 # Stage 5 (per character): first-person arms. Pose each forearm forward with the hand in a relaxed fist, cut the
 # forearm + hand (and sleeve / wristband) out of the posed meshes, and centre them on the fist.
-import bpy, sys, mathutils, math, numpy as np, bmesh
+import bpy, sys, mathutils, math, numpy as np, bmesh, json
 W=sys.argv[-2]; who=sys.argv[-1]; sys.path.append(W)
 from render_util import *; from cclib import *
 bpy.ops.wm.open_mainfile(filepath=W+f'/stage4_{who}.blend')
@@ -31,6 +31,18 @@ for side,sx in (('R',-1),('L',1)):
     fist=sum((head(P(f'{f}2')) for f in ('Index','Mid','Ring','Pinky')),mathutils.Vector())/4
     fist=(fist*2+head(P('Mid1')))/3
     wrist=head(P('Hand'))
+    # The fist only sets the centre (grips are placed around it). The export keeps the fingers straight with their
+    # weights, plus a little rig (knuckle heads relative to the fist and the curl axis per finger, in Unity terms:
+    # the mirror flips rotation, so the axis is -U(axis)), and FirstPersonArms curls them per weapon.
+    fingers=[f'{f}{j}' for f in ('Index','Mid','Ring','Pinky','Thumb') for j in (1,2,3)]
+    for n in fingers: pb[P(n)].matrix_basis=mathutils.Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    def Uv(v): return [-v[0], v[2], -v[1]]
+    rig=[[P('Hand'), Uv(head(P('Hand'))-fist), [0,0,0]]]
+    for n in fingers:
+        ax=(fwd*tsg) if n.startswith('Thumb') else (K*sgn)
+        rig.append([P(n), Uv(head(P(n))-fist), [-c for c in Uv(ax)]])
+    rigbones=[r[0] for r in rig]
     pieces=[]
     for src in [body]+[o for o in (O.get('Top'),O.get('Wristband')) if o]:
         Wt,names=weights(src)
@@ -38,11 +50,26 @@ for side,sx in (('R',-1),('L',1)):
         armw=Wt[:,fam].sum(1) if fam else np.zeros(len(src.data.vertices))
         dg=bpy.context.evaluated_depsgraph_get(); ev=src.evaluated_get(dg)
         me=bpy.data.meshes.new_from_object(ev); bm=bmesh.new(); bm.from_mesh(me); bm.verts.ensure_lookup_table()
+        gi={nm:i for i,nm in enumerate(names)}
+        wl={nm:bm.verts.layers.float.new('w'+str(k)) for k,nm in enumerate(rigbones[1:]) if nm in gi}   # weights ride along the cuts
+        for v in bm.verts:
+            for nm,l in wl.items(): v[l]=float(Wt[v.index,gi[nm]]) if v.index<len(Wt) else 0.0
         sleeved=O.get('Top') is not None and who=='nathan'
         back=0.035 if (src is body and sleeved) else 0.2                 # under Nathan's sleeve only the hand shows
-        keep=np.array([armw[v.index]>0.5 and (v.co-wrist).dot(-fwd)<back for v in bm.verts])
+        keep=np.array([armw[v.index]>0.5 for v in bm.verts])
         bmesh.ops.delete(bm, geom=[f_ for f_ in bm.faces if not all(keep[v.index] for v in f_.verts)], context='FACES')
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        # a straight cut across the forearm (not a ragged row of triangles)
+        cut_co=wrist+(-fwd)*back
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts)+list(bm.edges)+list(bm.faces), plane_co=cut_co, plane_no=-fwd, dist=1e-6)
+        bmesh.ops.delete(bm, geom=[f_ for f_ in bm.faces if (f_.calc_center_median()-cut_co).dot(-fwd)>0], context='FACES')
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        # weights: each finger bone keeps its own, the rest of the arm follows the hand
+        vw=[]
+        for v in bm.verts:
+            ws={nm:v[l] for nm,l in wl.items() if v[l]>0.001}
+            t=sum(ws.values()); ws[P('Hand')]=max(0.0,1.0-t)
+            vw.append(ws)
         if not bm.faces: bm.free(); continue
         _d=np.array([(v.co-wrist).dot(-fwd) for v in bm.verts]); _r=np.array([((v.co-wrist)-(-fwd)*((v.co-wrist).dot(-fwd))).length for v in bm.verts])
         print('  piece',src.name,'verts',len(bm.verts),'back range',_d.min().round(3),_d.max().round(3),'radius mean',_r.mean().round(3),'max',_r.max().round(3))
@@ -59,12 +86,18 @@ for side,sx in (('R',-1),('L',1)):
                     L2=0.042+(L-0.042)*0.45 if L>0.042 else max(L,0.038); r=r*(L2/L)
                 v.co=wrist+ax*(T[i]-shift*0)+r - ax*shift
         bmesh.ops.translate(bm, vec=-fist, verts=bm.verts)
+        for l in wl.values(): bm.verts.layers.float.remove(l)
         bm.to_mesh(me); bm.free()
         o=bpy.data.objects.new(f'FP_{side}_{src.name}',me); bpy.context.scene.collection.objects.link(o)
         if o.data.shape_keys: o.shape_key_clear()
+        groups={nm:o.vertex_groups.new(name=nm) for nm in rigbones}
+        for i,ws in enumerate(vw):
+            for nm,w in ws.items():
+                if w>0: groups[nm].add([i],w,'REPLACE')
         pieces.append(o)
     fp=join(pieces,f'FP_{side}') if len(pieces)>1 else pieces[0]; fp.name=f'FP_{side}'
-    fp.vertex_groups.clear(); fp.modifiers.clear(); fp.parent=None
+    fp.modifiers.clear(); fp.parent=None
+    fp['fp_rig']=json.dumps(rig)
     made.append(fp)
     print('FP',side,'verts',len(fp.data.vertices),'mats',[m.name for m in fp.data.materials])
 for p in pb: p.matrix_basis=mathutils.Matrix.Identity(4)

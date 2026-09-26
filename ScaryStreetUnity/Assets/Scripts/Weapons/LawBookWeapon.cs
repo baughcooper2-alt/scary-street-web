@@ -28,12 +28,13 @@ public class LawBookWeapon : Weapon
 
     protected override CharacterAnimator.Hold HoldPose => thrown ? CharacterAnimator.Hold.None : CharacterAnimator.Hold.Book;
 
-    // held by the top edge, hanging from the fingers: the same spot in the body's hand and in the first-person fist
-    static readonly Vector3 GripPos = new Vector3(-0.02f, -0.18f, 0.01f);
-    // first person: hanging from the fist at the right edge (the forearm runs up and out of view, as when your arm
-    // hangs at your side), the free left hand down out of view
-    static readonly Vector3 CarryPos = new Vector3(0.4f, -0.1f, 0.5f), CarryEuler = new Vector3(95f, -40f, -40f);
-    static readonly Vector3 LeftDown = new Vector3(-0.3f, -0.5f, 0.3f);
+    // held by the spine, fingers wrapped round it and the book standing up: the same grip in the body's hand and
+    // in the first-person hand (spine through the fist, pages out past the fingers)
+    static readonly Vector3 GripPos = new Vector3(-0.02f, -0.165f, 0f);
+    static readonly Quaternion GripTurn = Quaternion.Euler(90f, 0, 0);
+    static readonly FirstPersonHand.Grip SpineGrip = new FirstPersonHand.Grip(0.6f, 0.62f, 0.64f, 0.66f, 0.55f);
+    // first person: low on the right, forearm up from the bottom of the screen (like the cart)
+    static readonly Vector3 CarryPos = new Vector3(0.23f, -0.25f, 0.48f), CarryEuler = new Vector3(-4f, -14f, 0);
 
     bool thrown, wasSecondary;
     float slamReady;
@@ -200,9 +201,10 @@ public class LawBookWeapon : Weapon
         arms.overrideRight = true;
         arms.rightTarget = pos;
         arms.rightEuler = rot;
-        arms.overrideLeft = true;                                    // the other hand hangs at your side, as in third person
-        arms.leftTarget = charging && charge > 0.15f || slamT >= 0 ? new Vector3(-0.12f, -0.12f, 0.42f) : LeftDown;   // both hands on it for the slam
-        arms.leftEuler = new Vector3(-20f, 20f, 0);
+        arms.rightFingers = SpineGrip;
+        bool both = charging && charge > 0.15f || slamT >= 0;          // both hands on it for the slam
+        arms.overrideLeft = both;
+        if (both) { arms.leftTarget = new Vector3(-0.1f, -0.1f, 0.42f); arms.leftEuler = new Vector3(-30f, 20f, 0); }
     }
 
     public override string Hint
@@ -254,29 +256,34 @@ public class LawBookWeapon : Weapon
     {
         if (!arms.RightFist) return null;
         var m = Book(arms.RightFist, true);
-        arms.HoldLikeHand(m, false, GripPos, Quaternion.identity);      // by the top edge, like the body holds it
+        arms.HoldLikeHand(m, false, GripPos, GripTurn);                 // by the spine, like the body holds it
         return m;
     }
 
     protected override Transform BuildThirdPersonModel(BlockyCharacter body)
     {
-        var m = Book(body.handR, false);                                 // hanging from the hand, fingers hooked over the top edge
+        var m = Book(body.handR, false);                                 // by the spine, fingers round it
         m.localPosition = GripPos;
-        m.localRotation = Quaternion.identity;
+        m.localRotation = GripTurn;
         return m;
     }
 
-    // Thick maroon hardcover with cream pages and gold bands on the spine.
+    // Thick maroon hardcover: two cover boards and a rounded spine round a block of cream pages (showing on three
+    // sides), gold bands and a label on the spine. The spine is at -Z, the fore-edge at +Z, 0.05 x 0.23 x 0.17 m.
     Transform Book(Transform parent, bool fp)
     {
         var root = new GameObject("LawBook").transform;
         root.SetParent(parent, false);
         var mats = BlockyCharacter.RuntimeMaterials();
-        Part(PrimitiveType.Cube, root, Vector3.zero, new Vector3(0.05f, 0.23f, 0.17f), mats("Cover", new Color(0.42f, 0.12f, 0.14f)), fp);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0, 0.006f), new Vector3(0.042f, 0.22f, 0.165f), mats("Pages", new Color(0.93f, 0.9f, 0.8f)), fp);
-        foreach (float y in new[] { 0.08f, -0.08f })
-            Part(PrimitiveType.Cube, root, new Vector3(0, y, -0.0855f), new Vector3(0.052f, 0.012f, 0.002f), mats("Gold", new Color(0.85f, 0.67f, 0.25f)), fp);
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.02f, -0.0855f), new Vector3(0.036f, 0.05f, 0.002f), mats("Gold", new Color(0.85f, 0.67f, 0.25f)), fp);
+        var cover = mats("Cover", new Color(0.42f, 0.12f, 0.14f)); cover.SetFloat("_Smoothness", 0.3f);
+        var gold = mats("Gold", new Color(0.85f, 0.67f, 0.25f)); gold.SetFloat("_Smoothness", 0.7f);
+        Rounded(root, new Vector3(0, 0, 0.003f), new Vector3(0.042f, 0.222f, 0.162f), 0.002f, mats("Pages", new Color(0.93f, 0.9f, 0.8f)), fp);
+        foreach (float x in new[] { -0.0228f, 0.0228f })
+            Rounded(root, new Vector3(x, 0, 0.001f), new Vector3(0.0045f, 0.23f, 0.168f), 0.0018f, cover, fp);             // boards
+        Rounded(root, new Vector3(0, 0, -0.08f), new Vector3(0.05f, 0.23f, 0.012f), 0.0055f, cover, fp);                    // spine
+        foreach (float y in new[] { 0.085f, -0.085f })
+            Rounded(root, new Vector3(0, y, -0.0862f), new Vector3(0.044f, 0.008f, 0.0015f), 0.0006f, gold, fp);
+        Rounded(root, new Vector3(0, 0.02f, -0.0862f), new Vector3(0.032f, 0.05f, 0.0015f), 0.0006f, gold, fp);
         return root;
     }
 }

@@ -9,8 +9,8 @@ public class CrutchWeapon : Weapon
     public float swingDamage = 18f, swingReach = 2.6f, swingCooldown = 0.8f, swingShove = 1.2f;
     public float pokeDamage = 11f, pokeReach = 3.2f, pokeCooldown = 0.4f, pokeShove = 0.6f;
 
-    // first person, like the body: gripped at your side with the pole upright, the free hand down out of view
-    static readonly Vector3 CarryPos = new Vector3(0.4f, -0.1f, 0.5f), CarryEuler = new Vector3(95f, -40f, -40f);   // forearm up out of view
+    // first person, like the body: held out in front by the grip bar, the arm up from the bottom of the screen
+    static readonly Vector3 CarryPos = new Vector3(0.22f, -0.27f, 0.48f), CarryEuler = new Vector3(2f, -12f, 0);
     static readonly Vector3 GripPos = new Vector3(-0.02f, -0.08f, 0f);         // the grip bar in the fist (body hand space)
 
     float cooldown;
@@ -23,7 +23,7 @@ public class CrutchWeapon : Weapon
 
     public override void Init(WeaponInventory inv) { base.Init(inv); displayName = "Crutch"; }
     public override void Equip() { base.Equip(); SyncModels(); }
-    public override void Unequip() { base.Unequip(); hand.Release(arms); if (arms) arms.overrideLeft = false; SyncModels(); }
+    public override void Unequip() { base.Unequip(); hand.Release(arms); SyncModels(); }
     public override string LevelUpText => level == 2 ? "+30% damage and longer reach" : "+30% damage";
     public override string Hint => $"{Key("left click", GamepadInfo.RT)} to swing wide · {Key("right click", GamepadInfo.LT)} to poke far";
 
@@ -40,7 +40,6 @@ public class CrutchWeapon : Weapon
             else if (poke) Poke();
         }
         hand.Apply(arms, dt);
-        if (arms) { arms.overrideLeft = true; arms.leftTarget = new Vector3(-0.3f, -0.5f, 0.3f); arms.leftEuler = Vector3.zero; }
     }
 
     void Swing()

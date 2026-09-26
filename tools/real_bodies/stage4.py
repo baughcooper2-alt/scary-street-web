@@ -194,13 +194,17 @@ for o in (top,pants):
 kb=KDTree(len(bound)); [kb.insert(v,i) for i,v in enumerate(bound)]; kb.balance()
 keep_parts=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Neck','Facial','Jaw','Eye','Tongue','Teeth')))
 hidden=np.zeros(len(bco),bool)
+headhand=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Facial','Jaw','Eye','Tongue','Teeth')))
+armish=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Upperarm','Forearm','Elbow')))
 for i,(v,n) in enumerate(zip(bco,nor)):
-    if keep_parts[i]>0.2: continue
+    if headhand[i]>0.2: continue
     if infoot[i]: hidden[i]=True; continue
     p=mathutils.Vector(v); d=mathutils.Vector(n)
     hit=any(t.ray_cast(p+d*0.001, d, 0.2)[0] is not None or (t.find_nearest(p,0.05)[0] is not None) for t in cover)
-    if hit and kb.find(v)[2]>0.06: hidden[i]=True
-# skin kept near the clothing edges sits just under the cloth and flickers through when moving: sink it 6 mm
+    # neck-weighted skin (the trapezius runs under the shirt onto the shoulders) only hides well away from the collar
+    # arm skin stays whole for 9 cm inside a sleeve opening, so what you see up the sleeve is an arm, not a cut edge
+    if hit and kb.find(v)[2]>(0.09 if armish[i]>0.5 else 0.06 if keep_parts[i]>0.2 else 0.04): hidden[i]=True
+# skin kept near the clothing edges sits just under the cloth and pokes through when moving (the shoulders did): sink it 1 cm
 headonly=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Facial','Jaw','Eye','Tongue','Teeth')))
 sink=np.zeros(len(bco))
 for i,(v,n) in enumerate(zip(bco,nor)):
@@ -208,11 +212,32 @@ for i,(v,n) in enumerate(zip(bco,nor)):
     p=mathutils.Vector(v); d=mathutils.Vector(n)
     if any(t.ray_cast(p+d*0.001, d, 0.035)[0] is not None for t in cover): sink[i]=1
 sink=smooth(sink[:,None].repeat(3,1),adjacency(body),np.ones(len(bco)),iters=2)[:,0].clip(0,1)
-dsp=-nor*0.006*sink[:,None]
+dsp=-nor*0.01*sink[:,None]
 for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []):
     kc=np.array([q.co[:] for q in k.data]); k.data.foreach_set('co',(kc+dsp).reshape(-1))
 set_co(body,bco+dsp); bco=bco+dsp
 print('sunk skin verts',int((sink>0.5).sum()))
+# anything still outside the cloth (shoulder tops and upper arms stuck out through the shirt even at rest): pull it
+# 8 mm inside, measured along the skin's normal. Not the head / hands, and not right at a garment edge.
+cover_t=[bvh_of(o) for o in (top,pants)]
+dsp=np.zeros_like(bco); pulled=0
+for i,(v,n) in enumerate(zip(bco,nor)):
+    if headonly[i]>0.3: continue                               # (hidden ones too: they stay where a face still has a kept corner)
+    p=mathutils.Vector(v); nb=mathutils.Vector(n)
+    if kb.find(v)[2]<0.02: continue
+    best=None
+    for t in cover_t:
+        loc,_,_,dist=t.find_nearest(p,0.03)
+        if loc is not None and (best is None or dist<best[1]): best=(loc,dist)
+    if best is None: continue
+    out=(p-best[0]).dot(nb)                                    # > 0: the skin is outside the cloth
+    if out>-0.008: dsp[i]=-np.array(nb)*(out+0.008); pulled+=1
+raw=dsp.copy(); dsp=smooth(dsp,adjacency(body),np.ones(len(bco)),iters=2)
+hard=np.linalg.norm(raw,axis=1)>0; dsp[hard]=raw[hard]                  # full pull where it pokes, eased round it
+for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []):
+    kc=np.array([q.co[:] for q in k.data]); k.data.foreach_set('co',(kc+dsp).reshape(-1))
+set_co(body,bco+dsp); bco=bco+dsp
+print('pulled skin verts inside the cloth',pulled)
 bm=bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table()
 bmesh.ops.delete(bm, geom=[f for f in bm.faces if all(hidden[v.index] for v in f.verts)], context='FACES_ONLY')
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')

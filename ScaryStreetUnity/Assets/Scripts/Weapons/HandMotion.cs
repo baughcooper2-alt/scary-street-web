@@ -15,6 +15,9 @@ public class HandMotion
     public Vector3 restEuler;
 
     public bool Busy => t >= 0;
+    public Move Playing => t >= 0 ? move : Move.None;
+    public float Progress => t >= 0 ? Mathf.Clamp01(t / dur) : -1f;       // 0..1 through the current move
+    public const float FlickPinch = 0.35f, FlickRelease = 0.7f;          // Flick: has one between the fingers from here, lets go here
     public void Play(Move m, float duration) { move = m; dur = Mathf.Max(0.05f, duration); t = 0; }
 
     public void Apply(FirstPersonArms arms, float dt)
@@ -45,9 +48,16 @@ public class HandMotion
                     euler = Vector3.Lerp(restEuler, new Vector3(-4f, -6f, 0), Mathf.Min(1f, k * 1.8f));
                     break;
                 case Move.Flick:
-                    // reach over to the other hand, pinch one, whip it out toward the crosshair
-                    if (p < 0.35f) { float a = Mathf.SmoothStep(0, 1, p / 0.35f); pos = Vector3.Lerp(rest, pickFrom + new Vector3(0.03f, 0.03f, 0), a); euler = Vector3.Lerp(restEuler, new Vector3(-10f, -35f, 0), a); }
-                    else { float b = (p - 0.35f) / 0.65f, out_ = Mathf.Sin(b * Mathf.PI); pos = Vector3.Lerp(pickFrom + new Vector3(0.03f, 0.03f, 0), rest, Mathf.SmoothStep(0, 1, b)) + new Vector3(0.06f, 0.05f, 0.2f) * out_; euler = Vector3.Lerp(new Vector3(-10f, -35f, 0), restEuler, b) + new Vector3(20f * out_, 30f * out_, 0); }
+                    // reach over to the other hand and pinch one between two fingers, cock it back by your shoulder,
+                    // whip it out toward the crosshair (let go at FlickRelease), and come back to rest
+                    {
+                        Vector3 grab = pickFrom + new Vector3(0.03f, 0.03f, 0), cock = rest + new Vector3(0.03f, 0.09f, -0.07f), outPos = rest + new Vector3(0.0f, 0.06f, 0.2f);
+                        Vector3 eGrab = new Vector3(-10f, -35f, 0), eCock = restEuler + new Vector3(-30f, 25f, 0), eOut = restEuler + new Vector3(12f, -15f, 0);
+                        if (p < FlickPinch) { float a = Mathf.SmoothStep(0, 1, p / FlickPinch); pos = Vector3.Lerp(rest, grab, a); euler = Vector3.Lerp(restEuler, eGrab, a); }
+                        else if (p < 0.55f) { float a = Mathf.SmoothStep(0, 1, (p - FlickPinch) / (0.55f - FlickPinch)); pos = Vector3.Lerp(grab, cock, a); euler = Vector3.Lerp(eGrab, eCock, a); }
+                        else if (p < 0.75f) { float a = Mathf.SmoothStep(0, 1, (p - 0.55f) / 0.2f); pos = Vector3.Lerp(cock, outPos, a); euler = Vector3.Lerp(eCock, eOut, a); }
+                        else { float a = Mathf.SmoothStep(0, 1, (p - 0.75f) / 0.25f); pos = Vector3.Lerp(outPos, rest, a); euler = Vector3.Lerp(eOut, restEuler, a); }
+                    }
                     break;
                 case Move.Grab:
                     // over to the other hand for the next one, and back

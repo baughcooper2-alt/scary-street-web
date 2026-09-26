@@ -12,13 +12,17 @@ public class GoldfishWeapon : MagazineWeapon
     public float handfulCooldown = 0.45f;
     public float boxDamage = 22f, boxRadius = 3f, snackTime = 1.5f;
     public int boxCost = 4;
+    [Tooltip("After lobbing the carton: seconds until a new one is in your hands (it's gone from them till then).")]
+    public float newCartonTime = 1f;
 
     // first person: the carton sits low in front of you, a hand on each side (as the body holds it)
     static readonly Vector3 BoxRest = new Vector3(0f, -0.25f, 0.56f);
     const float BoxTilt = -10f;                                                 // top a touch toward you
+    static readonly FirstPersonHand.Grip PalmsOn = new FirstPersonHand.Grip(0.22f, 0.2f, 0.22f, 0.25f, 0.3f);   // flat hands on its sides
     static readonly Vector3 BoxSize = new Vector3(0.15f, 0.26f, 0.15f);        // a big milk carton
 
     float cooldown, tossT = -1f, tossDur = 0.3f, toss;
+    bool lobbed;                                                               // the carton's been thrown: empty hands
     bool wasSecondary;
     static Material cracker, boxMat, boxBand, boxDark;
 
@@ -48,8 +52,13 @@ public class GoldfishWeapon : MagazineWeapon
             else if (lob) inventory.Toast($"Need {boxCost} handfuls to throw the carton", 1.2f);
             else if (input.primaryPressed && ammo > 0) Handful();
         }
+        if (lobbed && !reloading) lobbed = false;
         Animate(dt, reloading);
         HoldBetweenHands();
+        // gone from your hands after the lob, back for the last third of a second (rising in)
+        bool gone = lobbed && reloadT > 0.3f;
+        if (fpModel && fpModel.gameObject.activeSelf && gone) fpModel.gameObject.SetActive(false);
+        if (tpModel && tpModel.gameObject.activeSelf && gone) tpModel.gameObject.SetActive(false);
     }
 
     // third person: the carton sits between the two hands
@@ -70,7 +79,11 @@ public class GoldfishWeapon : MagazineWeapon
         if (tossT >= 0) { float p = (tossT += dt) / tossDur; k = Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI); if (p >= 1f) tossT = -1f; }
         toss = k;
         if (!arms || !fpModel) return;
-        float down = reloading ? Mathf.Clamp01(1f - Mathf.Abs(1f - 2f * (1f - reloadT / ReloadTime))) : 0f;   // dips out and back
+        if (lobbed && reloadT > 0.3f) { arms.overrideLeft = arms.overrideRight = false; return; }   // empty-handed till the new one
+        arms.leftFingers = arms.rightFingers = PalmsOn;
+        float down = !reloading ? 0f
+            : lobbed ? Mathf.Clamp01(reloadT / 0.3f)                                                       // a new one rises in
+            : Mathf.Clamp01(1f - Mathf.Abs(1f - 2f * (1f - reloadT / ReloadTime)));                          // dips out and back
         fpModel.localPosition = BoxRest + new Vector3(0, 0.07f * k - 0.35f * down, 0.09f * k);
         fpModel.localRotation = Quaternion.Euler(BoxTilt + 40f * k, 0, 0);
         Vector3 side = fpModel.localRotation * new Vector3(BoxSize.x * 0.5f + 0.025f, -0.03f, -0.01f);
@@ -116,7 +129,8 @@ public class GoldfishWeapon : MagazineWeapon
     {
         cooldown = 1f;
         UseAmmo(ammo);                                                    // the whole carton goes: a new one after the reload
-        tossT = 0; tossDur = 0.4f;
+        reloadT = newCartonTime; lobbed = true;
+        tossT = -1f;
         if (BodyAnim) BodyAnim.Toss(0.4f);
         SoundKit.Play(Sfx.Throw, 0.7f);
         Mats();
@@ -153,8 +167,8 @@ public class GoldfishWeapon : MagazineWeapon
         root.SetParent(parent, false);
         float W = BoxSize.x, H = BoxSize.y, D = BoxSize.z, g = 0.075f;
         float slope = Mathf.Atan2(g, D / 2) * Mathf.Rad2Deg, len = Mathf.Sqrt(g * g + D * D / 4);
-        Part(PrimitiveType.Cube, root, Vector3.zero, new Vector3(W, H, D), boxMat, fp);                                           // body
-        Part(PrimitiveType.Cube, root, new Vector3(0, 0.03f, 0), new Vector3(W + 0.002f, 0.045f, D + 0.002f), boxBand, fp);       // white band
+        Rounded(root, Vector3.zero, new Vector3(W, H, D), 0.005f, boxMat, fp);                                                    // body
+        Rounded(root, new Vector3(0, 0.03f, 0), new Vector3(W + 0.002f, 0.045f, D + 0.002f), 0.005f, boxBand, fp);                // white band
         Part(PrimitiveType.Sphere, root, new Vector3(0, -0.05f, D / 2 + 0.004f), new Vector3(0.09f, 0.055f, 0.012f), cracker, fp); // the fish
         Part(PrimitiveType.Cube, root, new Vector3(-0.052f, -0.05f, D / 2 + 0.004f), new Vector3(0.028f, 0.036f, 0.01f), cracker, fp, new Vector3(0, 0, 45f));
         Part(PrimitiveType.Cube, root, new Vector3(0, H / 2 - 0.002f, 0), new Vector3(W - 0.01f, 0.004f, D - 0.01f), boxDark, fp);  // inside, seen through the spout
