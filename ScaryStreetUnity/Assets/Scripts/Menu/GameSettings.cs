@@ -46,23 +46,33 @@ public static class GameSettings
 
     static Slider Slider(RectTransform card, string label, float y, float min, float max, float value, System.Action<float> onChange)
     {
-        Row(card, label, y);
+        var row = Row(card, label, y);
         var s = UIKit.Slider(card, min, max, value, onChange);
         UIKit.Place((RectTransform)s.transform, 380, y + 18, 320, 30);
+        Highlight(card).Add(s, row.bar, row.stripe, row.label);
         return s;
     }
 
     static Toggle Toggle(RectTransform card, string label, float y, bool value, System.Action<bool> onChange)
     {
-        Row(card, label, y);
+        var row = Row(card, label, y);
         var t = UIKit.Toggle(card, value, onChange);
         UIKit.Place((RectTransform)t.transform, 380, y + 14, 40, 40);
+        Highlight(card).Add(t, row.bar, row.stripe, row.label);
         return t;
     }
 
-    static void Row(RectTransform card, string label, float y)
+    // the row's label, with the highlight bar and stripe behind it (shown while the row is selected)
+    static (Image bar, Image stripe, Text label) Row(RectTransform card, string label, float y)
     {
+        var bar = UIKit.Panel(card, "RowHighlight", new Color(UIArt.Theme.Mustard.r, UIArt.Theme.Mustard.g, UIArt.Theme.Mustard.b, 0.14f));
+        UIKit.Place(bar.rectTransform, 34, y + 2, 692, 60); bar.raycastTarget = false;
+        var stripe = UIKit.Panel(card, "RowStripe", UIArt.Theme.Mustard);
+        UIKit.Place(stripe.rectTransform, 34, y + 2, 6, 60); stripe.raycastTarget = false;
         var l = UIKit.Label(card, label.ToUpper(), 26, UIArt.Theme.Paper, TextAnchor.MiddleLeft, FontStyle.Bold);
         UIKit.Place(l.rectTransform, 50, y, 320, 64);
+        return (bar, stripe, l);
     }
+
+    static SettingsHighlight Highlight(RectTransform card) => card.GetComponent<SettingsHighlight>() ? card.GetComponent<SettingsHighlight>() : card.gameObject.AddComponent<SettingsHighlight>();
 }
