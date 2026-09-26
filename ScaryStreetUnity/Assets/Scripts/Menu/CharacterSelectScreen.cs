@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 // Fighting-game style select: game modes along the top, P1's fighter shown big on the left,
 // the roster grid in the middle (DESIGN.md's 8 base characters + 8 DLC), P2 waiting on the right.
 // 1 Player, or 2 Player split-screen (needs a controller for P2; P1 picks, then P2). Only characters with a look
-// (Cooper, Nathan) can be picked; the rest say COMING SOON, as do 3 / 4 Player. Free Roam is the sandbox (no enemies).
+// (Cooper, Nathan, Kenny, Isaiah, and Mordecai / Rigby as DLC) can be picked; the rest say COMING SOON, as do 3 / 4 Player. Free Roam is the sandbox (no enemies).
 // The fighters are real 3D models on a hidden stage far below the house, filmed into RenderTextures.
 public class CharacterSelectScreen : MonoBehaviour
 {
@@ -336,7 +336,7 @@ public class CharacterSelectScreen : MonoBehaviour
         cursor = index;
         for (int i = 0; i < tiles.Count; i++) tiles[i].frame.SetActive(i == index);
         var t = tiles[index];
-        string info = t.look ? $"Starts with: {t.entry.startsWith}"
+        string info = t.look ? (t.entry.dlc ? "DLC character" : $"Starts with: {t.entry.startsWith}")
                     : t.entry.dlc ? "DLC character · coming soon" : $"Starts with: {t.entry.startsWith}\nComing soon";
         fightButton.interactable = t.look;
         if (picking == 0)

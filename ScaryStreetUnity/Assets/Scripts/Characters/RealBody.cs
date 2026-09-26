@@ -217,7 +217,7 @@ public static class RealBody
     {
         // a character can have its own face texture (eyebrows): Skin_Head_<Model>_D
         string face = Resources.Load<Texture2D>($"RealBody/Tex/Skin_Head_{model}_D") ? $"Skin_Head_{model}" : "Skin_Head";
-        Color skinTint = Color.Lerp(Color.white, Div(L.skin, new Color(0.76f, 0.55f, 0.45f)), 0.5f);   // texture average → the look
+        Color skinTint = Color.Lerp(Color.white, Div(L.skin, new Color(0.76f, 0.55f, 0.45f)), L.skinTint);   // texture average → the look
         switch (slot)
         {
             case "Std_Skin_Head": return Textured(mat("Real_SkinHead_" + model, skinTint), face, 0.35f, "Skin_Head");
@@ -234,6 +234,7 @@ public static class RealBody
             case "Curls":         return TwoSided(Smooth(mat("Real_Curls", L.hair), 0.3f));
             case "Cap":           return TwoSided(Smooth(mat("Real_Cap", L.cap), 0.2f));
             case "Wristband":     return Smooth(mat("Real_Wristband", L.wristbandColor), 0.15f);
+            case "Glasses":       return Smooth(mat("Real_Glasses", new Color(0.03f, 0.03f, 0.035f)), 0.75f);
             default:              return mat("Real_" + slot, Color.gray);
         }
     }

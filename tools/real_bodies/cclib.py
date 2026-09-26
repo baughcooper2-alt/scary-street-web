@@ -151,6 +151,61 @@ def clean_cut(o, face_ok, co, no, hem=0.0, inward=None):
     bm.to_mesh(o.data); bm.free(); o.data.update()
     print('  clean cut',o.name,'region faces',len(region),'removed',len(gone),'hem edges',n_edge)
 
+# Per character: build (+ slimmer, - thicker, on top of stage2's slimming), sleeves, hair style, glasses.
+CHAR={
+    'cooper': dict(build=0.0,  sleeves='short', hair='dummy'),
+    'nathan': dict(build=0.0,  sleeves='long',  hair='curly_top'),
+    'kenny':  dict(build=0.9, sleeves='long',  hair='low_cut', glasses=True),
+    'isaiah': dict(build=-0.8, sleeves='long', hair='tight_curls'),
+}
+
+SLIM={'Upperarm':0.2,'UpperarmTwist01':0.2,'UpperarmTwist02':0.2,'Forearm':0.08,'ForearmTwist01':0.08,'ForearmTwist02':0.08,
+      'Thigh':0.12,'ThighTwist01':0.12,'ThighTwist02':0.12,'Calf':0.06,'CalfTwist01':0.06,'CalfTwist02':0.06,
+      'Clavicle':0.18,'RibsTwist':0.15,'Spine02':0.14,'Spine01':0.1,'Waist':0.05,'NeckTwist01':0.12,'NeckTwist02':0.06}
+
+def body_build(body, arm, amount):
+    """Pull the flesh toward each bone's axis (amount > 0, skinnier) or push it out (amount < 0, thicker), by skin
+    weight, like stage2's slimming. The belly gets a little extra when thickening. Shape keys move with it."""
+    if abs(amount)<1e-4: return
+    co=mesh_co(body); Wt,names=weights(body); disp=np.zeros_like(co)
+    for gi,n in enumerate(names):
+        key=n.replace('CC_Base_','').replace('L_','').replace('R_','')
+        k=SLIM.get(key)
+        if not k or n not in arm.data.bones: continue
+        if amount<0 and key in ('Waist','Spine01'): k*=1.8
+        b=arm.data.bones[n]; h=np.array(b.head_local); t=np.array(b.tail_local); seg=t-h
+        tt=np.clip(((co-h)@seg)/max(seg@seg,1e-9),0,1); near=h+tt[:,None]*seg
+        disp+=Wt[:,gi:gi+1]*k*amount*(near-co)
+    kb=body.data.shape_keys.key_blocks if body.data.shape_keys else []
+    for k in kb:
+        a=np.array([v.co[:] for v in k.data]); k.data.foreach_set('co',(a+disp).reshape(-1))
+    set_co(body,co+disp)
+    print('  body build',amount,'max move',round(float(np.linalg.norm(disp,axis=1).max()),4))
+
+def tube_path(bm, pts, radius, sides=6, closed=False):
+    """A round tube along a polyline (glasses frames)."""
+    pts=[mathutils.Vector(p) for p in pts]; n=len(pts); rings=[]
+    for i,p in enumerate(pts):
+        a=pts[(i-1)%n] if (closed or i>0) else p; b=pts[(i+1)%n] if (closed or i<n-1) else p
+        t=(b-a).normalized(); q1=t.orthogonal().normalized(); q2=t.cross(q1)
+        rings.append([bm.verts.new(p+(q1*math.cos(k*6.283/sides)+q2*math.sin(k*6.283/sides))*radius) for k in range(sides)])
+    for i in range(n if closed else n-1):
+        r0,r1=rings[i],rings[(i+1)%n]
+        for k in range(sides): bm.faces.new((r0[k],r0[(k+1)%sides],r1[(k+1)%sides],r1[k]))
+
+def dump_face(body, W, who, eyeZ, mouthZ, chinZ):
+    """The front of the head's UVs with their positions (and the eye / mouth / chin heights), for face_textures.py
+    to paint eyebrows and stubble in the right places. Writes W/face_<who>.json."""
+    import json
+    uvl=body.data.uv_layers.active.data; co=mesh_co(body); loops=[]
+    for poly in body.data.polygons:
+        if body.data.materials[poly.material_index].name!='Std_Skin_Head': continue
+        for li in poly.loop_indices:
+            x,y,z=co[body.data.loops[li].vertex_index]
+            if y<-0.02: u,v=uvl[li].uv; loops.append([round(u,5),round(v,5),round(float(x),4),round(float(y),4),round(float(z),4)])
+    json.dump({'eyeZ':eyeZ,'mouthZ':mouthZ,'chinZ':chinZ,'loops':loops},open(W+f'/face_{who}.json','w'))
+    print('face data loops',len(loops))
+
 def join(objs, name):
     sel(objs[0])
     for o in objs[1:]: o.select_set(True)
@@ -287,7 +342,8 @@ def panel_weights(garment, body, armpit_z=1.40):
     return sleeve, seam
 
 def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
-    """Per-character face: Nathan narrow and long with a stronger nose and slimmer cheeks; Cooper broader."""
+    """Per-character face: Nathan narrow and long with a long straight nose and slimmer cheeks; Cooper broader;
+    Kenny rounder with fuller lips and a broader nose; Isaiah in between."""
     co=mesh_co(body); d=np.zeros_like(co)
     def ss(a,b,x): t=np.clip((x-a)/(b-a),0,1); return t*t*(3-2*t)
     x,y,z=co[:,0],co[:,1],co[:,2]
@@ -299,10 +355,25 @@ def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
         d[:,0]+= -x*0.08*lower*front                                            # narrower cheeks and jaw
         below=(z<mouthZ-0.008)&(chinZ<mouthZ-0.02)
         d[:,2]+= -0.007*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*ss(chinZ-0.025,chinZ,z)*below   # longer chin (only below the mouth)
-        nose=blob((0,-0.105,mouthZ+0.035),0.026); d[:,1]-=0.0045*nose; d[:,2]-=0.0015*nose       # longer, stronger nose
-        bridge=blob((0,-0.092,eyeZ-0.005),0.016); d[:,1]-=0.0022*bridge
+        nose=blob((0,-0.105,mouthZ+0.035),0.028); d[:,1]-=0.0068*nose; d[:,2]-=0.0026*nose       # long, straight, prominent nose (photos)
+        bridge=blob((0,-0.092,eyeZ-0.008),0.02); d[:,1]-=0.0036*bridge
+        lips=blob((0,-0.1,mouthZ),0.02); d[:,1]+=0.0012*lips                                      # thinner lips
+        for sx in (1,-1):
+            br=blob((0.03*sx,-0.088,eyeZ+0.02),0.02); d[:,1]-=0.0016*br                           # heavier brow ridge, deeper-set eyes
         for sx in (1,-1):
             ch=blob((0.045*sx,-0.072,mouthZ+0.02),0.026); d[:,0]-=0.0028*sx*ch; d[:,1]+=0.0012*ch   # hollower cheeks
+    elif who=='kenny':                                                          # rounder face, fuller lips, broader nose, softer chin
+        mouth=blob((0,-0.1,mouthZ),0.024); d[:,1]-=0.0035*mouth; d[:,2]+=0.0006*mouth
+        for sx in (1,-1):
+            nos=blob((0.016*sx,-0.1,mouthZ+0.024),0.014); d[:,0]+=0.0032*sx*nos; d[:,1]-=0.001*nos   # wider nostrils
+            ch=blob((0.046*sx,-0.07,mouthZ+0.018),0.028); d[:,1]-=0.0012*ch
+        tip=blob((0,-0.108,mouthZ+0.03),0.014); d[:,1]+=0.0012*tip; d[:,2]+=0.001*tip             # shorter, rounder nose tip
+        d[:,2]+= 0.003*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)          # a little shorter chin
+    elif who=='isaiah':                                                         # in between: fuller cheeks, a bit broader nose and lips
+        mouth=blob((0,-0.1,mouthZ),0.022); d[:,1]-=0.002*mouth
+        for sx in (1,-1):
+            nos=blob((0.016*sx,-0.1,mouthZ+0.024),0.013); d[:,0]+=0.002*sx*nos
+            ch=blob((0.046*sx,-0.07,mouthZ+0.018),0.028); d[:,1]-=0.0018*ch; d[:,0]+=0.0012*sx*ch
     else:
         d[:,0]+= x*0.035*lower*front                                            # broader jaw
         for sx in (1,-1):
@@ -313,29 +384,34 @@ def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
     set_co(body,co+d)
     print('  face shaped',who,'max move',round(float(np.linalg.norm(d,axis=1).max()),4))
 
-def coils(points, normals, seed=3, forehead=None):
-    """Little 3D curls: a helix tube hanging from each scalp point (for curly hair that reads from a distance)."""
+def coils(points, normals, seed=3, forehead=None, L=(0.02,0.036), Lf=(0.012,0.02), R=(0.0055,0.0085), tube=(0.0022,0.003),
+          pitch=(0.007,0.01), lift=None, maxlen=None, sides=5, name='Curls', outward=0.0, bias=None, turn=7):
+    """Little 3D curls: a helix tube growing from each scalp point (for curly hair that reads from a distance).
+    L / Lf: length range (forehead points use Lf); R: helix radius; lift: per-point start height off the scalp;
+    maxlen: per-point cap on the length (fringe curls stop above the eyes)."""
     import bmesh, random
     rnd=random.Random(seed); bm=bmesh.new()
     for i,(p,n) in enumerate(zip(points,normals)):
         n=mathutils.Vector(n).normalized(); down=mathutils.Vector((0,0,-1))
         a=(down-n*down.dot(n)); a=a.normalized() if a.length>1e-4 else down
         short=forehead is not None and forehead[i]
-        a=(a+n*rnd.uniform(0.25,0.55)+mathutils.Vector((rnd.uniform(-.3,.3),rnd.uniform(-.3,.3),0))).normalized()
-        L=rnd.uniform(0.012,0.02) if short else rnd.uniform(0.02,0.036)
-        R=rnd.uniform(0.0055,0.0085); tube=rnd.uniform(0.0022,0.003); pitch=rnd.uniform(0.007,0.01)
+        a=(a+n*rnd.uniform(0.25,0.55)+mathutils.Vector((rnd.uniform(-.3,.3),rnd.uniform(-.3,.3),0))+(bias or mathutils.Vector())).normalized()
+        a=(a*(1-outward)+n*outward).normalized()                               # top curls stand up off the scalp
+        Ln=rnd.uniform(*(Lf if short else L))
+        if maxlen is not None: Ln=max(0.004,min(Ln,maxlen[i]))
+        Rn=rnd.uniform(*R); tb=rnd.uniform(*tube); pt=rnd.uniform(*pitch)
         u=a.orthogonal().normalized(); v=a.cross(u)
-        start=mathutils.Vector(p)+n*0.003; ph=rnd.uniform(0,6.28)
-        steps=max(6,int(L/pitch*7)); rings=[]
-        for s in range(steps+1):
-            t=s/steps; ang=ph+t*L/pitch*6.283
-            c=start+a*(t*L)+(u*math.cos(ang)+v*math.sin(ang))*R*(0.6+0.4*t)
-            tang=(a*(L/steps)+(u*-math.sin(ang)+v*math.cos(ang))*R*(6.283*L/pitch/steps)).normalized()
+        start=mathutils.Vector(p)+n*(0.003+(lift[i] if lift is not None else 0.0)); ph=rnd.uniform(0,6.28)
+        steps=max(4,int(Ln/pt*turn)); rings=[]                                   # turn: segments per loop of the helix
+        for s_ in range(steps+1):
+            t=s_/steps; ang=ph+t*Ln/pt*6.283
+            c=start+a*(t*Ln)+(u*math.cos(ang)+v*math.sin(ang))*Rn*(0.6+0.4*t)
+            tang=(a*(Ln/steps)+(u*-math.sin(ang)+v*math.cos(ang))*Rn*(6.283*Ln/pt/steps)).normalized()
             q1=tang.orthogonal().normalized(); q2=tang.cross(q1)
-            ring=[bm.verts.new(c+(q1*math.cos(k*6.283/5)+q2*math.sin(k*6.283/5))*tube*(1-0.5*t)) for k in range(5)]
+            ring=[bm.verts.new(c+(q1*math.cos(k*6.283/sides)+q2*math.sin(k*6.283/sides))*tb*(1-0.5*t)) for k in range(sides)]
             rings.append(ring)
-        for s in range(steps):
-            for k in range(5):
-                bm.faces.new((rings[s][k],rings[s][(k+1)%5],rings[s+1][(k+1)%5],rings[s+1][k]))
-    me=bpy.data.meshes.new('Curls'); bm.to_mesh(me); bm.free()
-    o=bpy.data.objects.new('Curls',me); bpy.context.scene.collection.objects.link(o); return o
+        for s_ in range(steps):
+            for k in range(sides):
+                bm.faces.new((rings[s_][k],rings[s_][(k+1)%sides],rings[s_+1][(k+1)%sides],rings[s_+1][k]))
+    me=bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    o=bpy.data.objects.new(name,me); bpy.context.scene.collection.objects.link(o); return o

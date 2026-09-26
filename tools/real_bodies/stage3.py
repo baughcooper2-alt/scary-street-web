@@ -7,6 +7,7 @@ bpy.ops.wm.open_mainfile(filepath=W+'/stage2.blend')
 with bpy.data.libraries.load(W+'/garments.blend') as (src, dst): dst.objects=[n for n in src.objects]
 for o in dst.objects: bpy.context.scene.collection.objects.link(o)
 O=bpy.data.objects; arm=O['Rig']; body=O['CC_Base_Body']
+body_build(body, arm, CHAR[who]['build'])                                   # Kenny skinnier, Isaiah thicker (before the clothes fit)
 bvh=bvh_of(body)
 bone=lambda n: np.array(arm.data.bones[n].head_local)
 
@@ -26,7 +27,7 @@ else:
     set_co(top,c)
 for n in ['Urban.001']: bpy.data.objects.remove(O[n])                     # beanie: Nathan wears a cap
 top.name='Top'; pants.name='Pants'
-material(top,'Shirt',(0.1,0.1,0.1,1) if who=='nathan' else (0.55,0.55,0.56,1)); material(pants,'Pants',(0.06,0.06,0.07,1))
+material(top,'Shirt',(0.55,0.55,0.56,1) if who=='cooper' else (0.1,0.1,0.1,1)); material(pants,'Pants',(0.06,0.06,0.07,1))
 
 # ---- fit ----
 print('fit pants'); push_out(pants, bvh, 0.006)
@@ -61,7 +62,7 @@ print('refit top'); push_out(top, bvh, 0.008)
 
 # ---- skin ----
 transfer_weights(body, pants, arm); transfer_weights(body, top, arm); sleeve,seam=panel_weights(top, body)
-if who=='cooper':                                                          # short sleeves: cut straight across above the elbow
+if CHAR[who]['sleeves']=='short':                                          # short sleeves: cut straight across above the elbow
     for side in list(sleeve.keys()):
         sleeve,_,seam=panel_vertex_sets(top); verts=sleeve[side]           # fresh indices (the other side's cut renumbers)
         S_=mathutils.Vector(bone(f'CC_Base_{side}_Upperarm')); E_=mathutils.Vector(bone(f'CC_Base_{side}_Forearm'))

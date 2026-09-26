@@ -27,7 +27,7 @@ body=O['CC_Base_Body']; f.write(struct.pack('<f', float(mesh_co(body)[:,2].max()
 f.write(struct.pack('<i',len(order)))
 for b in order:
     S(b.name); f.write(struct.pack('<i', bidx[b.parent.name] if b.parent else -1)); f.write(struct.pack('<3f',*U(b.head_local)))
-names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, own finger rig)
+names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','Glasses','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, own finger rig)
 parts=[O[n] for n in names if n in O]
 f.write(struct.pack('<i',len(parts)))
 for o in parts:

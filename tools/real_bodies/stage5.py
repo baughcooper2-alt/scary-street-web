@@ -54,7 +54,7 @@ for side,sx in (('R',-1),('L',1)):
         wl={nm:bm.verts.layers.float.new('w'+str(k)) for k,nm in enumerate(rigbones[1:]) if nm in gi}   # weights ride along the cuts
         for v in bm.verts:
             for nm,l in wl.items(): v[l]=float(Wt[v.index,gi[nm]]) if v.index<len(Wt) else 0.0
-        sleeved=O.get('Top') is not None and who=='nathan'
+        sleeved=O.get('Top') is not None and CHAR[who]['sleeves']=='long'
         back=0.035 if (src is body and sleeved) else 0.2                 # under Nathan's sleeve only the hand shows
         keep=np.array([armw[v.index]>0.5 for v in bm.verts])
         bmesh.ops.delete(bm, geom=[f_ for f_ in bm.faces if not all(keep[v.index] for v in f_.verts)], context='FACES')

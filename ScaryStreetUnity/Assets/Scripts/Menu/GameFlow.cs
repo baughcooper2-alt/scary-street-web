@@ -84,7 +84,17 @@ public class GameFlow : MonoBehaviour
         SoundKit.PlayMusic(MusicTrack.Menu);
     }
 
-    public CharacterLook LookFor(string displayName) => playableLooks.Find(l => l && l.displayName == displayName);
+    // The scene's looks first; anyone else with a preset (Kenny, Isaiah, Mordecai, Rigby) is playable from the preset.
+    public CharacterLook LookFor(string displayName)
+    {
+        var l = playableLooks.Find(x => x && x.displayName == displayName);
+        if (l) return l;
+        if (presets.TryGetValue(displayName, out l)) return l;
+        var p = CharacterLook.Preset(displayName.ToLower().Replace(" ", ""));
+        presets[displayName] = l = p.displayName == displayName ? p : null;
+        return l;
+    }
+    readonly Dictionary<string, CharacterLook> presets = new Dictionary<string, CharacterLook>();
 
     public void ShowTitle() => Swap(TitleScreen.Create(this).gameObject);
     public void ShowCharacterSelect() => Swap(CharacterSelectScreen.Create(this).gameObject);
@@ -147,6 +157,8 @@ public class GameFlow : MonoBehaviour
         var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
         GameSettings.ApplyTo(p.GetComponent<FirstPersonController>(), index);
+        if (look && look.displayName == "Isaiah" && !p.GetComponent<StartingItems>())   // DESIGN.md: Isaiah starts on a skateboard
+            p.AddComponent<StartingItems>().upgrades = new[] { PlayerUpgrades.Id.Skateboard };
     }
 
     static void SetUpInput(GameObject p, int index, int count)
