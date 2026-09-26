@@ -8184,8 +8184,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c47911db7efb44c98487b6a90b1e046, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameFlow
-  titleTop: BOOGIE DOWN
-  titleMain: SCARY STREET
+  titleIntro: BOOGYING DOWN ON
+  titleWord: SCARY
+  titleStruck: MAPLE
+  titleEnd: STREET
   tagline: Survive the waves. Beat the bosses. Master the fade.
   playableLooks:
   - {fileID: 11400000, guid: 3cdda25f2caf7467abe6f83aa6fe91c5, type: 2}
@@ -18279,6 +18281,7 @@ MonoBehaviour:
   visible: 1
   raise: 0
   mouthPosition: {x: 0.05, y: -0.1, z: 0.24}
+  mouthPoint: {x: 0, y: -0.085, z: 0.07}
 --- !u!1 &331155883 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7353793870983852345, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -50635,6 +50638,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -614948040871919311, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 762341582551254802, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -72641,6 +72648,77 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7735363860766639656, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!1 &1086777083
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1086777086}
+  - component: {fileID: 1086777085}
+  - component: {fileID: 1086777084}
+  m_Layer: 0
+  m_Name: Kitchen Fridge
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1086777084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086777083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40f6c2f6013ec459abab06333b684eac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fridge
+  size: {x: 0.9, y: 1.9, z: 0.85}
+  color: {r: 0.3250757, g: 0.3250757, b: 0.33910805, a: 1}
+  replaces: {fileID: 2143844020}
+  freezerShare: 0.3
+  hingeOnLeft: 1
+--- !u!65 &1086777085
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086777083}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.9, y: 1.9, z: 0.85}
+  m_Center: {x: 0, y: 0.95, z: 0}
+--- !u!4 &1086777086
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086777083}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: -0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: -4.02501, y: 0, z: 15.64999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1088651293 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -2349321340440891639, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -79752,8 +79830,14 @@ MonoBehaviour:
   jumpHeight: 1
   gravity: -20
   mouseSensitivity: 0.12
-  stickSensitivity: 160
   maxLookAngle: 85
+  invertY: 0
+  stickSensitivity: 160
+  stickCurve: 1.8
+  stickVerticalScale: 0.7
+  aimAssistSlowdown: 0.55
+  aimAssistRange: 25
+  aimAssistRadius: 0.4
   standHeight: 1.8
   crouchHeight: 1.1
   eyeFromTop: 0.12
@@ -79840,6 +79924,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerProgress
   startingCash: 0
   xpPerLevel: 10
+  pickEvery: 5
 --- !u!114 &1225541002
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -79858,6 +79943,8 @@ MonoBehaviour:
   shoulderOffset: 0.45
   heightOffset: 0.25
   collisionRadius: 0.2
+  frontDistance: 2.1
+  frontHeight: 0.05
 --- !u!114 &1225541003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -99961,7 +100048,7 @@ MonoBehaviour:
     maxAlive: 18
     maxPackSize: 5
     bossAfter: Andique
-  startAtRound: 3
+  startAtRound: 1
   healBetweenRounds: 1
   minSpawnDistance: 10
   maxSpawnDistance: 40
@@ -130159,11 +130246,16 @@ MeshCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 8914579500733035561, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+--- !u!23 &2143844020 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -614948040871919311, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
+  m_PrefabInstance: {fileID: 906300555}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2143964555 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2114975935213193105, guid: 56e8a091e4710400dbf25d8c00a9284f, type: 3}
@@ -130338,3 +130430,4 @@ SceneRoots:
   - {fileID: 148457514}
   - {fileID: 75833924}
   - {fileID: 1922695530}
+  - {fileID: 1086777086}
