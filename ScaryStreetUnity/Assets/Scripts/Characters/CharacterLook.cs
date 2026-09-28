@@ -1,8 +1,9 @@
 using UnityEngine;
 
 // Colors, height and hair for one character. BlockyCharacter builds a body from this.
-// Presets: the worker is from the web build's WORKER spec; Cooper, Nathan, Kenny and Isaiah are matched to photos of
-// them; Mordecai and Rigby (DLC) are cartoon animal bodies (CartoonBody).
+// Presets: the worker is from the web build's WORKER spec; Cooper, Nathan, Kenny, Isaiah, Thorton, Piper, John and
+// Will are matched to photos of them; Mordecai and Rigby (DLC) are cartoon bodies built in Blender (tools/real_bodies/toon.py).
+// Heights: Thorton and Will tallest (Thorton has the longest arms), Piper a touch taller than Isaiah, John = Nathan.
 [CreateAssetMenu(menuName = "Scary Street/Character Look", fileName = "NewCharacterLook")]
 public class CharacterLook : ScriptableObject
 {
@@ -34,6 +35,8 @@ public class CharacterLook : ScriptableObject
     public ShirtGraphic shirtGraphic;
     public Color pants = Hex("#1c1c1f");
     public bool shorts;
+    [Tooltip("Realistic body: denim (twill weave, tinted by Pants).")]
+    public bool jeans;
     public Color socks = Hex("#f4f4f4");
     public Color shoes = Hex("#141414");
     [Tooltip("Band on the left wrist.")]
@@ -47,6 +50,10 @@ public class CharacterLook : ScriptableObject
     [Tooltip("Resources/RealBody/<name>.bytes to use instead of building a body (empty = the display name, if that file exists).")]
     public string realModel = "";
     public Color hair = Hex("#2a1d14");
+    [Tooltip("Strand hair: the colour at the roots (fades to Hair); clear = the same as Hair.")]
+    public Color hairRoot = Color.clear;
+    [Tooltip("Eye height in metres for the first-person camera (0 = 12 cm below the top of the head). Mordecai's crest is above his eyes.")]
+    public float eyeHeight;
     public bool wearsCap;
     public Color cap = Hex("#111111");
 
@@ -129,10 +136,10 @@ public class CharacterLook : ScriptableObject
                 break;
 
             case "nathan":                                                  // from Nathan's photos: all black, big dark curls on top, no cap
-                displayName = "Nathan"; height = 1.75f; realisticBody = true; simpleClothes = false;
-                skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#1c1919"); longSleeves = true;
+                displayName = "Nathan"; height = 1.75f; realisticBody = true; simpleClothes = false;       // brown sweater (his leather-jacket photo), black pants, white tennis shoes
+                skin = Hex("#e2bb9e"); eyes = Hex("#3b2a20"); shirt = Hex("#5a3b28"); longSleeves = true;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
-                pants = Hex("#1d1713"); shorts = false; shoes = Hex("#1b1b1d");
+                pants = Hex("#1a1818"); shorts = false; shoes = Hex("#f2f2f0");
                 hair = Hex("#0c0b0b"); brows = Hex("#141010"); hairStyle = HairStyle.Curly; wearsCap = false; cap = Hex("#3f3530"); hairAsset = "nathan_curls";
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
@@ -146,25 +153,61 @@ public class CharacterLook : ScriptableObject
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
 
-            case "isaiah":                                                  // from Isaiah's photo: light gray hoodie, dark jeans, tight curls
+            case "isaiah":                                                  // from Isaiah's photo: a burgundy tee and blue jeans, tight curls
                 displayName = "Isaiah"; height = 1.76f; realisticBody = true; simpleClothes = false;
-                skin = Hex("#a9724c"); skinTint = 0.85f; eyes = Hex("#2e1f15"); shirt = Hex("#b8babd"); longSleeves = true;
+                skin = Hex("#a9724c"); skinTint = 0.85f; eyes = Hex("#2e1f15"); shirt = Hex("#7a2433"); longSleeves = false;
                 oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
-                pants = Hex("#272c38"); shorts = false; shoes = Hex("#d8d8d8");
+                pants = Hex("#40608c"); jeans = true; shorts = false; shoes = Hex("#23304f");
                 hair = Hex("#120d0a"); brows = Hex("#120d0a"); hairStyle = HairStyle.Curly; wearsCap = false;
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
 
+            case "thorton":                                                 // from Thorton's photos: olive hoodie, dark joggers, low fade, thin mustache
+                displayName = "Thorton"; height = 1.9f; realisticBody = true; simpleClothes = false;
+                skin = Hex("#3f291e"); skinTint = 1f; eyes = Hex("#1f140e"); shirt = Hex("#6a6844"); longSleeves = true;
+                oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
+                pants = Hex("#26272b"); shorts = false; shoes = Hex("#f2f2f0");
+                hair = Hex("#0b0908"); brows = Hex("#0b0908"); hairStyle = HairStyle.Buzz; wearsCap = false;
+                workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
+                break;
+
+            case "piper":                                                   // from Piper's photos: long wavy blonde hair (darker roots), black jacket, light jeans, nose ring
+                displayName = "Piper"; height = 1.78f; realisticBody = true; simpleClothes = false;
+                skin = Hex("#f0d4c0"); skinTint = 0.4f; eyes = Hex("#5d6b78"); shirt = Hex("#151517"); longSleeves = true;
+                oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
+                pants = Hex("#a3b6ca"); jeans = true; shorts = false; shoes = Hex("#2a2a2e");
+                hair = Hex("#d9ba80"); hairRoot = Hex("#6e5037"); brows = Hex("#8a6a48"); hairStyle = HairStyle.Flow; wearsCap = false;
+                workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
+                break;
+
+            case "john":                                                    // from John's photos: green crewneck, maroon pants, short messy brown hair
+                displayName = "John"; height = 1.75f; realisticBody = true; simpleClothes = false;
+                skin = Hex("#ecc4ab"); eyes = Hex("#4a3a2c"); shirt = Hex("#1f3d2d"); longSleeves = true;
+                oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
+                pants = Hex("#5e1f27"); shorts = false; shoes = Hex("#1f4d34");
+                hair = Hex("#3b2719"); brows = Hex("#33221a"); hairStyle = HairStyle.Swoop; wearsCap = false;
+                workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
+                break;
+
+            case "will":                                                    // from Will's photos: black Purdue hoodie, black shorts, white socks, short brown hair and beard
+                displayName = "Will"; height = 1.9f; realisticBody = true; simpleClothes = false;
+                skin = Hex("#e9c6aa"); eyes = Hex("#4d3b2c"); shirt = Hex("#151517"); longSleeves = true;
+                oversizedShirt = false; shirtGraphic = ShirtGraphic.None; wristband = false;
+                pants = Hex("#151517"); shorts = true; socks = Hex("#f4f4f2"); shoes = Hex("#f3f3f1");
+                hair = Hex("#7a5638"); hairRoot = Hex("#664630"); brows = Hex("#5a3e28"); hairStyle = HairStyle.Swoop; wearsCap = false;
+                workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
+                break;
+
             case "mordecai":                                                // DLC: tall blue jay (cartoon body)
-                displayName = "Mordecai"; height = 1.95f; realisticBody = false; cartoon = Cartoon.BlueJay;
+                displayName = "Mordecai"; height = 1.95f; realisticBody = false; cartoon = Cartoon.BlueJay; eyeHeight = 1.66f;
                 skin = Hex("#4f8fd0"); shirt = Hex("#4f8fd0"); longSleeves = true; eyes = Hex("#101010");
                 wristband = true; wristbandColor = Hex("#f4f4f4"); hair = Hex("#4f8fd0"); wearsCap = false;
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;
 
             case "rigby":                                                   // DLC: short raccoon (cartoon body)
-                displayName = "Rigby"; height = 1.25f; realisticBody = false; cartoon = Cartoon.Raccoon;
-                skin = Hex("#1c1714"); shirt = Hex("#8a5a38"); longSleeves = true; eyes = Hex("#101010");   // first person: brown arms, black paws
+                displayName = "Rigby"; height = 1.25f; realisticBody = false; cartoon = Cartoon.Raccoon; eyeHeight = 1.04f;
+                skin = Hex("#3a2619"); shirt = Hex("#8a5a38"); longSleeves = true; eyes = Hex("#101010");   // first person: brown arms, dark paws
                 wristband = false; hair = Hex("#8a5a38"); wearsCap = false;
                 workerUniform = false; skinVariants = new Color[0]; hairVariants = new Color[0];
                 break;

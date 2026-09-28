@@ -27,8 +27,9 @@ body=O['CC_Base_Body']; f.write(struct.pack('<f', float(mesh_co(body)[:,2].max()
 f.write(struct.pack('<i',len(order)))
 for b in order:
     S(b.name); f.write(struct.pack('<i', bidx[b.parent.name] if b.parent else -1)); f.write(struct.pack('<3f',*U(b.head_local)))
-names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','Glasses','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, own finger rig)
+names=['CC_Base_Body','CC_Game_Eye','CC_Game_Teeth','Top','Pants','Shoes','Hair','HairBase','Curls','Cap','Wristband','Glasses','Socks','Jewelry','FP_R','FP_L']   # FP_*: first-person arms (fist-centred, own finger rig)
 parts=[O[n] for n in names if n in O]
+parts+=[o for o in O if o.type=='MESH' and o.get('ssrb_part') and o not in parts]      # toon extras (eyes, beak, ...)
 f.write(struct.pack('<i',len(parts)))
 for o in parts:
     me=o.data; me.calc_loop_triangles()

@@ -24,6 +24,9 @@ public class PlayerProgress : MonoBehaviour
 
     void Awake() => Cash = startingCash;
 
+    // The chosen character's starting money (Thorton: $100), set before the run starts.
+    public void SetStartingCash(int amount) { startingCash = amount; Cash = amount; }
+
     public void AddCash(int amount)
     {
         if (amount <= 0) return;

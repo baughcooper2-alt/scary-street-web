@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Rebuilds the real bodies (Cooper, Nathan, Kenny, Isaiah: Resources/RealBody/*.bytes) with Blender in the background,
+# Rebuilds the real bodies (the eight friends + the Mordecai / Rigby toons: Resources/RealBody/*.bytes) with Blender in the background,
 # and their face textures (eyebrows, Nathan's stubble) with face_textures.py (needs a Python with Pillow + numpy: PY).
 # Put the source files in WORK first (they are not in the repo):
 #   WORK/Unity/unity.Fbx (+ Unity/unity.fbm textures)   Character Creator base body export
@@ -7,6 +7,8 @@
 #   WORK/obj_0.obj                                       sweatshirt (only split up, not used)
 #   WORK/DummyHair.obj                                   Cooper's stylized hair (+ its bust)
 #   WORK/curly.obj                                       copy of Assets/Resources/Hair/curly.obj.bytes
+#   WORK/female_base.blend                              CG Cookie's female base mesh (Piper's shape)
+#   WORK/shoes.blend + WORK/bakev2.png                   the scanned sneakers and their baked texture (saved out of the blend)
 # Textures (Resources/RealBody/Tex) were converted from Unity/unity.fbm by hand with Pillow (see CLAUDE.md), including
 # Skin_Head_<Name>_D (per-character eyebrows, using the brow UV box stage4 writes to brows_<who>.json).
 set -e
@@ -21,10 +23,15 @@ $B -b -P stage2.py -- $WORK          # arms down (our rest pose), slimmer build
 $B -b -P garments_prep.py -- $WORK   # garments to metres, decimate, split by material
 PY=${PY:-python3}
 TEX=$HERE/../../ScaryStreetUnity/Assets/Resources/RealBody/Tex
-for who in cooper nathan kenny isaiah; do
+for who in cooper nathan kenny isaiah thorton piper john will; do
   $B -b -P stage3.py -- $WORK $who urban    # fit + skin the clothes, cut Cooper's sleeves
   $B -b -P stage4.py -- $WORK $who          # face shape, hair (+ Nathan's 3D curls), cap, wristband, shoes, hide covered skin
   $B -b -P stage5.py -- $WORK $who          # first-person arms: fist pose, cut forearm + hand, centre on the fist
   $B -b -P export_ssrb.py -- $WORK $who $OUT/${(C)who}.bytes
   [ $who = cooper ] || $PY $HERE/face_textures.py $WORK $who $TEX   # Cooper's brows were painted by hand
+done
+$PY $HERE/shoe_textures.py $WORK/bakev2.png $TEX                  # everyone's sneaker colours
+for who in mordecai rigby; do                                      # the DLC toons: built from scratch
+  $B -b -P toon.py -- $WORK $who
+  $B -b -P export_ssrb.py -- $WORK $who $OUT/${(C)who}.bytes
 done

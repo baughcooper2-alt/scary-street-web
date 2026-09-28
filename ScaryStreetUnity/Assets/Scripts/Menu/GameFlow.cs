@@ -157,6 +157,10 @@ public class GameFlow : MonoBehaviour
         var body = p.GetComponent<ThirdPersonView>();
         if (body) body.look = look;
         GameSettings.ApplyTo(p.GetComponent<FirstPersonController>(), index);
+        var fpc = p.GetComponent<FirstPersonController>();
+        if (fpc && look) fpc.SetBody(look.height, look.eyeHeight > 0 ? look.height - look.eyeHeight : 0.12f);
+        var progress = p.GetComponent<PlayerProgress>();
+        if (progress) progress.SetStartingCash(look && look.displayName == "Thorton" ? 100 : 0);   // DESIGN.md
     }
 
     static void SetUpInput(GameObject p, int index, int count)

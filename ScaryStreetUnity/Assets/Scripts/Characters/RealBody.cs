@@ -228,18 +228,70 @@ public static class RealBody
             case "Ga_Eye":        return Textured(mat("Real_Eye", Color.white), "Eye_Brown", 0.9f);
             case "Ga_Teeth":      return Textured(mat("Real_Teeth", Color.white), "Teeth", 0.6f);
             case "Shirt":         return TwoSided(Textured(mat("Real_Shirt", L.shirt), null, 0.08f, "Fabric", 0.8f));   // the outfit's own fabric normals
-            case "Pants":         return TwoSided(Textured(mat("Real_Pants", L.pants), null, 0.1f, "Fabric", 0.8f));
+            case "Pants":         return L.jeans ? TwoSided(Denim(Textured(mat("Real_Jeans", L.pants), null, 0.12f, "Fabric", 1f)))
+                                                 : TwoSided(Textured(mat("Real_Pants", L.pants), null, 0.1f, "Fabric", 0.8f));
+            case "ShoeTex":       return TwoSided(Textured(mat("Real_Shoe_" + model, Color.white), "Shoe_" + model, 0.3f));   // (the scan is a thin shell)
+            case "Socks":         return Smooth(mat("Real_Socks", L.socks), 0.08f);
+            case "Jewelry":       { var j = Smooth(mat("Real_Jewelry", new Color(0.86f, 0.86f, 0.9f)), 0.88f); j.SetFloat("_Metallic", 1f); return j; }
+            case "HairStrand":    return HairGradient(Smooth(mat("Real_HairStrand_" + model, Color.white), 0.32f), L);
             case "Shoes":         return TwoSided(Smooth(mat("Real_Shoes", L.shoes), 0.35f));
             case "Hair":          return HairMat(mat("Real_Hair", L.hair), L);
             case "Curls":         return TwoSided(Smooth(mat("Real_Curls", L.hair), 0.3f));
             case "Cap":           return TwoSided(Smooth(mat("Real_Cap", L.cap), 0.2f));
             case "Wristband":     return Smooth(mat("Real_Wristband", L.wristbandColor), 0.15f);
             case "Glasses":       return Smooth(mat("Real_Glasses", new Color(0.03f, 0.03f, 0.035f)), 0.75f);
-            default:              return mat("Real_" + slot, Color.gray);
+            default:
+                if (slot.StartsWith("Toon_") && ColorUtility.TryParseHtmlString("#" + slot.Substring(5), out var tc))    // cartoon bodies: the colour is in the name
+                    return Smooth(mat("Real_" + slot, tc), tc.r + tc.g + tc.b > 2.7f || tc.maxColorComponent < 0.06f ? 0.65f : 0.22f);
+                return mat("Real_" + slot, Color.gray);
         }
     }
 
     static Color Div(Color a, Color b) => new Color(a.r / b.r, a.g / b.g, a.b / b.b, 1f);
+
+    // Strand hair: a gradient from the root colour to the hair colour along each lock (UV v: 0 at the root).
+    static readonly Dictionary<(Color, Color), Texture2D> gradients = new Dictionary<(Color, Color), Texture2D>();
+    static Material HairGradient(Material m, CharacterLook L)
+    {
+        Color root = L.hairRoot.a > 0 ? L.hairRoot : L.hair * 0.85f, tip = L.hair;
+        if (!gradients.TryGetValue((root, tip), out var tex) || !tex)
+        {
+            tex = new Texture2D(4, 128, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "HairGradient" };
+            var px = new Color[4 * 128];
+            for (int y = 0; y < 128; y++)
+            {
+                float v = y / 127f, t = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.04f, 0.4f, v));
+                var c = Color.Lerp(root, tip, t) * (1f + 0.08f * Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.6f, 1f, v)));   // sun-lightened ends
+                for (int x = 0; x < 4; x++) px[y * 4 + x] = c;
+            }
+            tex.SetPixels(px); tex.Apply(); gradients[(root, tip)] = tex;
+        }
+        m.mainTexture = tex; m.SetTexture("_BaseMap", tex); m.color = Color.white;
+        return m;
+    }
+
+    // Jeans: a twill weave (diagonal ribs, a little fading) multiplied by the pants colour.
+    static Texture2D denim;
+    static Material Denim(Material m)
+    {
+        if (!denim)
+        {
+            const int n = 256;
+            denim = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 8, name = "Denim" };
+            var px = new Color[n * n]; var rng = new System.Random(7);
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float rib = ((x + y) % 6) < 3 ? 0.9f : 1.04f;                          // 3/1 twill diagonals
+                    float slub = 0.94f + 0.12f * Mathf.PerlinNoise(x * 0.05f, y * 0.9f);     // uneven yarn
+                    float g = Mathf.Clamp01(rib * slub + (float)(rng.NextDouble() - 0.5) * 0.05f);
+                    px[y * n + x] = new Color(g, g, g, 1);
+                }
+            denim.SetPixels(px); denim.Apply(true);
+        }
+        m.mainTexture = denim; m.SetTexture("_BaseMap", denim); m.SetTextureScale("_BaseMap", new Vector2(18, 18));
+        return m;
+    }
 
     static Material Smooth(Material m, float s) { m.SetFloat("_Smoothness", s); return m; }
     static Material TwoSided(Material m) { m.SetFloat("_Cull", 0f); return m; }             // cloth is a single sheet

@@ -71,6 +71,16 @@ public class FirstPersonController : MonoBehaviour
         cc.slopeLimit = 50f;
     }
 
+    // The character's size: the capsule stands this tall and the eyes sit eyeFromTop below the top (GameFlow sets it
+    // from the chosen character: Thorton sees from higher up, Rigby from down low).
+    public void SetBody(float height, float eyeBelowTop)
+    {
+        standHeight = Mathf.Clamp(height, 1.1f, 2.1f);
+        crouchHeight = standHeight * 0.61f;
+        eyeFromTop = Mathf.Clamp(eyeBelowTop, 0.08f, 0.5f);
+        if (cc) { cc.height = currentHeight = standHeight; cc.center = new Vector3(0, standHeight / 2f, 0); }
+    }
+
     void OnEnable() => Players.All.Add(this);
     void OnDisable() => Players.All.Remove(this);
 

@@ -11,6 +11,10 @@ STYLE = {   # brow colour (0..1), brow strength, stubble colour, stubble strengt
     'kenny':  dict(brow=(0.03, 0.025, 0.02), bs=0.9,  stub=(0.1, 0.08, 0.07), ss=0.0),
     'isaiah': dict(brow=(0.05, 0.035, 0.03), bs=0.9,  stub=(0.12, 0.1, 0.09), ss=0.0),
     'cooper': dict(brow=(0.3, 0.2, 0.12), bs=0.7, stub=(0.3, 0.25, 0.2), ss=0.0),
+    'thorton': dict(brow=(0.03, 0.025, 0.02), bs=0.9, stub=(0.04, 0.03, 0.025), ss=0.85),    # thin mustache
+    'piper':  dict(brow=(0.42, 0.3, 0.18), bs=0.55, stub=(0.3, 0.25, 0.2), ss=0.0),          # light, thin brows
+    'john':   dict(brow=(0.2, 0.13, 0.08), bs=0.8, stub=(0.2, 0.15, 0.1), ss=0.0),
+    'will':   dict(brow=(0.3, 0.2, 0.12), bs=0.85, stub=(0.32, 0.22, 0.14), ss=0.8),          # short brown beard
 }[who]
 
 base = Image.open(f'{tex}/Skin_Head_D.jpg').convert('RGB')
@@ -18,8 +22,10 @@ img = np.asarray(base).astype(np.float32) / 255.0
 H, Wd = img.shape[:2]
 face = json.load(open(f'{W}/face_{who}.json'))
 eyeZ, mouthZ, chinZ = face['eyeZ'], face['mouthZ'], face['chinZ']
-BROW_T = {'nathan': 0.0072, 'kenny': 0.005, 'isaiah': 0.006, 'cooper': 0.0055}[who]
-STUB = {'nathan': 1.0}.get(who, 0.0)
+BROW_T = {'nathan': 0.0072, 'kenny': 0.005, 'isaiah': 0.006, 'cooper': 0.0055, 'thorton': 0.0055, 'piper': 0.0038, 'john': 0.0058, 'will': 0.0065}[who]
+# facial hair zones: (upper lip, chin + jaw, cheeks)
+ZONES = {'nathan': (1, 1, 1), 'thorton': (1, 0.25, 0), 'will': (1, 1, 1)}.get(who)
+STUB = 1.0 if ZONES else 0.0
 
 def ssf(a, b, x): t = min(1, max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t)
 
@@ -35,7 +41,9 @@ for u, v, x, y, z in face['loops']:
         lip = ssf(mouthZ + 0.004, mouthZ + 0.008, z) * (1 - ssf(mouthZ + 0.017, mouthZ + 0.022, z)) * (1 - ssf(0.024, 0.03, ax))
         jaw = (1 - ssf(mouthZ - 0.009, mouthZ - 0.004, z)) * ssf(chinZ - 0.022, chinZ - 0.004, z)
         cheek = ssf(0.03, 0.04, ax) * (1 - ssf(mouthZ + 0.004, mouthZ + 0.016, z)) * ssf(chinZ - 0.03, chinZ, z)
-        ws = 0 if lips else max(lip, jaw, cheek) * STUB * (1 - ssf(0.046, 0.06, ax))   # fades out before the sides
+        zl, zj, zc = ZONES
+        if who == 'thorton': lip *= 1 - ssf(0.014, 0.024, ax)                          # a thin mustache: over the lip only
+        ws = 0 if lips else max(lip * zl, jaw * zj, cheek * zc) * STUB * (1 - ssf(0.046 if who != 'will' else 0.056, 0.06 if who != 'will' else 0.07, ax))
         stub.append((u, v, ws if ws > 0.03 else 0.0))
 face = {'brow': brow, 'stubble': stub}
 rng = np.random.default_rng(7)

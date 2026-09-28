@@ -42,7 +42,12 @@ public class SixPackWeapon : Weapon
         displayName = "6-Pack";
         if (RoundManager.Instance) RoundManager.Instance.RoundEnded += OnRoundEnded;
     }
-    void OnDestroy() { if (RoundManager.Instance) RoundManager.Instance.RoundEnded -= OnRoundEnded; }
+    void OnDestroy()
+    {
+        if (RoundManager.Instance) RoundManager.Instance.RoundEnded -= OnRoundEnded;
+        if (fpCarrier) Destroy(fpCarrier.gameObject);                      // the carriers live under the other hand, not the model
+        if (tpCarrierObj) Destroy(tpCarrierObj);
+    }
     void OnRoundEnded(int round) { if (!Fridge.Any && bottles < PackSize) { Refill(); inventory.Toast("Fresh 6-pack for the next round", 2f); } }
 
     public void Refill() { bottles = PackSize; bashes = 0; shown = -1; }

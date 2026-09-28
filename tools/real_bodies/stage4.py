@@ -1,7 +1,7 @@
 # Stage 4 (per character): hair, cap, shoes; hide the skin under the clothes.
 import bpy, sys, mathutils, math, numpy as np, bmesh
 W=sys.argv[-2]; who=sys.argv[-1]; sys.path.append(W)
-from render_util import *; from cclib import *
+from render_util import *; from cclib import *; from people import *
 bpy.ops.wm.open_mainfile(filepath=W+f'/stage3_{who}_urban.blend')
 O=bpy.data.objects; arm=O['Rig']; body=O['CC_Base_Body']; top=O['Top']; pants=O['Pants']
 for pb in arm.pose.bones: pb.matrix_basis=mathutils.Matrix.Identity(4)
@@ -71,7 +71,8 @@ if who=='cooper':                                                            # w
     band.parent=arm; md=band.modifiers.new('Armature','ARMATURE'); md.object=arm
     material(band,'Wristband',(0.95,0.95,0.95,1))
 style=CHAR[who]['hair']
-if style in ('curly_top','tight_curls','low_cut'):
+STRAND=('long_wavy','short_messy','short_neat')
+if style in ('curly_top','tight_curls','low_cut')+STRAND:
     # ---- hair: a dark shell on the scalp (thicker toward the crown) and 3D curls on it, by style ----
     #   curly_top (Nathan): big loose curls, volume on top, falling forward over the forehead; short sides
     #   tight_curls (Isaiah): small tight curls, fuller on top, short sides
@@ -81,6 +82,8 @@ if style in ('curly_top','tight_curls','low_cut'):
     nrm=np.empty(len(bco)*3); body.data.vertices.foreach_get('normal',nrm); nrm=nrm.reshape(-1,3)
     HL=np.array([(-0.11,eyeZ+0.054),(-0.06,eyeZ+0.05),(-0.035,eyeZ+0.008),(-0.012,eyeZ-0.006),(0.03,eyeZ-0.014),(0.11,mouthZ+0.004)])
     if style=='low_cut': HL[:,1]+=np.array([0.002,0.002,0.006,0.01,0.008,0.012])     # a crisp line, faded at the sides
+    if CHAR[who].get('fade'): HL[:,1]+=np.array([0.0,0.002,0.012,0.022,0.02,0.018])  # higher, tighter fade on the sides and back
+    if style=='long_wavy': HL[:,1]+=np.array([-0.004,-0.002,0.0,0.0,0.0,-0.004])
     def hairline(y): return float(np.interp(y,HL[:,0],HL[:,1]))
     def on_scalp(i):
         x,y,z=bco[i]
@@ -95,7 +98,9 @@ if style in ('curly_top','tight_curls','low_cut'):
         return True
     def height(i):
         z=bco[i][2]; h0=hairline(bco[i][1]); return float(np.clip((z-h0)/max(ctop-h0,0.01),0,1))
-    T={'curly_top':(0.004,0.013),'tight_curls':(0.003,0.01),'low_cut':(0.0025,0.0065)}[style]
+    T={'curly_top':(0.004,0.013),'tight_curls':(0.003,0.01),'low_cut':(0.0025,0.0065),
+       'long_wavy':(0.004,0.008),'short_messy':(0.003,0.008),'short_neat':(0.003,0.007)}[style]
+    if CHAR[who].get('fade'): T=(0.0012,0.006)
     def thick(h): return T[0]+(T[1]-T[0])*h
     bm=bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table()
     # faces with any corner on the scalp; the corners off it tuck just under the skin, so the edge of the hair is the
@@ -113,14 +118,18 @@ if style in ('curly_top','tight_curls','low_cut'):
     sm=bpy.data.meshes.new('HairBase'); bm.to_mesh(sm); bm.free()
     base=bpy.data.objects.new('HairBase',sm); bpy.context.scene.collection.objects.link(base)
     if base.data.shape_keys: base.shape_key_clear()
-    material(base,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(base); sel(base); bpy.ops.object.shade_smooth()
+    if style in STRAND:                                                        # the strands' gradient material, root end
+        for lp in base.data.uv_layers.active.data: lp.uv=(0.5,0.02)
+        material(base,'HairStrand',(0.3,0.25,0.2,1))
+    else: material(base,'Curls',(0.05,0.04,0.035,1))
+    rigid_to_head(base); sel(base); bpy.ops.object.shade_smooth()
     # roots for the curls: scattered over the scalp triangles, kept a spacing apart (the head mesh has too few
     # vertices for dense hair)
     rnd=random.Random(11)
     me=body.data; me.calc_loop_triangles()
     tris=[lt.vertices[:] for lt in me.loop_triangles if all(scalp[i] for i in lt.vertices)]
     area=np.array([np.linalg.norm(np.cross(bco[b]-bco[a],bco[c]-bco[a]))/2 for a,b,c in tris])
-    spacing={'curly_top':0.0068,'tight_curls':0.0046,'low_cut':0.0044}[style]
+    spacing={'curly_top':0.0068,'tight_curls':0.0046,'low_cut':0.0044,'long_wavy':0.0095,'short_messy':0.0062,'short_neat':0.005}[style]
     want=int(area.sum()/(spacing*spacing)*1.6)
     nrng=np.random.default_rng(5); pick=nrng.choice(len(tris),want,p=area/area.sum())
     grid={}; P=[]; N=[]
@@ -158,7 +167,40 @@ if style in ('curly_top','tight_curls','low_cut'):
     crown=[i for i in allp if Hs[i]>=0.45]; low=[i for i in allp if Hs[i]<0.45]
     fringe=set(i for i in allp if P[i][1]<-0.055 and Hs[i]<0.7)
     picked=P
-    if style=='curly_top':
+    if style in STRAND:
+        top_bvh=bvh_of(O['Top']); shoulder=float(arm.data.bones['CC_Base_L_Upperarm'].head_local.z)
+        back=mathutils.Vector((0,1,0)); dn=mathutils.Vector((0,0,-1)); xh=mathutils.Vector((1,0,0))
+        roots=[P[i] for i in allp]; norms=[N[i] for i in allp]
+        def jit(r,a): return mathutils.Vector((r.uniform(-a,a),r.uniform(-a,a),r.uniform(-a,a)))
+        if style=='long_wavy':
+            # parted in the middle, falling to the shoulders, framing the face
+            def grow(p,n,r):
+                side=1.0 if p.x>0.004 else -1.0 if p.x<-0.004 else (1.0 if r.random()<0.5 else -1.0)
+                front=p.y<-0.045
+                return (n*0.3+xh*side*(0.8 if front else 0.3)+back*(0.45 if front else 0.15)+dn*0.35+jit(r,0.08)).normalized()
+            def keepout(q):
+                if q.y<-0.015 and abs(q.x)<0.074 and chinZ-0.035<q.z<eyeZ+0.075:
+                    q=mathutils.Vector((0.074 if q.x>=0 else -0.074, q.y, q.z))
+                return q
+            tips=np.random.default_rng(3).uniform(shoulder-0.04,shoulder+0.05,len(roots))
+            # one continuous hair surface over the head, hanging to the shoulders (face clear), then looser locks over it
+            hair_o=hair_parted(head_bvh,[top_bvh],shoulder-0.02,eyeZ,chinZ,cc,ctop)   # middle part, combed down, to the shoulders
+            hair_o.name='Curls'
+        else:
+            neat=style=='short_neat'
+            def grow(p,n,r):
+                if p.y<-0.03: d=n*0.2+(-back)*(0.3 if neat else 0.5)+dn*0.15                    # front: forward over the hairline
+                elif p.y>0.04: d=n*0.1+back*0.3+dn*0.6                                           # back: down
+                elif abs(p.x)>0.05: d=n*0.1+xh*(1 if p.x>0 else -1)*0.2+dn*0.6+back*0.15        # sides: down, back
+                else: d=n*(0.15 if neat else 0.3)+back*(0.45 if neat else 0.2)                   # crown
+                d=d+jit(r,0.12 if neat else 0.4)
+                return (d-n*(d.dot(n)-(0.12 if neat else 0.28))).normalized()                    # mostly along the scalp
+            hair_o=strands(roots,norms,[head_bvh],'Curls',step=0.006,length=(0.025,0.045) if neat else (0.035,0.065),grow=grow,
+                           gravity=0.12 if neat else 0.07,wave=(0.0015,0.03),width=(0.012,0.018) if neat else (0.01,0.016),
+                           thick=0.35,layer=(0.002,0.006 if neat else 0.011),seed=6,sides=5,uv_len=0.12)
+        material(hair_o,'HairStrand',(0.3,0.25,0.2,1)); rigid_to_head(hair_o); sel(hair_o); bpy.ops.object.shade_smooth()
+        groups=[]
+    elif style=='curly_top':
         grp([i for i in crown if i not in fringe], L=(0.022,0.038), R=(0.006,0.0095), pitch=(0.007,0.011), tube=(0.0024,0.0032), outward=0.45, bias=fwd*0.5, extra=0.004)
         grp([i for i in low if i not in fringe], L=(0.006,0.011), R=(0.0035,0.005), pitch=(0.005,0.007), tube=(0.0019,0.0024), sides=4, turn=5)   # short sides
         fr=sorted(fringe)
@@ -171,9 +213,10 @@ if style in ('curly_top','tight_curls','low_cut'):
         grp(crown[::2], L=(0.01,0.018), R=(0.0032,0.0048), pitch=(0.0038,0.0052), tube=(0.0016,0.002), outward=0.6, extra=0.008, sides=4, turn=4.5)
     else:
         grp(allp, L=(0.0035,0.006), R=(0.0017,0.0023), pitch=(0.0022,0.003), tube=(0.0012,0.0015), sides=4, outward=0.75, turn=4)
-    cu=join(groups,'Curls') if len(groups)>1 else groups[0]; cu.name='Curls'
-    material(cu,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(cu); sel(cu); bpy.ops.object.shade_smooth()
-    print('hair',style,'curl points',len(picked),'curl verts',len(cu.data.vertices),'base verts',len(base.data.vertices))
+    if groups:
+        cu=join(groups,'Curls') if len(groups)>1 else groups[0]; cu.name='Curls'
+        material(cu,'Curls',(0.05,0.04,0.035,1)); rigid_to_head(cu); sel(cu); bpy.ops.object.shade_smooth()
+    print('hair',style,'roots',len(picked),'hair verts',len(O['Curls'].data.vertices),'base verts',len(base.data.vertices))
 if CHAR[who].get('glasses'):
     # ---- thin black rectangular frames: two rims, a bridge, temples back over the ears ----
     ev=mesh_co(O['CC_Game_Eye']); gy=float(ev[:,1].min())-0.013
@@ -195,6 +238,7 @@ if CHAR[who].get('glasses'):
     push_out(gl, head_bvh, 0.0025, passes=2, smooth_iters=0)
     material(gl,'Glasses',(0.02,0.02,0.02,1)); rigid_to_head(gl); sel(gl); bpy.ops.object.shade_smooth()
     print('glasses verts',len(gl.data.vertices))
+if CHAR[who].get('nose_ring'): nose_ring(body, mouthZ, rigid_to_head)
 if hair:
     hair.name='Hair'; material(hair,'Hair',(0.45,0.3,0.18,1) if who=='cooper' else (0.07,0.05,0.04,1)); rigid_to_head(hair)
     sel(hair); bpy.ops.object.shade_smooth()
@@ -202,35 +246,34 @@ if hair:
 # ---- shoes: the feet, puffed out and smoothed into sneakers ----
 footw=sum(Bw[:,i] for i,n in enumerate(bn) if 'Foot' in n or 'Toe' in n)
 infoot=(footw>0.5)&(bco[:,2]<0.12)
-bm=bmesh.new(); bm.from_mesh(body.data); bm.verts.ensure_lookup_table()
-keepf=[f for f in bm.faces if all(infoot[v.index] for v in f.verts)]
-bmesh.ops.delete(bm, geom=[f for f in bm.faces if f not in set(keepf)], context='FACES')
-shm=bpy.data.meshes.new('Shoes'); bm.to_mesh(shm); bm.free()
-shoes=bpy.data.objects.new('Shoes',shm); bpy.context.scene.collection.objects.link(shoes)
-for g in body.vertex_groups: shoes.vertex_groups.new(name=g.name)
-# carry the weights over (same vertex order as the kept body verts)
-sb=bmesh.new(); sb.from_mesh(body.data)
-shoes.data.update()
-sco=mesh_co(shoes)
 from mathutils.kdtree import KDTree
-kt=KDTree(len(bco)); [kt.insert(v,i) for i,v in enumerate(bco)]; kt.balance()
-for i,v in enumerate(sco):
-    _,j,_=kt.find(v); copy_weights_from(shoes,i,Bw,bn,j)
-sb.free()
-shoes.shape_key_clear() if shoes.data.shape_keys else None
-edges=adjacency(shoes); sco=smooth(sco,edges,np.ones(len(sco)),iters=10)
-# puff along smoothed normals, flatten the sole
-shoes.data.vertices.foreach_set('co',sco.reshape(-1)); shoes.data.update()
-nor=np.empty(len(sco)*3); shoes.data.vertices.foreach_get('normal',nor); nor=nor.reshape(-1,3)
-sco=sco+nor*0.009
-sole=sco[:,2]<0.02; sco[sole,2]=np.minimum(sco[sole,2],0.0)-0.002
-set_co(shoes,sco)
-shoes.parent=arm; md=shoes.modifiers.new('Armature','ARMATURE'); md.object=arm
-sel(shoes); bpy.ops.object.shade_smooth()
-material(shoes,'Shoes',(0.92,0.92,0.92,1) if who=='cooper' else (0.1,0.1,0.1,1))
+shoes=fit_shoes(body, arm, W, bco, Bw, bn, infoot)                         # the scanned sneakers, recoloured per character in Unity
+# the foot inside the shoe: a sock (the scanned shoe is an open shell: skin showed through the lacing), tucked in a little
+if 'Socks' not in [m.name for m in body.data.materials]: body.data.materials.append(bpy.data.materials.get('Socks') or bpy.data.materials.new('Socks'))
+si=[m.name for m in body.data.materials].index('Socks')
+sockz=0.11
+foot_v=infoot|((footw>0.5)&(bco[:,2]<sockz))
+for poly in body.data.polygons:
+    if all(foot_v[v] or bco[v][2]<sockz for v in poly.vertices) and np.mean([bco[v][2] for v in poly.vertices])<sockz: poly.material_index=si
+# shrink the foot toward its bone line (ankle → toe base) so it sits well inside the shoe (the toes poked through the
+# scan's low toe box); smoothly less toward the ankle
+_d=np.zeros_like(bco)
+for side in ('L','R'):
+    A=np.array(arm.data.bones[f'CC_Base_{side}_Foot'].head_local); B=np.array(arm.data.bones[f'CC_Base_{side}_ToeBase'].head_local) if f'CC_Base_{side}_ToeBase' in arm.data.bones else A+np.array([0,-0.13,-0.06])
+    B=B+(B-A)*0.35                                                      # on past the toe base
+    ab=B-A; sel_=(np.sign(bco[:,0])==(1 if side=='L' else -1))&(footw>0.3)&(bco[:,2]<0.13)
+    t=np.clip(((bco-A)@ab)/(ab@ab),0,1); near=A+t[:,None]*ab; near[:,2]=np.minimum(near[:,2],0.035)
+    w=np.clip((0.13-bco[:,2])/0.05,0,1)*np.clip(footw,0,1)*sel_
+    _d+=(near-bco)*(0.45*w)[:,None]
+for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []):
+    kc=np.array([q.co[:] for q in k.data]); k.data.foreach_set('co',(kc+_d).reshape(-1))
+set_co(body,bco+_d); bco=bco+_d
+extra_cover=[]
+if CHAR[who].get('socks'):
+    sk=socks(body, arm); material(sk,'Socks',(0.95,0.95,0.95,1)); extra_cover.append(sk)
 
 # ---- hide the skin under the clothes (it would poke through when animating) ----
-cover=[bvh_of(o) for o in (top,pants,shoes)]
+cover=[bvh_of(o) for o in (top,pants,shoes)+tuple(extra_cover)]
 nor=np.empty(len(bco)*3); body.data.vertices.foreach_get('normal',nor); nor=nor.reshape(-1,3)
 bound=[]
 for o in (top,pants):
@@ -239,11 +282,11 @@ for o in (top,pants):
 kb=KDTree(len(bound)); [kb.insert(v,i) for i,v in enumerate(bound)]; kb.balance()
 keep_parts=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Neck','Facial','Jaw','Eye','Tongue','Teeth')))
 hidden=np.zeros(len(bco),bool)
-headhand=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Facial','Jaw','Eye','Tongue','Teeth')))
+headhand=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Head','Hand','Thumb','Index','Mid','Ring','Pinky','Facial','Jaw','Eye','Tongue','Teeth')) and 'Toe' not in n)
 armish=sum(Bw[:,i] for i,n in enumerate(bn) if any(k in n for k in ('Upperarm','Forearm','Elbow')))
 for i,(v,n) in enumerate(zip(bco,nor)):
     if headhand[i]>0.2: continue
-    if infoot[i]: hidden[i]=True; continue
+    if infoot[i] or (bco[i][2]<0.11 and footw[i]>0.5): continue           # the foot stays: it's the sock inside the shoe
     p=mathutils.Vector(v); d=mathutils.Vector(n)
     hit=any(t.ray_cast(p+d*0.001, d, 0.2)[0] is not None or (t.find_nearest(p,0.05)[0] is not None) for t in cover)
     # neck-weighted skin (the trapezius runs under the shirt onto the shoulders) only hides well away from the collar
@@ -292,7 +335,7 @@ bpy.ops.wm.save_as_mainfile(filepath=W+f'/stage4_{who}.blend')
 
 material(body,'SkinPrev',(0.85,0.68,0.58,1))
 for k in (body.data.shape_keys.key_blocks if body.data.shape_keys else []): k.value=0
-parts=[p for p in [body,top,pants,shoes,hair,O.get('Cap'),O.get('HairBase'),O.get('Curls'),O.get('Glasses')] if p]
+parts=[p for p in [body,top,pants,shoes,hair,O.get('Cap'),O.get('HairBase'),O.get('Curls'),O.get('Glasses'),O.get('Socks'),O.get('Jewelry')] if p]
 parts=[p for p in parts if p]
 headparts=[p for p in [hair,O.get('Cap'),O.get('Curls'),O.get('HairBase'),O.get('Glasses')] if p]
 parts+= [O['Curls']] if O.get('Curls') else []

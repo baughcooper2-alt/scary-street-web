@@ -1,13 +1,16 @@
 # Stage 3 (per character): fit the garments to the body, skin them, and test a walking pose.
 import bpy, sys, mathutils, math, numpy as np
-sys.path.append(sys.argv[-3]); from render_util import *; from cclib import *
+sys.path.append(sys.argv[-3]); from render_util import *; from cclib import *; from people import *
 W=sys.argv[-3]; who=sys.argv[-2]; mode=sys.argv[-1]
 sys.path.append(W)
 bpy.ops.wm.open_mainfile(filepath=W+'/stage2.blend')
 with bpy.data.libraries.load(W+'/garments.blend') as (src, dst): dst.objects=[n for n in src.objects]
 for o in dst.objects: bpy.context.scene.collection.objects.link(o)
 O=bpy.data.objects; arm=O['Rig']; body=O['CC_Base_Body']
+co0=mesh_co(body)                                                          # the body before reshaping (the clothes were made for it)
 body_build(body, arm, CHAR[who]['build'])                                   # Kenny skinnier, Isaiah thicker (before the clothes fit)
+if CHAR[who].get('female'): female_shape(body, arm, W)                     # Piper: the female base mesh's torso, hips and legs
+arm_length(body, arm, CHAR[who].get('arms',1.0))                           # Thorton longer, Will shorter
 bvh=bvh_of(body)
 bone=lambda n: np.array(arm.data.bones[n].head_local)
 
@@ -27,6 +30,7 @@ else:
     set_co(top,c)
 for n in ['Urban.001']: bpy.data.objects.remove(O[n])                     # beanie: Nathan wears a cap
 top.name='Top'; pants.name='Pants'
+co1=mesh_co(body); wrap_follow(pants, co0, co1); wrap_follow(top, co0, co1)   # clothes follow the body's new shape
 material(top,'Shirt',(0.55,0.55,0.56,1) if who=='cooper' else (0.1,0.1,0.1,1)); material(pants,'Pants',(0.06,0.06,0.07,1))
 
 # ---- fit ----
@@ -73,6 +77,10 @@ if CHAR[who]['sleeves']=='short':                                          # sho
         clean_cut(top, pick, P_, ax)                                           # (a folded hem poked out in teeth when the arm moved)
 # a straight collar line again after fitting (push_out moves the first cut about)
 clean_cut(top, lambda f: any(v.co.z>1.54 for v in f.verts), (0,0,1.548), (0,0,1))
+if CHAR[who].get('shorts'):                                                # shorts: the pants cut straight across above the knee
+    kz=float(bone('CC_Base_L_Calf')[2]); clean_cut(pants, lambda f: True, (0,0,kz+0.07), (0,0,-1))
+if CHAR[who].get('hood'):                                                  # hoodies: a hood lying on the upper back
+    h=hood(top, body, arm); material(h,'Shirt',(0.1,0.1,0.1,1)); top=join([top,h],'Top')
 bpy.ops.wm.save_as_mainfile(filepath=W+f'/stage3_{who}_{mode}.blend')
 material(body,'SkinPrev',(0.85,0.7,0.6,1))
 shoot([body,top,pants], W+f'/s3_{who}_{mode}_f.png', azim=0, elev=3)

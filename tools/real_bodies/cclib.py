@@ -153,10 +153,14 @@ def clean_cut(o, face_ok, co, no, hem=0.0, inward=None):
 
 # Per character: build (+ slimmer, - thicker, on top of stage2's slimming), sleeves, hair style, glasses.
 CHAR={
-    'cooper': dict(build=0.0,  sleeves='short', hair='dummy'),
-    'nathan': dict(build=0.0,  sleeves='long',  hair='curly_top'),
-    'kenny':  dict(build=0.9, sleeves='long',  hair='low_cut', glasses=True),
-    'isaiah': dict(build=-0.8, sleeves='long', hair='tight_curls'),
+    'cooper':  dict(build=0.0,  sleeves='short', hair='dummy'),
+    'nathan':  dict(build=0.0,  sleeves='long',  hair='curly_top'),
+    'kenny':   dict(build=0.9,  sleeves='long',  hair='low_cut', glasses=True, hood=True),
+    'isaiah':  dict(build=-0.8, sleeves='short', hair='tight_curls'),                       # tee and jeans
+    'thorton': dict(build=-0.35, arms=1.07, sleeves='long', hair='low_cut', fade=True, hood=True),   # tallest, longest arms
+    'piper':   dict(build=0.35, female=True, sleeves='long', hair='long_wavy', nose_ring=True),
+    'john':    dict(build=-1.3, sleeves='long', hair='short_messy'),                        # stocky
+    'will':    dict(build=-0.25, arms=0.94, sleeves='long', hair='short_neat', hood=True, shorts=True, socks=True),
 }
 
 SLIM={'Upperarm':0.2,'UpperarmTwist01':0.2,'UpperarmTwist02':0.2,'Forearm':0.08,'ForearmTwist01':0.08,'ForearmTwist02':0.08,
@@ -173,6 +177,7 @@ def body_build(body, arm, amount):
         k=SLIM.get(key)
         if not k or n not in arm.data.bones: continue
         if amount<0 and key in ('Waist','Spine01'): k*=1.8
+        if amount<0 and key.startswith('Neck'): continue                   # a thicker build doesn't thicken the neck (the collar sits there)
         b=arm.data.bones[n]; h=np.array(b.head_local); t=np.array(b.tail_local); seg=t-h
         tt=np.clip(((co-h)@seg)/max(seg@seg,1e-9),0,1); near=h+tt[:,None]*seg
         disp+=Wt[:,gi:gi+1]*k*amount*(near-co)
@@ -369,6 +374,35 @@ def shape_face(body, who, eyes, eyeZ, mouthZ, chinZ, cy):
             ch=blob((0.046*sx,-0.07,mouthZ+0.018),0.028); d[:,1]-=0.0012*ch
         tip=blob((0,-0.108,mouthZ+0.03),0.014); d[:,1]+=0.0012*tip; d[:,2]+=0.001*tip             # shorter, rounder nose tip
         d[:,2]+= 0.003*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)          # a little shorter chin
+    elif who=='thorton':                                                        # long face, strong jaw, fuller lips, broad nose
+        mouth=blob((0,-0.1,mouthZ),0.024); d[:,1]-=0.003*mouth
+        for sx in (1,-1):
+            nos=blob((0.016*sx,-0.1,mouthZ+0.024),0.014); d[:,0]+=0.0028*sx*nos
+            jw=blob((0.05*sx,-0.05,chinZ+0.02),0.03); d[:,0]+=0.003*sx*jw                     # squarer jaw
+        d[:,2]+= -0.004*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)          # longer chin
+    elif who=='piper':                                                          # softer, smaller: little nose, fuller lips, round cheeks, narrow jaw
+        tip=blob((0,-0.106,mouthZ+0.03),0.022); d[:,1]+=0.005*tip; d[:,2]+=0.0018*tip           # small, short nose
+        for sx in (1,-1):
+            nos=blob((0.016*sx,-0.1,mouthZ+0.024),0.013); d[:,0]-=0.0022*sx*nos                  # narrow nostrils
+        bridge=blob((0,-0.092,eyeZ-0.006),0.018); d[:,1]+=0.0025*bridge
+        lips=blob((0,-0.1,mouthZ),0.02); d[:,1]-=0.003*lips
+        for sx in (1,-1):
+            br=blob((0.03*sx,-0.088,eyeZ+0.022),0.024); d[:,1]+=0.0032*br; d[:,2]+=0.0012*br     # no brow ridge, brows a touch higher
+            ch=blob((0.045*sx,-0.07,mouthZ+0.024),0.028); d[:,1]-=0.002*ch                         # round cheeks
+            jw=blob((0.052*sx,-0.045,chinZ+0.02),0.035); d[:,0]-=0.006*sx*jw                       # narrow, soft jaw
+        d[:,0]+= -x*0.1*lower*front*ss(mouthZ+0.01,chinZ,z)
+        d[:,2]+= 0.004*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)            # smaller chin
+        adam=blob((0,-0.06,chinZ-0.05),0.025); d[:,1]+=0.006*adam                                   # no Adam's apple
+    elif who=='john':                                                           # round and full: chubby cheeks and jaw
+        d[:,0]+= x*0.06*lower*front
+        for sx in (1,-1):
+            ch=blob((0.048*sx,-0.068,mouthZ+0.015),0.032); d[:,1]-=0.003*ch; d[:,0]+=0.0025*sx*ch
+        d[:,2]+= 0.002*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)
+    elif who=='will':                                                           # longer, squared face, straight nose
+        d[:,2]+= -0.004*ss(mouthZ-0.008,chinZ,z)*front*(np.abs(x)<0.05)*(z<mouthZ-0.008)
+        for sx in (1,-1):
+            jw=blob((0.05*sx,-0.05,chinZ+0.02),0.03); d[:,0]+=0.0025*sx*jw
+        nose=blob((0,-0.105,mouthZ+0.035),0.024); d[:,1]-=0.002*nose
     elif who=='isaiah':                                                         # in between: fuller cheeks, a bit broader nose and lips
         mouth=blob((0,-0.1,mouthZ),0.022); d[:,1]-=0.002*mouth
         for sx in (1,-1):
