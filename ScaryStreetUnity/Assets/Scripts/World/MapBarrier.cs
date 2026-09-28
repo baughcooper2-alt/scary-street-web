@@ -33,20 +33,27 @@ public class MapBarrier : MonoBehaviour
         foreach (var r in rs) all.Encapsulate(r.bounds);
         groundY = all.min.y;
 
-        // the ground's extent: cells whose top hit is near ground level (streets, yards; not roofs or treetops)
+        // the ground's extent: cells whose top hit is near ground level (streets, yards; not roofs or treetops).
+        // Ground level = the most common height the rays land on (streets and yards cover the most area).
         const float step = 2f;
-        float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
-        var ground = new List<float>();
+        var hits = new List<Vector3>();
         for (float x = all.min.x; x <= all.max.x; x += step)
             for (float z = all.min.z; z <= all.max.z; z += step)
-            {
-                if (!Physics.Raycast(new Vector3(x, all.max.y + 5f, z), Vector3.down, out var hit, all.size.y + 10f, ~0, QueryTriggerInteraction.Ignore)) continue;
-                if (hit.point.y > all.min.y + 1.5f || hit.normal.y < 0.7f) continue;
-                minX = Mathf.Min(minX, x); maxX = Mathf.Max(maxX, x); minZ = Mathf.Min(minZ, z); maxZ = Mathf.Max(maxZ, z);
-                ground.Add(hit.point.y);
-            }
-        if (ground.Count == 0) return;
-        ground.Sort(); groundY = ground[ground.Count / 2];
+                if (Physics.Raycast(new Vector3(x, all.max.y + 5f, z), Vector3.down, out var hit, all.size.y + 10f, ~0, QueryTriggerInteraction.Ignore) && hit.normal.y > 0.7f)
+                    hits.Add(new Vector3(x, hit.point.y, z));
+        if (hits.Count == 0) return;
+        var bins = new Dictionary<int, int>();
+        foreach (var h in hits) { int k = Mathf.RoundToInt(h.y * 4f); bins[k] = (bins.TryGetValue(k, out var c) ? c : 0) + 1; }
+        int best = 0, bestN = -1;
+        foreach (var kv in bins) if (kv.Value > bestN) { bestN = kv.Value; best = kv.Key; }
+        groundY = best / 4f;
+        float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+        foreach (var h in hits)
+        {
+            if (Mathf.Abs(h.y - groundY) > 1.5f) continue;
+            minX = Mathf.Min(minX, h.x); maxX = Mathf.Max(maxX, h.x); minZ = Mathf.Min(minZ, h.z); maxZ = Mathf.Max(maxZ, h.z);
+        }
+        if (minX > maxX) return;
         minX -= margin; maxX += margin; minZ -= margin; maxZ += margin;
         float cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2, sx = maxX - minX, sz = maxZ - minZ, y = groundY + wallHeight / 2 - 5f;
         Wall("North", new Vector3(cx, y, maxZ + wallThickness / 2), new Vector3(sx + 2 * wallThickness, wallHeight, wallThickness));
