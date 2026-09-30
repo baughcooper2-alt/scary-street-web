@@ -128,9 +128,9 @@ public class TitleScreen : MonoBehaviour
     // Controller names follow the pad that's plugged in (Xbox letters or PlayStation names).
     static string[,] ControlRows() => new string[,]
     {
-        { "Move",                     "W A S D",             "Left stick" },
+        { "Move · sprint",            "W A S D · hold Shift", $"Stick · click {GamepadInfo.LS}" },
         { "Look",                     "Mouse",               "Right stick" },
-        { "Jump / Crouch",            "Space / C or Shift",  $"{GamepadInfo.A} / {GamepadInfo.B}" },
+        { "Jump / Crouch",            "Space / C or Ctrl",  $"{GamepadInfo.A} / {GamepadInfo.B}" },
         { "Punch · blow smoke",       "Left click",          GamepadInfo.RT },
         { "Hit the cart",             "Right click or E",    GamepadInfo.LT },
         { "Weapon slots · reload",    "1–5, wheel · R",      $"{GamepadInfo.LB} / {GamepadInfo.RB} · d-pad ↓" },

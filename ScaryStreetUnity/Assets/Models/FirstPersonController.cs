@@ -3,14 +3,18 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-// First-person player for Scary Street: walk (WASD / left stick), look (mouse / right stick),
-// jump (Space / A), crouch toggle (C or Shift / B). Put this on the Player object;
+// First-person player for Scary Street: walk (WASD / left stick), sprint (hold Shift / click the left stick),
+// look (mouse / right stick), jump (Space / A), crouch toggle (C or Ctrl / B). Put this on the Player object;
 // the Main Camera should be a child of the Player. Esc / Start opens the PauseMenu, which frees the mouse.
 [RequireComponent(typeof(CharacterController))]
 public class FirstPersonController : MonoBehaviour
 {
     [Header("Movement")]
-    public float walkSpeed = 5.2f;
+    [Tooltip("Normal speed (the Walking animation).")]
+    public float walkingSpeed = 3.0f;
+    [Tooltip("Hold Shift / click the left stick (the Running animation). Was the one-and-only walkSpeed.")]
+    [UnityEngine.Serialization.FormerlySerializedAs("walkSpeed")]
+    public float sprintSpeed = 5.2f;
     public float crouchSpeed = 2.6f;
     public float jumpHeight = 1.0f;
     public float gravity = -20f;
@@ -42,12 +46,16 @@ public class FirstPersonController : MonoBehaviour
     // for the third-person body's animation
     public bool IsCrouching => crouching;
     public bool IsGrounded => cc && cc.isGrounded;
+    public bool IsSprinting => sprinting;
+    // this moment's walking and sprinting speeds (upgrades and the skateboard included), for the body's animation
+    public float WalkSpeedNow => walkingSpeed * speedMultiplier;
+    public float SprintSpeedNow => sprintSpeed * speedMultiplier;
     public float Pitch => pitch;
     PlayerControls controls;
     Health self;
     Transform cam;
     float pitch, verticalVel, currentHeight;
-    bool crouching;
+    bool crouching, sprinting, stickSprint;
 
     void Awake()
     {
@@ -143,8 +151,13 @@ public class FirstPersonController : MonoBehaviour
 
         // walk + gravity + jump
         move = Vector2.ClampMagnitude(move, 1f);
+        // sprint: hold Shift, or click the left stick once (it stays on until you stop); forward-ish only,
+        // not crouched and not on the skateboard
+        if (controls.SprintClicked) stickSprint = !stickSprint;
+        if (move.sqrMagnitude < 0.04f || crouching) stickSprint = false;
+        sprinting = (controls.SprintHeld || stickSprint) && !crouching && !glide && move.y > 0.3f * move.magnitude;
         Vector3 dir = transform.right * move.x + transform.forward * move.y;
-        float speed = (crouching ? crouchSpeed : walkSpeed) * speedMultiplier;
+        float speed = (crouching ? crouchSpeed : sprinting ? sprintSpeed : walkingSpeed) * speedMultiplier;
         if (Time.time < stunnedUntil) { dir = Vector3.zero; jump = false; }
         else if (Time.time < slowedUntil) speed *= 0.5f;
         if (cc.isGrounded && verticalVel < 0) verticalVel = -2f;

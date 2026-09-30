@@ -27,6 +27,7 @@ public class GamepadInfo : MonoBehaviour
     public static string RB => IsPlayStation ? "R1" : "RB";
     public static string LT => IsPlayStation ? "L2" : "LT";
     public static string RT => IsPlayStation ? "R2" : "RT";
+    public static string LS => IsPlayStation ? "L3" : "LS";
     public static string StartButton => IsPlayStation ? "Options" : "Start";
     public static string SelectButton => IsPlayStation ? "Share" : "Select";
 

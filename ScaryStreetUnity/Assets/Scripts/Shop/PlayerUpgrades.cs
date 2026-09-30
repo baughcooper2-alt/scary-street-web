@@ -46,14 +46,14 @@ public class PlayerUpgrades : MonoBehaviour
     FirstPersonController fpc;
     Health health;
     Transform cam;
-    float baseWalk, baseCrouch, baseJump, lastHit = -99f;
+    float baseWalk, baseSprint, baseCrouch, baseJump, lastHit = -99f;
 
     void Awake()
     {
         Instance = this;
         fpc = GetComponent<FirstPersonController>();
         health = GetComponent<Health>();
-        if (fpc) { baseWalk = fpc.walkSpeed; baseCrouch = fpc.crouchSpeed; baseJump = fpc.jumpHeight; }
+        if (fpc) { baseWalk = fpc.walkingSpeed; baseSprint = fpc.sprintSpeed; baseCrouch = fpc.crouchSpeed; baseJump = fpc.jumpHeight; }
         if (health) health.Damaged += _ => lastHit = Time.time;
     }
 
@@ -86,7 +86,8 @@ public class PlayerUpgrades : MonoBehaviour
         if (!fpc) return;
         float speed = (1f + 0.15f * Level(Id.EnergyDrink))
                     * (GetComponent<PlayerStats>() ? GetComponent<PlayerStats>().SpeedMultiplier : 1f);   // Speed stat
-        fpc.walkSpeed = baseWalk * speed;
+        fpc.walkingSpeed = baseWalk * speed;
+        fpc.sprintSpeed = baseSprint * speed;
         fpc.crouchSpeed = baseCrouch * speed;
         fpc.jumpHeight = baseJump;                                          // (riding the skateboard weapon: FirstPersonController.jumpMultiplier)
     }

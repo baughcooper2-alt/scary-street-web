@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 // Your own forearms and fists at the bottom of the screen: the character's real forearm and fist when it has a
-// RealBody (sleeve / wristband included), otherwise simple shapes coloured from the CharacterLook (sleeves + skin). They bob while you walk, and the right one jabs when PlayerPunch fires.
+// RealBody (sleeve / wristband included), otherwise simple shapes coloured from the CharacterLook (sleeves + skin). They bob while you walk, and punch when PlayerPunch fires:
+// the left fist jabs, and a second punch right after is a right cross (PlayerPunch.ComboStep).
 // Weapons use RightHand to hold things, `raise` to bring the right hand up to the mouth, and Kick() for recoil.
 // Put this on the Main Camera (child of the Player).
 [RequireComponent(typeof(Camera))]
@@ -61,6 +62,7 @@ public class FirstPersonArms : MonoBehaviour
     Vector3 lastPlayerPos;
     Transform player;
     float punchT = -1f, bobPhase, bobAmount;
+    bool punchLeft;
 
     void Start()
     {
@@ -83,7 +85,7 @@ public class FirstPersonArms : MonoBehaviour
         leftGrip.localPosition = new Vector3(0.01f, 0.035f, 0.01f);
 
         var punch = GetComponentInParent<PlayerPunch>();
-        if (punch) punch.Punched += () => punchT = 0f;
+        if (punch) punch.Punched += () => { punchT = 0f; punchLeft = punch.ComboStep == 0; };
         player = transform.parent ? transform.parent : transform;
         lastPlayerPos = player.position;
     }
@@ -137,14 +139,15 @@ public class FirstPersonArms : MonoBehaviour
         float breathe = Mathf.Sin(Time.time * 1.6f) * 0.004f;
 
         Vector3 rest = restPosition + bob + Vector3.up * breathe;
-        Vector3 jab = Vector3.zero;
+        Vector3 jab = Vector3.zero, jabL = Vector3.zero;
         if (punchT >= 0)
         {
             punchT += dt;
             float p = punchT / punchTime;
             float k = p < 0.3f ? p / 0.3f : 1f - (p - 0.3f) / 0.7f;   // fast out, slower back
             k = Mathf.SmoothStep(0, 1, Mathf.Clamp01(k));
-            jab = new Vector3(-0.16f, 0.1f, punchReach) * k;           // toward the crosshair
+            if (punchLeft) jabL = new Vector3(0.16f, 0.1f, punchReach) * k;   // toward the crosshair
+            else jab = new Vector3(-0.16f, 0.1f, punchReach) * k;
             if (p >= 1f) punchT = -1f;
         }
         kick = Mathf.MoveTowards(kick, 0, dt * 6f);
@@ -166,7 +169,7 @@ public class FirstPersonArms : MonoBehaviour
             right.localPosition = Vector3.Lerp(basePos, mouthPosition, r);
             right.localRotation = Quaternion.Slerp(baseRot, Quaternion.Euler(-35f - 12f * kick, -20f, 0), r);
         }
-        left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f;
+        left.localPosition = new Vector3(-rest.x, rest.y - 0.02f, rest.z - 0.04f) - bob * 0.5f + jabL;
         left.localRotation = Quaternion.identity;
         if (overrideLeft) { left.localPosition = leftTarget + bob * 0.5f; left.localRotation = Quaternion.Euler(leftEuler); }
         PoseFingers(dt);

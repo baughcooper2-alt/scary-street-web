@@ -13,6 +13,10 @@ The files live in `ScaryStreetUnity/Assets/Resources/Hair/` (the .obj meshes are
 
 The rigged human body, fitted clothes and knit texture come from this project's own web build (`index (5).html`).
 
+## Animations
+
+- **Breathing Idle, Walking, Running, Punching (jab) and Punching (cross)** from **Adobe Mixamo** (mixamo.com), downloaded by the project owner. Mixamo animations are royalty-free for use in games (Adobe's Mixamo terms). The source FBX files are in `tools/anim/mixamo/`; `tools/anim/bake_mixamo.py` bakes them into `ScaryStreetUnity/Assets/Resources/Anim/`.
+
 ## Fonts
 
 - **Creepster** by **Font Diner, Inc** (the title's "SCARY"), from Google Fonts. License: **SIL Open Font License 1.1**; the license text ships with it at `ScaryStreetUnity/Assets/Resources/Fonts/Creepster-OFL.txt`.

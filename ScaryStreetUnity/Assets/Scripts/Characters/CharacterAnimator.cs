@@ -1,8 +1,14 @@
 using UnityEngine;
 
-// Code-driven animation for a BlockyCharacter (stylized or realistic body), matched to what the character is doing:
-//   moving   – walk → run blend by real speed (stride, knee lift, arm pump, lean), backwards and sideways steps,
-//              little steps when turning on the spot
+// Animation for a BlockyCharacter (any body: real, web human, blocky, cartoon), matched to what the character is doing.
+// Underneath is motion capture (Mocap.cs: Mixamo Idle / Walk / Run clips, and the Jab → Cross punch combo),
+// retargeted onto the joints; the code-driven layers below take over limb by limb when they need to (a held
+// weapon's arm pose, swings and throws, crouching, jumping, skating, dying) and fade back to the mocap after.
+//   mocap    – breathing idle; walk ↔ run on one shared step cycle, played at the speed you're really moving
+//              (backwards plays it in reverse, sideways turns the hips toward where you're going); punches:
+//              the Jab clip, and a second punch soon after is the Cross (Punch(..., combo) or automatic)
+//   moving   – (code-driven, when the mocap is off or for crouch-walking) walk → run blend by real speed,
+//              backwards and sideways steps, little steps when turning on the spot
 //   player   – jump / fall tuck and crouch from the FirstPersonController; head follows your aim
 //   idle     – breathing, weight shifts, glances around, blinking; heads look at their target
 //   holding  – guitar, law book, cart (and bringing it to the mouth), tray, nothing
@@ -29,6 +35,14 @@ public class CharacterAnimator : MonoBehaviour
     [Tooltip("Riding a skateboard: how far the body is lifted to stand on the deck (model units).")]
     public float skateLift = 0.05f;
 
+    [Header("Motion capture (Resources/Anim)")]
+    [Tooltip("Off = the old code-driven walk / idle / punch only.")]
+    public bool useMocap = true;
+    [Tooltip("A punch this soon after a jab is the cross (callers that don't say which one).")]
+    public float comboWindow = 0.9f;
+    [Tooltip("Walking faster than the clip: strides get up to this much longer (the rest is quicker steps).")]
+    [Range(1f, 1.5f)] public float maxStrideStretch = 1.3f;
+
     [Header("Personal style (enemies randomise these)")]
     [Range(0.8f, 1.2f)] public float strideScale = 1f;
     [Range(0.4f, 1.5f)] public float armSwingScale = 1f;
@@ -38,7 +52,12 @@ public class CharacterAnimator : MonoBehaviour
     bool dead; float deadT, fallDir = -1f;
 
     // Collapse: knees buckle, then the body goes down (backwards or forwards) and settles.
-    public void Die(bool forwards = false) { if (dead) return; dead = true; deadT = 0; fallDir = forwards ? 1f : -1f; }
+    public void Die(bool forwards = false)
+    {
+        if (dead) return;
+        dead = true; deadT = 0; fallDir = forwards ? 1f : -1f;
+        if (rig != null) for (int j = 0; j < deadFrom.Length; j++) if (rig.joint[j]) deadFrom[j] = rig.joint[j].localRotation;   // fall from the pose we're in
+    }
 
     BlockyCharacter b;
     Quaternion hipsR, spineR, neckR, headR, shLR, shRR, elLR, elRR, legLR, legRR, knLR, knRR;
@@ -48,6 +67,20 @@ public class CharacterAnimator : MonoBehaviour
     FirstPersonController fpc;
     Transform[] lids; Vector3[] lidScale; Transform mouth; Vector3 mouthScale;
     SkinnedMeshRenderer face; int blinkL = -1, blinkR = -1, jaw = -1;          // realistic faces blink / talk with blendshapes
+
+    // ---------- mocap state ----------
+    const int NJ = MocapClip.Joints;
+    MocapRig rig; bool mocapOn;
+    MocapClip idleClip, walkClip, runClip, jabClip, crossClip;
+    readonly Quaternion[] gIdle = new Quaternion[NJ], gWalk = new Quaternion[NJ], gRun = new Quaternion[NJ], gPunch = new Quaternion[NJ],
+                          dPose = new Quaternion[NJ], dPunch = new Quaternion[NJ], dPunchFrom = new Quaternion[NJ], deadFrom = new Quaternion[NJ];
+    Vector3 mHips;                                     // hips offset from the clips (model units)
+    float mPhase, mMove, idleT, idleRate = 1f, lowerYaw;
+    float wLegs, wBody, wArmL, wArmR;                  // how much of each part the mocap drives (the rest is code-driven)
+    Quaternion handLRest = Quaternion.identity;
+    // punch layer: the Jab / Cross clip over the top (whole body standing still, upper body while moving)
+    MocapClip pClip; float pTime, pRateIn, pW, pFade = 1f; bool pActive;
+    float lastPunchAt = -99f; int lastCombo = 1;
 
     // smoothed joint angles (degrees) so switching poses never snaps
     Vector3 sL, sR, eL, eR, spineE, headE, lgL, lgR, knL, knR, anL, anR;
@@ -66,6 +99,15 @@ public class CharacterAnimator : MonoBehaviour
         if (b.ankleR) anRR = b.ankleR.localRotation;
         lastPos = transform.position; lastYaw = transform.eulerAngles.y;
         t = Random.value * 10f;
+        if (b.handL) handLRest = b.handL.localRotation;
+        if (b.handR) { handRRest = b.handR.localRotation; handRestSet = true; }
+
+        // mocap: the same clips on every body (a crowd starts its idle at different points and breathes at its own pace)
+        for (int j = 0; j < NJ; j++) dPose[j] = dPunch[j] = dPunchFrom[j] = deadFrom[j] = Quaternion.identity;
+        rig = new MocapRig(b);
+        idleClip = MocapClip.Get("Idle"); walkClip = MocapClip.Get("Walk"); runClip = MocapClip.Get("Run");
+        jabClip = MocapClip.Get("Jab"); crossClip = MocapClip.Get("Cross");
+        idleT = Random.value * 10f; idleRate = Random.Range(0.9f, 1.1f);
         fpc = GetComponentInParent<FirstPersonController>();
 
         var found = new System.Collections.Generic.List<Transform>();
@@ -84,7 +126,17 @@ public class CharacterAnimator : MonoBehaviour
 
     // ---------- actions ----------
 
-    public void Punch(float duration, float hitMoment) => Play(Act.Punch, duration, hitMoment);
+    // combo: 0 = jab (left hand), 1 = cross (right); -1 = pick it: a cross if the last punch was a jab not long ago.
+    // Bare hands play the mocap clips; holding something (the crutch's poke) keeps the code-driven right-hand jab.
+    public void Punch(float duration, float hitMoment, int combo = -1)
+    {
+        float now = Application.isPlaying ? Time.time : t;
+        if (combo < 0) combo = lastCombo == 0 && now - lastPunchAt < comboWindow ? 1 : 0;
+        lastPunchAt = now; lastCombo = combo;
+        var clip = combo == 1 ? crossClip : jabClip;
+        if (mocapOn && hold == Hold.None && clip != null) StartPunch(clip, duration, hitMoment);
+        else Play(Act.Punch, duration, hitMoment);
+    }
     public void Swing(float duration = 0.45f, float hitMoment = 0.45f) => Play(Act.Swing, duration, hitMoment);
     public void Slam(float duration = 0.6f) => Play(Act.Slam, duration, 0.55f);
     public void Throw(float duration = 0.55f, float release = 0.6f) => Play(Act.Throw, duration, release);
@@ -95,7 +147,7 @@ public class CharacterAnimator : MonoBehaviour
     public void Toss(float duration = 0.35f) => Play(Act.Toss, duration, 0.5f);
     public void Talk(float duration = 1.2f) => talkT = Mathf.Max(talkT, duration);
     public void Squat(float duration = 0.8f) => squatT = Mathf.Max(squatT, duration);
-    public void Flinch() { flinch = 1f; if (act == Act.Punch || act == Act.Throw || act == Act.Swing || act == Act.Sweep) actT = -1f; }
+    public void Flinch() { flinch = 1f; pActive = false; if (act == Act.Punch || act == Act.Throw || act == Act.Swing || act == Act.Sweep) actT = -1f; }
 
     // Gait curves: (cycle position, degrees) pairs; 0 = this foot's heel strike. From human gait data, simplified.
     // Hip is degrees forward of vertical; knee is bend. Walking: knee gives on landing, starts bending before the toes
@@ -167,6 +219,10 @@ public class CharacterAnimator : MonoBehaviour
         b.shoulderR.localRotation = shRR * Quaternion.Euler(sR); b.elbowR.localRotation = elRR * Quaternion.Euler(eR);
         b.legL.localRotation = legLR * Quaternion.Euler(lgL); b.legR.localRotation = legRR * Quaternion.Euler(lgR);
         b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
+        // ease out of whatever pose the mocap had us in
+        float ease = 1f - Mathf.SmoothStep(0, 1, deadT / 0.25f);
+        if (rig != null && ease > 0)
+            for (int j = 0; j < NJ; j++) if (rig.joint[j]) rig.joint[j].localRotation = Quaternion.Slerp(rig.joint[j].localRotation, deadFrom[j], ease);
     }
 
     void Play(Act a, float duration, float hitMoment) { act = a; actT = 0f; actDur = Mathf.Max(0.05f, duration); actHit = hitMoment; }
@@ -186,8 +242,12 @@ public class CharacterAnimator : MonoBehaviour
         float fwd = speed > 0.05f ? local.z / speed : 1f, side = speed > 0.05f ? local.x / speed : 0f;
         float yawRate = Mathf.DeltaAngle(lastYaw, transform.eulerAngles.y) / dt; lastYaw = transform.eulerAngles.y;
 
-        move = Mathf.MoveTowards(move, Mathf.Clamp01(speed / jogFrom), dt * 5f);
-        run = Mathf.MoveTowards(run, Mathf.SmoothStep(0, 1, (speed - jogFrom) / (runAt - jogFrom)), dt * 3f);
+        // players: walking speed = the Walking clip, sprinting = Running (whatever upgrades do to the speeds)
+        float lo = jogFrom, hi = runAt;
+        if (fpc) { lo = fpc.WalkSpeedNow * 1.12f; hi = Mathf.Max(lo + 0.5f, fpc.SprintSpeedNow * 0.85f); }
+        move = Mathf.MoveTowards(move, Mathf.Clamp01(speed / lo), dt * 5f);
+        run = Mathf.MoveTowards(run, Mathf.SmoothStep(0, 1, (speed - lo) / (hi - lo)), dt * 4f);
+        mocapOn = useMocap && rig != null && rig.Valid && idleClip != null && walkClip != null && runClip != null;
         bool inAir = fpc ? !fpc.IsGrounded && Mathf.Abs(vy) > 0.5f : Mathf.Abs(vy) > 2.5f;
         air = Mathf.MoveTowards(air, inAir ? 1f : 0f, dt * 6f);
         crouch = Mathf.MoveTowards(crouch, fpc && fpc.IsCrouching ? 1f : 0f, dt * 5f);
@@ -243,20 +303,38 @@ public class CharacterAnimator : MonoBehaviour
 
         // ---------- pelvis: bob twice per stride (lowest as each heel lands), shift over the planted leg,
         // turn with the forward leg and dip on the swinging side ----------
-        float bobAmp = skating ? 0f : Mathf.Lerp(0.028f, 0.055f, run) * move;
+        // (the code-driven gait fades out wherever the mocap legs are on: pw = its share)
+        bool backwards = fwd < -0.3f;
+        bool actBusy = actT >= 0;                                                // a code-driven move (swing, throw, ...)
+        bool leftHold = hold == Hold.Guitar || hold == Hold.Tray || hold == Hold.CarryLeft || hold == Hold.HangLeft || hold == Hold.Carton;
+        bool rightBusy = (hold != Hold.None && hold != Hold.Skate) || charge > 0.01f || inhaling || actBusy;
+        bool leftBusy = leftHold || talkT > 0 || (actBusy && (act == Act.Punch || act == Act.Slam || act == Act.Throw || act == Act.Toss));
+        float on = mocapOn ? 1f : 0f;
+        wLegs = Mathf.MoveTowards(wLegs, on * (skating || (actBusy && act == Act.Slam) ? 0f : 1f - Mathf.Max(air, Mathf.Max(crouch, squat))), dt * 8f);
+        wBody = Mathf.MoveTowards(wBody, on * (skating ? 0f : 1f), dt * 6f);
+        wArmR = Mathf.MoveTowards(wArmR, on * (rightBusy || skating ? 0f : 1f - air), dt * 10f);
+        wArmL = Mathf.MoveTowards(wArmL, on * (leftBusy || skating ? 0f : 1f - air), dt * 10f);
+        float pw = 1f - wLegs;
+        UpdatePunch(dt);
+        if (mocapOn) MocapPose(dt, speed, stepSpeed, speed < 0.3f ? Mathf.Clamp01(Mathf.Abs(yawRate) / 200f) * 0.35f : 0f, backwards);
+        // sideways: the legs walk toward where you're going and the chest turns back to the front
+        float yawWant = mocapOn && speed > 0.4f && !skating ? Mathf.Clamp(Mathf.Atan2(backwards ? -local.x : local.x, Mathf.Abs(local.z)) * Mathf.Rad2Deg, -70f, 70f) : 0f;
+        lowerYaw = Mathf.Lerp(lowerYaw, yawWant * wLegs, 1f - Mathf.Exp(-dt * 8f));
+
+        float bobAmp = skating ? 0f : Mathf.Lerp(0.028f, 0.055f, run) * move * pw;
         // walking is lowest just after each heel lands; running is lowest mid-stance and highest in the flight
         float bob = bobAmp * (0.5f + 0.5f * Mathf.Cos(2f * (phase - run * 0.4f * Mathf.PI))) - bobAmp;
-        float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c;             // over the left leg when it's planted (cos < 0)
-        float sway = Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle;   // idle weight shifts
-        b.hips.localPosition = hipsP + new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0) + (skating ? Vector3.up * (skateLift - 0.07f * push) : Vector3.zero);
-        float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt * (1f + swagger), pelvisDrop = c * 4f * move * (1f + swagger * 1.5f);
+        float weight = 0.022f * Mathf.Lerp(1f, 0.4f, run) * move * c * pw;        // over the left leg when it's planted (cos < 0)
+        float sway = (Mathf.Sin(t * 0.8f) * 0.012f * idle + Mathf.Sin(t * 0.23f) * 0.015f * idle) * pw;   // idle weight shifts
+        Vector3 hipsOffset = new Vector3(sway + weight, bob - Mathf.Max(crouch * 0.32f, squat * 0.28f), 0) + (skating ? Vector3.up * (skateLift - 0.07f * push) : Vector3.zero);
+        float pelvisYaw = s * Mathf.Lerp(8f, 12f, run) * stepAmt * (1f + swagger) * pw, pelvisDrop = c * 4f * move * (1f + swagger * 1.5f) * pw;
         if (skating) { pelvisYaw = 80f; pelvisDrop = 0; }                          // side-on to the board
-        b.hips.localRotation = hipsR * Quaternion.Euler(0, pelvisYaw, pelvisDrop + Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move);
-        float breathe = Mathf.Sin(t * 1.7f);
+        Vector3 hipsE = new Vector3(0, pelvisYaw, pelvisDrop + (Mathf.Sin(t * 0.8f) * 1.5f * idle - side * 4f * move) * pw);
+        float breathe = Mathf.Sin(t * 1.7f) * pw;
         // chest counter-rotates against the hips, leans into a run, and rocks a touch against the pelvis dip
-        Vector3 tSpine = new Vector3(hunch + Mathf.Lerp(3f, 14f, run) * move + breathe * idle + crouch * 22f + squat * 25f - flinch * 18f + air * 6f
-                                     + Mathf.Abs(Mathf.Cos(phase)) * 2f * run,
-                                     -pelvisYaw * 1.9f, -pelvisDrop * 0.6f + side * 5f * move);
+        Vector3 tSpine = new Vector3(hunch + (Mathf.Lerp(3f, 14f, run) * move + Mathf.Abs(Mathf.Cos(phase)) * 2f * run) * pw + breathe * idle
+                                     + crouch * 22f + squat * 25f - flinch * 18f + air * 6f,
+                                     -pelvisYaw * 1.9f, -pelvisDrop * 0.6f + side * 5f * move * pw);
 
         // ---------- arms: swing opposite the legs, a beat behind, elbows following through ----------
         float lag = 0.35f, sa = Mathf.Sin(phase - lag), ca = Mathf.Cos(phase - lag);
@@ -349,7 +427,7 @@ public class CharacterAnimator : MonoBehaviour
         }
 
         // ---------- head: look at the target, or follow the player's aim; glances and talking ----------
-        Vector3 tHead = new Vector3(-2f * move - flinch * 10f, s * 6f * stepAmt, 0);
+        Vector3 tHead = new Vector3(-2f * move * pw - flinch * 10f, s * 6f * stepAmt * pw, 0);
         if (skating) tHead.y = -pelvisYaw * 0.4f;                                 // eyes where the board is going
         if ((glanceT -= dt) <= 0) { glanceT = Random.Range(3f, 7f); glance = Random.Range(-35f, 35f); }
         float glanceNow = glance * Mathf.Clamp01(Mathf.Sin(Mathf.Clamp01((glanceT - 1f) / 1.5f) * Mathf.PI)) * idle;
@@ -383,17 +461,108 @@ public class CharacterAnimator : MonoBehaviour
         lgL = Vector3.Lerp(lgL, tLgL, kl); lgR = Vector3.Lerp(lgR, tLgR, kl); knL = Vector3.Lerp(knL, tKnL, kl); knR = Vector3.Lerp(knR, tKnR, kl);
         anL = Vector3.Lerp(anL, tAnL, kl); anR = Vector3.Lerp(anR, tAnR, kl);
 
-        b.spine.localRotation = spineR * Quaternion.Euler(spineE);
-        b.head.localRotation = headR * Quaternion.Euler(headE);
-        b.shoulderL.localRotation = shLR * Quaternion.Euler(sL); b.elbowL.localRotation = elLR * Quaternion.Euler(eL);
-        b.shoulderR.localRotation = shRR * Quaternion.Euler(sR); b.elbowR.localRotation = elRR * Quaternion.Euler(eR);
-        b.legL.localRotation = legLR * Quaternion.Euler(lgL); b.legR.localRotation = legRR * Quaternion.Euler(lgR);
-        b.kneeL.localRotation = knLR * Quaternion.Euler(knL); b.kneeR.localRotation = knRR * Quaternion.Euler(knR);
-        if (b.ankleL) b.ankleL.localRotation = anLR * Quaternion.Euler(anL);
-        if (b.ankleR) b.ankleR.localRotation = anRR * Quaternion.Euler(anR);
+        // mocap underneath, by part: the hips / legs, spine / neck / head (the code-driven angles add on top of those),
+        // and each arm (a code-driven arm pose replaces the mocap one while it's needed)
+        Quaternion Mo(int j, float w) => w <= 0.001f ? Quaternion.identity : Quaternion.Slerp(Quaternion.identity, dPose[j], w);
+        Quaternion Mix(Vector3 e, int j, float w) => w <= 0.001f ? Quaternion.Euler(e) : Quaternion.Slerp(Quaternion.Euler(e), dPose[j], w);
+        Vector3 mocapHips = wLegs > 0.001f ? b.hips.parent.InverseTransformVector(transform.TransformVector(mHips)) * wLegs : Vector3.zero;
+        b.hips.localPosition = hipsP + hipsOffset + mocapHips;
+        Quaternion turn = rig != null && Mathf.Abs(lowerYaw) > 0.01f ? rig.InRest(0, Quaternion.AngleAxis(lowerYaw, Vector3.up)) : Quaternion.identity;
+        Quaternion unturn = rig != null && Mathf.Abs(lowerYaw) > 0.01f ? rig.InRest(1, Quaternion.AngleAxis(-lowerYaw, Vector3.up)) : Quaternion.identity;
+        b.hips.localRotation = hipsR * turn * Mo(0, wLegs) * Quaternion.Euler(hipsE);
+        b.spine.localRotation = spineR * unturn * Mo(1, wBody) * Quaternion.Euler(spineE);
+        if (b.neck) b.neck.localRotation = neckR * Mo(2, wBody);
+        b.head.localRotation = headR * Mo(3, wBody) * Quaternion.Euler(headE);
+        b.shoulderL.localRotation = shLR * Mix(sL, 4, wArmL); b.elbowL.localRotation = elLR * Mix(eL, 5, wArmL);
+        if (b.handL) b.handL.localRotation = handLRest * Mo(6, wArmL);
+        b.shoulderR.localRotation = shRR * Mix(sR, 7, wArmR); b.elbowR.localRotation = elRR * Mix(eR, 8, wArmR);
+        b.legL.localRotation = legLR * Mix(lgL, 10, wLegs); b.legR.localRotation = legRR * Mix(lgR, 13, wLegs);
+        b.kneeL.localRotation = knLR * Mix(knL, 11, wLegs); b.kneeR.localRotation = knRR * Mix(knR, 14, wLegs);
+        if (b.ankleL) b.ankleL.localRotation = anLR * Mix(anL, 12, wLegs);
+        if (b.ankleR) b.ankleR.localRotation = anRR * Mix(anR, 15, wLegs);
 
         ReachMouth(dt);
         Fingers(dt);
+    }
+
+    // ---------- mocap ----------
+
+    // The base pose from the clips: idle, blended into walk ↔ run by how fast we're really going (turnStep: little
+    // steps turning on the spot), then the punch on top. Result: dPose (per joint, relative to rest) and mHips.
+    void MocapPose(float dt, float speed, float stepSpeed, float turnStep, bool backwards)
+    {
+        idleT += dt * idleRate;
+        rig.Sample(idleClip, idleT, gIdle, out var hips);
+        mMove = Mathf.MoveTowards(mMove, Mathf.Clamp01(speed / 1.1f), dt * 4f);
+        float walk = Mathf.Max(mMove, turnStep);
+        float stretch = 1f;
+        if (walk > 0.001f)
+        {
+            // one step cycle shared by both clips (lined up on the left heel strike), advancing by the ground covered
+            float size = transform.lossyScale.y;
+            float strideW = walkClip.stride * rig.Scale(walkClip) * size, strideR = runClip.stride * rig.Scale(runClip) * size;
+            float natural = Mathf.Lerp(strideW / walkClip.duration, strideR / runClip.duration, run);
+            // walking faster than the clip does: longer strides as well as quicker steps
+            stretch = Mathf.Lerp(Mathf.Clamp(Mathf.Sqrt(Mathf.Max(speed, 0.01f) / natural), 1f, maxStrideStretch), 1f, run);
+            float cycles = Mathf.Max(stepSpeed, natural * 0.6f) / (Mathf.Lerp(strideW, strideR, run) * stretch * strideScale);   // (a crowd's own step lengths)
+            mPhase = Mathf.Repeat(mPhase + cycles * dt * (backwards ? -1f : 1f), 1f);
+            Vector3 hw = Vector3.zero, hr = Vector3.zero;
+            if (run < 0.999f) rig.Sample(walkClip, (mPhase + walkClip.phase0) * walkClip.duration, gWalk, out hw);
+            if (run > 0.001f) rig.Sample(runClip, (mPhase + runClip.phase0) * runClip.duration, gRun, out hr);
+            for (int j = 0; j < NJ; j++)
+            {
+                var loco = run <= 0.001f ? gWalk[j] : run >= 0.999f ? gRun[j] : Quaternion.Slerp(gWalk[j], gRun[j], run);
+                gIdle[j] = Quaternion.Slerp(gIdle[j], loco, walk);
+            }
+            hips = Vector3.Lerp(hips, Vector3.Lerp(hw, hr, run), walk);
+        }
+        // (gIdle now holds the base pose)
+        rig.ToLocal(gIdle, dPose);
+
+        if (pW > 0.001f && pClip != null)
+        {
+            rig.Sample(pClip, pTime, gPunch, out var ph);
+            // on the move the legs keep walking and the punch turns the chest from where the hips are
+            gPunch[0] = Quaternion.Slerp(gPunch[0], gIdle[0], walk);
+            rig.ToLocal(gPunch, dPunch);
+            if (pFade < 1f) { float f = Mathf.SmoothStep(0, 1, pFade); for (int j = 0; j < NJ; j++) dPunch[j] = Quaternion.Slerp(dPunchFrom[j], dPunch[j], f); }
+            float upper = pW, lower = pW * (1f - walk);
+            for (int j = 0; j < NJ; j++) dPose[j] = Quaternion.Slerp(dPose[j], dPunch[j], j >= 1 && j <= 9 ? upper : lower);
+            hips = Vector3.Lerp(hips, ph, lower);
+        }
+        if (stretch > 1.001f)
+        {
+            dPose[10] = Quaternion.SlerpUnclamped(Quaternion.identity, dPose[10], stretch);
+            dPose[13] = Quaternion.SlerpUnclamped(Quaternion.identity, dPose[13], stretch);
+        }
+        mHips = hips;
+    }
+
+    // Start the jab or cross so its punch lands hitMoment of the way through duration: the wind-up is squeezed in
+    // (skipping the start of the clip if it would have to go more than 2.2× speed), the recovery plays a bit fast.
+    void StartPunch(MocapClip clip, float duration, float hitMoment)
+    {
+        if (pClip != null && pW > 0.05f) { System.Array.Copy(dPunch, dPunchFrom, NJ); pFade = 0f; }   // straight from the last one
+        else pFade = 1f;
+        float h = Mathf.Max(0.06f, duration * hitMoment), impactT = clip.ImpactTime;
+        float start = Mathf.Max(0f, impactT - h * 2.2f);
+        pRateIn = Mathf.Max(0.5f, (impactT - start) / h);
+        pClip = clip; pTime = start; pActive = true;
+        actT = -1f;                                                               // (a code-driven move gives way)
+    }
+
+    void UpdatePunch(float dt)
+    {
+        if (pClip == null) return;
+        if (pActive)
+        {
+            pTime += dt * (pTime < pClip.ImpactTime ? pRateIn : 1.35f);
+            if (pTime >= pClip.duration - 0.02f) { pTime = pClip.duration - 0.02f; pActive = false; }
+        }
+        float target = pActive ? Mathf.Clamp01((pClip.duration - pTime) / 0.3f) : 0f;         // back to guard, then ease out
+        pW = Mathf.MoveTowards(pW, target, dt * (pW < target ? 16f : 5f));
+        pFade = Mathf.Min(1f, pFade + dt / 0.12f);
+        if (!pActive && pW <= 0f) pClip = null;
     }
 
     // ---------- hands: fingers curl round what they hold ----------
@@ -431,7 +600,7 @@ public class CharacterAnimator : MonoBehaviour
     void Fingers(float dt)
     {
         if (fingR == null && fingL == null) { if (!triedFingers) { triedFingers = true; FindFingers(); } if (fingR == null) return; }
-        bool punching = act == Act.Punch && actT >= 0;
+        bool punching = (act == Act.Punch && actT >= 0) || pW > 0.05f;
         // how far each hand closes for what it's holding: a fist round handles and bottles, a hook over a book's edge,
         // flat palms on a box, a loose supporting hand under a case
         float wantR = gripOverrideR >= 0 ? gripOverrideR
@@ -443,7 +612,7 @@ public class CharacterAnimator : MonoBehaviour
         for (int f = 0; f < 5; f++)
         {
             curlR[f] = Mathf.Lerp(curlR[f], fingersR.HasValue ? fingersR.Value[f] : wantR, k);
-            curlL[f] = Mathf.Lerp(curlL[f], wantL, k);
+            curlL[f] = Mathf.Lerp(curlL[f], pW > 0.05f && hold == Hold.None ? 1f : wantL, k);   // both fists up for the combo
         }
         fingersR = null;
         Curl(fingR, curlR, -1f); Curl(fingL, curlL, 1f);
@@ -481,7 +650,7 @@ public class CharacterAnimator : MonoBehaviour
         reach = Mathf.MoveTowards(reach, inhaling && mouthItemTip ? 1f : 0f, dt * 5f);
         if (!b.handR || !b.head) return;
         if (!handRestSet) { handRRest = b.handR.localRotation; handRestSet = true; }
-        b.handR.localRotation = handRRest;                                                // nothing else turns the hand: start from rest each frame
+        b.handR.localRotation = handRRest * (wArmR > 0.001f ? Quaternion.Slerp(Quaternion.identity, dPose[9], wArmR) : Quaternion.identity);   // rest (+ the mocap wrist)
         if (reach <= 0.001f || !mouthItemTip) return;
         float s = transform.lossyScale.y;
         Vector3 mouth = b.head.position + transform.forward * 0.1f * s + transform.up * 0.015f * s;

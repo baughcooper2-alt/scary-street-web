@@ -90,7 +90,10 @@ public class PlayerControls : MonoBehaviour
     public Vector2 LookStick => Pad != null ? Pad.rightStick.ReadValue() : Vector2.zero;
 
     public bool JumpPressed => (Kb?.spaceKey.wasPressedThisFrame ?? false) || (Pad?.buttonSouth.wasPressedThisFrame ?? false);
-    public bool CrouchPressed => (Kb != null && (Kb.cKey.wasPressedThisFrame || Kb.leftShiftKey.wasPressedThisFrame)) || (Pad?.buttonEast.wasPressedThisFrame ?? false);
+    public bool CrouchPressed => (Kb != null && (Kb.cKey.wasPressedThisFrame || Kb.leftCtrlKey.wasPressedThisFrame)) || (Pad?.buttonEast.wasPressedThisFrame ?? false);
+    // Sprint: hold Shift, or click the left stick (FirstPersonController keeps a stick click on until you stop).
+    public bool SprintHeld => Kb?.leftShiftKey.isPressed ?? false;
+    public bool SprintClicked => Pad?.leftStickButton.wasPressedThisFrame ?? false;
     public bool PrimaryPressed => (Ms?.leftButton.wasPressedThisFrame ?? false) || (Pad?.rightTrigger.wasPressedThisFrame ?? false);
     public bool PrimaryHeld => (Ms?.leftButton.isPressed ?? false) || (Pad?.rightTrigger.isPressed ?? false);
     public bool SecondaryHeld => (Ms?.rightButton.isPressed ?? false) || (Kb?.eKey.isPressed ?? false) || (Pad?.leftTrigger.isPressed ?? false);
@@ -137,7 +140,9 @@ public class PlayerControls : MonoBehaviour
         Cursor.lockState == CursorLockMode.Locked ? new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 2f : Vector2.zero;
     public Vector2 LookStick => Vector2.zero;
     public bool JumpPressed => Input.GetButtonDown("Jump");
-    public bool CrouchPressed => Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftShift);
+    public bool CrouchPressed => Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftControl);
+    public bool SprintHeld => Input.GetKey(KeyCode.LeftShift);
+    public bool SprintClicked => false;
     public bool PrimaryPressed => Input.GetMouseButtonDown(0);
     public bool PrimaryHeld => Input.GetMouseButton(0);
     public bool SecondaryHeld => Input.GetMouseButton(1) || Input.GetKey(KeyCode.E);

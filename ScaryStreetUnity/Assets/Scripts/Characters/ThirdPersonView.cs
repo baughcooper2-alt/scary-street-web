@@ -51,7 +51,7 @@ public class ThirdPersonView : MonoBehaviour
         bodyRoot = body.gameObject;
 
         var punch = GetComponent<PlayerPunch>();
-        if (punch) punch.Punched += () => anim.Punch(0.3f, 0.35f);
+        if (punch) punch.Punched += () => anim.Punch(0.3f, 0.35f, punch.ComboStep);   // jab, then cross
 
         currentDistance = distance; frontCurrent = frontDistance;
         Apply(startInThirdPerson ? View.Behind : View.First);

@@ -6,6 +6,8 @@ using UnityEngine.InputSystem;
 
 // Default weapon when your hands are empty (DESIGN.md: Fists).
 // Left click / gamepad right trigger punches whatever Health is in front of the camera.
+// Punching twice in a row is a combo: a left jab, then a right cross (the body plays the Jab / Cross mocap clips,
+// the first-person fists alternate to match).
 // Put this on the Player next to FirstPersonController.
 public class PlayerPunch : MonoBehaviour
 {
@@ -15,6 +17,12 @@ public class PlayerPunch : MonoBehaviour
     public float cooldown = 0.45f;
     [Tooltip("WeaponInventory turns this off while a weapon is in your hands (empty slot = fists).")]
     public bool allowInput = true;
+    [Tooltip("A punch this soon after a jab is the cross (right hand); otherwise it's a jab (left hand).")]
+    public float comboWindow = 0.8f;
+
+    // 0 = jab (left hand), 1 = cross (right hand): which one the last punch was.
+    public int ComboStep { get; private set; }
+    float lastPunch = -99f;
 
     public event Action Punched;          // for first-person arms / sounds
 
@@ -40,6 +48,8 @@ public class PlayerPunch : MonoBehaviour
         bool pressed = controls.PrimaryPressed;
         if (!pressed || cooldownT > 0) return;
         cooldownT = cooldown;
+        ComboStep = ComboStep == 0 && Time.time - lastPunch < comboWindow ? 1 : 0;
+        lastPunch = Time.time;
         Punched?.Invoke();
         SoundKit.Play(Sfx.Whoosh, 0.45f);
 
