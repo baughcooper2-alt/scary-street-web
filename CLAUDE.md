@@ -199,7 +199,7 @@ McDonald's L1: 30 HP, speed ~2.9–3.5, starts a punch at 1.1 m, 0.62 s windup, 
 
 ## Known issues / notes
 
-- The repo is in ~/Documents. When iCloud (Desktop & Documents) syncs mid-write it can make copies like `SmokeFx 3.cs` or `RealBody 3.cs`. Those duplicate the class, Unity stops compiling, and it silently keeps running the old build (this broke the smoke once). Delete any `* 2.cs` / `* 3.cs` copies.
+- The repo lives in `~/Developer/scary-street-web`, outside iCloud. It used to be in ~/Documents (iCloud Desktop & Documents sync), which made duplicate copies like `SmokeFx 3.cs` (Unity stops compiling and silently runs the old build) and, on 2026-09-30, broke Unity 6.6's Data Store: the editor hung forever at "Launching Unity Data Store" while iCloud removed `Library/` under it. Never move it back into Documents / Desktop / iCloud Drive. If `* 2.cs` / `* 3.cs` copies ever appear, delete them.
 
 - Render quality lives on the **PC** quality level's URP asset (`Assets/Settings/PC_RPAsset`); GraphicsSettings' default pipeline slot is empty (Improve Graphics used to write to that empty slot, so MSAA had stayed off; it now uses `currentRenderPipeline`). The asset is 4× MSAA, 4096 shadows over 45 m, shadow bias 1 / normal 1, and `FirstPersonController.Start` (and the menu camera) add SMAA High with post-processing. No film grain anywhere (the menus' `UIArt.Grain` overlays were removed too): the user wants it clean. Without anti-aliasing, the hair, curls and cloth edges shimmer.
 
